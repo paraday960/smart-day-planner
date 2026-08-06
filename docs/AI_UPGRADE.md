@@ -133,3 +133,44 @@ Qwen2.5 0.5B کوچک است و پاسخ‌هایش رسمی/کلی است؛ ب�
 - کتابخانه‌های arm64 با NDK r27c واقعاً ساخته و تأیید شدند (ELF aarch64).
 - برای بیلد نهایی: `ANDROID_NDK=... bash scripts/build_android_llm.sh` سپس
   `flutter build apk --release --dart-define=ENABLE_LOCAL_LLM=true`.
+
+---
+
+## تشخیص گفتار آفلاین (Vosk) — فاز ۴۰.۵
+
+تشخیص گفتار آفلاین فارسی با Vosk اضافه شد.
+
+### معماری
+```text
+home_screen (فرمان صوتی)
+  └─ VoiceInput (انتزاع)
+       ├─ OnlineVoiceInput       ← سرویس تشخیص گفتار گوشی (رفتار قبلی)
+       └─ OfflineVoskVoiceInput  ← Vosk — کاملاً آفلاین
+              └─ vosk-model-small-fa-0.4.zip (مدل فارسی ~۴۰MB)
+```
+
+### فعال‌سازی
+```bash
+# ۱) دانلود مدل فارسی (~۴۰MB)
+bash scripts/download_vosk_model.sh
+
+# ۲) بیلد با تشخیص آفلاین
+flutter build apk --release --dart-define=ENABLE_OFFLINE_SPEECH=true
+```
+
+اگر مدل نباشد یا flag خاموش باشد، فرمان صوتی خودکار به سرویس آنلاین گوشی
+برمی‌گردد (هیچ تغییری در رفتار قبلی).
+
+### فایل‌ها
+| فایل | نقش |
+|---|---|
+| `lib/services/voice_input.dart` | انتزاع VoiceInput + آنلاین + آفلاین Vosk + factory |
+| `lib/services/vosk_model_locator.dart` | پیدا کردن مدل (assets یا دایرکتوری اسناد) |
+| `scripts/download_vosk_model.sh` | دانلود مدل فارسی |
+| `android/app/proguard-rules.pro` | قواعد JNA برای Vosk |
+| `test/vosk_model_locator_test.dart` | تست انتخاب موتور و یابندهٔ مدل |
+
+### محدودیت‌ها
+- Vosk روی Android و Linux/Windows کار می‌کند (iOS پشتیبانی نمی‌شود).
+- مدل کوچک فارسی (~۴۰MB) دقت متوسطی دارد؛ برای دقت بالاتر
+  `vosk-model-fa-0.5` (~۱.۶GB) جایگزین کنید.

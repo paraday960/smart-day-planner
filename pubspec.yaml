@@ -1,7 +1,7 @@
 name: smart_day_planner
 description: Offline AI-first daily planner for Android and iOS.
 publish_to: "none"
-version: 0.2.3+6
+version: 0.2.4+7
 
 environment:
   sdk: ">=3.4.0 <4.0.0"
@@ -29,6 +29,10 @@ dependencies:
   flutter_riverpod: ^2.5.1
   # FFI برای اتصال به شیم C (llm_shim.c) و llama.cpp — LLM محلی اختیاری
   ffi: ^2.1.4
+  # تشخیص گفتار آفلاین (Vosk) — اختیاری، با ENABLE_OFFLINE_SPEECH=true فعال می‌شود
+  vosk_flutter: ^0.3.48
+  # استخراج مدل‌های zip Vosk از دایرکتوری اسناد
+  archive: ^3.6.1
 
 dev_dependencies:
   flutter_test:

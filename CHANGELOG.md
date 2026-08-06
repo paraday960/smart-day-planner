@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.2.4+7 — تشخیص گفتار آفلاین با Vosk (فاز ۴۰.۵)
+
+### اضافه شده
+- انتزاع `VoiceInput` با دو موتور: `OnlineVoiceInput` (سرویس گوشی، رفتار قبلی) و `OfflineVoskVoiceInput` (Vosk — کاملاً آفلاین).
+- `VoskModelLocator`: پیدا کردن مدل فارسی از assets یا دایرکتوری اسناد.
+- `scripts/download_vosk_model.sh`: دانلود `vosk-model-small-fa-0.4` (~۴۰MB).
+- فعال‌سازی با `--dart-define=ENABLE_OFFLINE_SPEECH=true`؛ بدون مدل، خودکار به سرویس آنلاین برمی‌گردد.
+- ProGuard rules برای JNA (موردنیاز Vosk) + فعال‌سازی minify در release.
+- تست `vosk_model_locator_test.dart` (انتخاب موتور + یابندهٔ مدل).
+
+### اصلاح شده
+- `home_screen.dart` حالا از `VoiceInputFactory` استفاده می‌کند (به‌جای `SpeechToText` مستقیم) — موتور در UI نمایش داده می‌شود.
+
 ## 0.2.3+6 — رفع ناقصی‌ها: برنامه‌ریزی با ساعت کاری + پاکسازی (فاز ۴۰.۴)
 
 ### اضافه شده

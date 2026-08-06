@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:speech_to_text/speech_to_text.dart' as stt;
 
 import '../app/app_providers.dart';
 import '../app/feature_flags.dart';
@@ -45,6 +44,7 @@ import '../services/smart_notification_scheduler.dart';
 import '../services/smart_planner.dart';
 import '../services/task_repository.dart';
 import '../services/voice_command_processor.dart';
+import '../services/voice_input.dart';
 import '../services/voice_response_service.dart';
 import '../utils/persian_format.dart';
 import '../widgets/task_form_sheet.dart';
@@ -69,7 +69,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   late final LocalLlmAdapter _assistant;
   String _assistantStatusLabel = 'هوش قانونی (بدون LLM)';
   late final VoiceCommandProcessor _voiceProcessor;
-  final _speech = stt.SpeechToText();
+
+  /// ورودی صدا — اگر فرمان صوتی غیرفعال باشد، مقدار پیش‌فرض امن می‌ماند.
+  late VoiceInput _voiceInput = OnlineVoiceInput();
   final _assistantController = TextEditingController();
   String _assistantAnswer = '';
   String _lastVoiceText = '';
@@ -138,7 +140,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         FeatureFlags.enableVoiceResponse && _voiceResponseService.enabled;
     _assistantVoiceGender = _voiceResponseService.gender;
     if (FeatureFlags.enableVoiceInput) {
-      _initSpeech();
+      _initVoiceInput();
     }
     _repository.addListener(_onRepositoryChanged);
     _financeRepository.addListener(_onRepositoryChanged);
@@ -165,7 +167,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     _categoryBudgetRepository.removeListener(_onRepositoryChanged);
     _availabilityRepository.removeListener(_onRepositoryChanged);
     _securityService.removeListener(_onRepositoryChanged);
-    _speech.cancel();
+    _voiceInput.cancel();
     _voiceResponseService.stop();
     _assistantController.dispose();
     super.dispose();
@@ -173,17 +175,21 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   void _onRepositoryChanged() => setState(() {});
 
-  Future<void> _initSpeech() async {
-    final ready = await _speech.initialize(
+  Future<void> _initVoiceInput() async {
+    // انتخاب موتور: آفلاین (Vosk) اگر فعال و مدل موجود باشد، وگرنه سرویس گوشی.
+    final input = await VoiceInputFactory.create();
+    _voiceInput = input;
+
+    final ready = await _voiceInput.initialize(
       onStatus: (status) {
         if (!mounted) return;
-        setState(() => _voiceStatus = 'وضعیت تشخیص صدا: $status');
+        setState(() => _voiceStatus = status);
       },
       onError: (error) {
         if (!mounted) return;
         setState(() {
           _isListening = false;
-          _voiceStatus = 'خطای تشخیص صدا: ${error.errorMsg}';
+          _voiceStatus = error;
         });
       },
     );
@@ -191,16 +197,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     if (!mounted) return;
     setState(() {
       _speechReady = ready;
+      final engine = input.engineName;
       _voiceStatus = ready
-          ? 'آماده است. دکمه میکروفون را نگه دار و فارسی بگو. برای دقت بهتر، تشخیص صدا می‌تواند از اینترنت رایگان گوشی استفاده کند.'
-          : 'تشخیص صدا فعال نشد. دسترسی میکروفون، اینترنت و سرویس Speech گوشی را بررسی کن.';
+          ? 'آماده است. دکمه میکروفون را نگه دار و فارسی بگو. (موتور: $engine)'
+          : 'تشخیص صدا فعال نشد. دسترسی میکروفون و سرویس تشخیص گفتار گوشی را بررسی کن.';
     });
   }
 
   Future<void> _startVoiceCommand() async {
     if (!_isFeatureEnabled(FeatureFlags.enableVoiceInput, 'فرمان صوتی')) return;
-    if (!_speechReady) await _initSpeech();
-    if (!_speechReady || _speech.isListening) return;
+    if (!_speechReady) await _initVoiceInput();
+    if (!_speechReady || _voiceInput.isListening) return;
 
     setState(() {
       _isListening = true;
@@ -208,33 +215,24 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       _voiceStatus = 'در حال گوش دادن... بعد از گفتن فرمان، دکمه را رها کن.';
     });
 
-    await _speech.listen(
-      onSoundLevelChange: (level) {
+    await _voiceInput.start(
+      onPartial: (text) {
+        if (!mounted) return;
+        setState(() => _lastVoiceText = text);
+      },
+      onSoundLevel: (level) {
         if (mounted) setState(() => _soundLevel = level);
       },
-      onResult: (result) {
+      onResult: (text) {
         if (!mounted) return;
-        setState(() => _lastVoiceText = result.recognizedWords);
+        setState(() => _lastVoiceText = text);
       },
-      listenOptions: stt.SpeechListenOptions(
-        localeId: 'fa_IR',
-        listenFor: const Duration(seconds: 45),
-        pauseFor: const Duration(seconds: 4),
-        listenMode: stt.ListenMode.dictation,
-        partialResults: true,
-        cancelOnError: false,
-        // false یعنی از سرویس تشخیص گفتار خود گوشی استفاده شود؛ ممکن است آنلاین باشد، اما API پولی لازم ندارد.
-        // اگر آفلاین کامل خواستی، این را true کن یا Vosk/Whisper.cpp محلی اضافه کن.
-        onDevice: false,
-        autoPunctuation: true,
-        enableHapticFeedback: true,
-      ),
     );
   }
 
   Future<void> _stopVoiceCommand() async {
-    if (!_speech.isListening && !_isListening) return;
-    await _speech.stop();
+    if (!_voiceInput.isListening && !_isListening) return;
+    await _voiceInput.stop();
     if (!mounted) return;
     setState(() {
       _isListening = false;

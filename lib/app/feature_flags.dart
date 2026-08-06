@@ -26,6 +26,13 @@ class FeatureFlags {
   static const enableLocalLlm =
       bool.fromEnvironment('ENABLE_LOCAL_LLM', defaultValue: false);
 
+  /// تشخیص گفتار آفلاین با Vosk — پیش‌فرض خاموش است چون مدل فارسی
+  /// (~۴۰MB) باید جداگانه دانلود شود. وقتی روشن باشد و مدل موجود باشد،
+  /// فرمان صوتی بدون اینترنت کار می‌کند؛ در غیر این صورت به سرویس
+  /// آنلاین گوشی برمی‌گردد.
+  static const enableOfflineSpeech =
+      bool.fromEnvironment('ENABLE_OFFLINE_SPEECH', defaultValue: false);
+
   static Map<String, bool> asMap() => {
         'voiceInput': enableVoiceInput,
         'voiceResponse': enableVoiceResponse,
@@ -35,6 +42,7 @@ class FeatureFlags {
         'smartNotifications': enableSmartNotifications,
         'encryptedBackup': enableEncryptedBackup,
         'localLlm': enableLocalLlm,
+        'offlineSpeech': enableOfflineSpeech,
       };
 
   static bool get hasRiskyPlatformFeatureEnabled =>
