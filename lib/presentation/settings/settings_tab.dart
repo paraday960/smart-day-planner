@@ -133,8 +133,8 @@ class SettingsTab extends ConsumerWidget {
                 const ListTile(
                   contentPadding: EdgeInsets.zero,
                   leading: Icon(Icons.event_available_outlined),
-                  title: Text('فاز ۸: تقویم، هشدار هوشمند و PDF'),
-                  subtitle: Text('پنجره کاری روزانه، هشدارهای ریسک و گزارش HTML آماده PDF.'),
+                  title: Text('تقویم، هشدار هوشمند و گزارش'),
+                  subtitle: Text('پنجره کاری روزانه، هشدارهای ریسک و گزارش آماده PDF.'),
                 ),
                 Wrap(
                   spacing: 8,
@@ -155,7 +155,7 @@ class SettingsTab extends ConsumerWidget {
         const Card.outlined(
           child: Padding(
             padding: EdgeInsets.all(16),
-            child: Text('فازهای حرفه‌ای‌سازی: امنیت، بکاپ، خروجی، تحلیل، بودجه‌بندی، گفت‌وگوی هوشمند، نمودار، محدودیت زمانی و هشدارهای آینده‌نگر.'),
+            child: Text('امنیت و قفل، بکاپ رمزنگاری‌شده، خروجی و گزارش، تحلیل مالی، بودجه‌بندی و هشدارهای آینده‌نگر همگی روی همین گوشی و بدون سرور انجام می‌شوند.'),
           ),
         ),
       ],
