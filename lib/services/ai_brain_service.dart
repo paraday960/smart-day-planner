@@ -8,6 +8,7 @@ import 'finance_insights_service.dart';
 import 'finance_repository.dart';
 import 'smart_insights_service.dart';
 import 'brain_memory_service.dart';
+import 'feedback_learning_service.dart';
 import 'work_learning_service.dart';
 
 /// 🧠 مغز هوشمند یکپارچه — همه هوش‌ها در یک جا
@@ -188,6 +189,50 @@ class AIBrainService {
     }
 
     return buf.toString();
+  }
+
+  /// تحلیل + یادگیری خودکار حافظه بلندمدت (باید await شود)
+  Future<AIBrainProfile> analyzeWithMemory({
+    required List<Task> tasks,
+    required List<FinanceTransaction> transactions,
+    required FinanceRepository finance,
+    List<DebtItem> debts = const [],
+    DateTime? now,
+  }) async {
+    final profile = analyze(tasks: tasks, transactions: transactions, finance: finance, debts: debts, now: now);
+    // یادگیری خودکار حافظه
+    try {
+      final memSvc = BrainMemoryService();
+      final mem = await memSvc.learn(tasks: tasks, transactions: transactions);
+      // اعمال وزن بازخورد
+      final fbSvc = FeedbackLearningService();
+      final weights = await fbSvc.getWeights();
+      final adjustedInsights = _applyFeedbackWeights(profile.personalizedInsights, weights);
+      return AIBrainProfile(
+        workProfile: profile.workProfile,
+        habitProfile: profile.habitProfile,
+        financeHealth: profile.financeHealth,
+        debtPlan: profile.debtPlan,
+        personalizedInsights: adjustedInsights,
+        brainScore: profile.brainScore,
+        mood: profile.mood,
+        nextAction: profile.nextAction,
+        memory: mem,
+      );
+    } catch (_) {
+      return profile;
+    }
+  }
+
+  List<String> _applyFeedbackWeights(List<String> insights, Map<String, double> weights) {
+    if (weights.isEmpty) return insights;
+    // ساده: اگر وزن habit کم است، پیشنهادهای habit را کم‌رنگ کن (حذف یا انتها)
+    final habitWeight = weights['general'] ?? weights['habit'] ?? 1.0;
+    if (habitWeight < 0.7 && insights.length > 2) {
+      // اگر بازخورد منفی زیاد، یک توصیه را حذف کن
+      return insights.sublist(0, insights.length - 1);
+    }
+    return insights;
   }
 
   /// خلاصه یک خطی برای داشبورد
