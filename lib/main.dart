@@ -3,6 +3,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'app/app_providers.dart';
+import 'app/app_theme.dart';
 import 'app/feature_flags.dart';
 import 'app/smart_day_planner_root.dart';
 import 'services/allocation_repository.dart';
@@ -94,14 +95,7 @@ class SmartDayPlannerApp extends StatelessWidget {
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF6750A4),
-          brightness: Brightness.light,
-        ),
-        useMaterial3: true,
-        fontFamily: 'Vazirmatn',
-      ),
+      theme: AppTheme.theme,
       home: const SmartDayPlannerRoot(),
     );
   }
