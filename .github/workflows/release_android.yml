@@ -33,8 +33,8 @@ jobs:
           channel: stable
           cache: true
 
-      - name: Ensure platform folders exist
-        run: flutter create --platforms=android .
+      # پوشهٔ android/ حالا در ریپو نسخه‌دار است (با Manifest و jniLibs کامل)
+      # بنابراین flutter create اجرا نمی‌شود تا تنظیمات سفارشی بازنویسی نشود.
 
       - name: Clean up auto-generated widget_test
         run: |

@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.2.2+5 — سمت اندروید کامل برای LLM (فاز ۴۰.۳)
+
+### اضافه شده
+- پوشهٔ `android/` کامل و نسخه‌دار: `AndroidManifest.xml` با همهٔ permissionها (میکروفون، تقویم، اعلان، دقیق، boot) + برچسب فارسی + ساختار `jniLibs/arm64-v8a`.
+- `scripts/build_android_llm.sh`: ساخت خودکار llama.cpp و شیم C با NDK و قراردادن در jniLibs.
+- کتابخانه‌های بومی arm64 واقعاً با NDK r27c ساخته و تست شدند (`libllama.so`، `libggml*.so`، `libllm_shim.so`).
+- CI دیگر `flutter create` اجرا نمی‌کند (تا Manifest سفارشی بازنویسی نشود).
+
+### اصلاح شده
+- `android/.gitignore`: gradle-wrapper.jar و gradlew حالا نسخه‌دار می‌شوند (برای بیلد ضروری).
+- `android_templates/AndroidManifest_permissions.xml` به‌روزرسانی شد.
+
 ## 0.2.1+4 — اتصال واقعی LLM محلی (فاز ۴۰.۲)
 
 ### اضافه شده

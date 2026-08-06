@@ -128,3 +128,14 @@ flutter build apk --release --dart-define=ENABLE_LOCAL_LLM=true
 Qwen2.5 0.5B کوچک است و پاسخ‌هایش رسمی/کلی است؛ برای کیفیت بالاتر
 مدل‌های بزرگ‌تر (Qwen2.5 1.5B یا 3B Q4 — حدود ۱ تا ۲GB) را می‌توان
 جایگزین کرد بدون تغییر کد (فقط نام فایل در `kLlamaModelFileName`).
+
+---
+
+## سمت اندروید کامل شد (فاز ۴۰.۳)
+
+- پوشهٔ `android/` نسخه‌دار شد (قبلاً در CI با flutter create ساخته می‌شد).
+- `AndroidManifest.xml` کامل: همهٔ permissionها + برچسب «دستیار روزانه ایرانی».
+- `scripts/build_android_llm.sh`: با NDK، llama.cpp و شیم C را برای arm64 می‌سازد و در `android/app/src/main/jniLibs/arm64-v8a/` می‌گذارد.
+- کتابخانه‌های arm64 با NDK r27c واقعاً ساخته و تأیید شدند (ELF aarch64).
+- برای بیلد نهایی: `ANDROID_NDK=... bash scripts/build_android_llm.sh` سپس
+  `flutter build apk --release --dart-define=ENABLE_LOCAL_LLM=true`.

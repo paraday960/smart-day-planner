@@ -29,8 +29,8 @@ jobs:
       - name: Flutter doctor
         run: flutter doctor -v
 
-      - name: Create Android platform
-        run: flutter create --platforms=android .
+      # پوشهٔ android/ حالا در ریپو نسخه‌دار است (با Manifest و jniLibs کامل)
+      # بنابراین flutter create اجرا نمی‌شود تا تنظیمات سفارشی بازنویسی نشود.
 
       - name: Enable Android desugaring
         run: |
