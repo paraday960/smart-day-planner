@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../services/voice_response_service.dart';
 import 'animated_assistant_character.dart';
+import 'assistant_3d_viewer.dart';
 
 class AssistantTab extends ConsumerStatefulWidget {
   const AssistantTab({super.key, 
@@ -89,7 +90,7 @@ class _AssistantTabState extends ConsumerState<AssistantTab> {
       children: [
         // 🧑‍💼 کاراکتر زنده دستیار
         Center(
-          child: AnimatedAssistantCharacter(mood: _mood, size: 150),
+          child: Assistant3DViewer(mood: _mood, height: 240),
         ),
         const SizedBox(height: 4),
         Center(

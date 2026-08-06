@@ -33,6 +33,8 @@ dependencies:
   vosk_flutter: ^0.3.48
   # استخراج مدل‌های zip Vosk از دایرکتوری اسناد
   archive: ^3.6.1
+  # مدل سه‌بعدی تعاملی دستیار (.glb) — با انگشت بچرخان
+  model_viewer_plus: ^1.9.1
 
 dev_dependencies:
   flutter_test:
@@ -45,6 +47,7 @@ flutter:
   uses-material-design: true
   assets:
     - assets/fonts/Vazirmatn-Regular.ttf
+    - assets/models/assistant.glb
   fonts:
     - family: Vazirmatn
       fonts:
