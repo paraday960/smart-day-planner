@@ -36,6 +36,26 @@ jobs:
       - name: Ensure platform folders exist
         run: flutter create --platforms=android .
 
+      - name: Clean up auto-generated widget_test
+        run: |
+          echo "=== Checking for auto-generated widget_test.dart ==="
+          ls -la test/ 2>&1 | head -n 30
+          if [ -f test/widget_test.dart ]; then
+            echo "Found test/widget_test.dart:"
+            cat test/widget_test.dart 2>&1 | head -n 30
+            if grep -q "MyApp" test/widget_test.dart 2>&1; then
+              echo "Removing conflicting auto-generated widget_test.dart"
+              rm -f test/widget_test.dart
+              echo "Removed"
+            else
+              echo "Keeping widget_test.dart (no MyApp conflict)"
+            fi
+          else
+            echo "No widget_test.dart found"
+          fi
+          echo "=== test folder after cleanup ==="
+          ls -la test/ 2>&1 | head -n 30
+
       - name: Enable Android desugaring (full version)
         run: |
           echo "=== Patching desugaring for FULL build ==="
