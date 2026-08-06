@@ -8,7 +8,7 @@ import 'finance_repository.dart';
 import 'planned_expense_repository.dart';
 
 class SmartNotificationScheduler {
-  const SmartNotificationScheduler({
+  SmartNotificationScheduler({
     NotificationServicePort? notificationService,
     SmartNotificationAdvisor advisor = const SmartNotificationAdvisor(),
   })  : _notificationService = notificationService ?? NotificationService.instance,
