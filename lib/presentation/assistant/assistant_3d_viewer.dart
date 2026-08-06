@@ -21,6 +21,16 @@ class Assistant3DViewer extends StatefulWidget {
 class _Assistant3DViewerState extends State<Assistant3DViewer> {
   bool _failed = false;
   bool _show3D = true;
+  bool _lazyLoaded = false; // برای Lazy Load — تا تب دستیار باز نشه WebView نساز
+
+  @override
+  void initState() {
+    super.initState();
+    // Lazy: 600ms بعد از اینکه ویجت ساخته شد (یعنی تب دستیار باز شد) تازه WebView بساز
+    Future.delayed(const Duration(milliseconds: 600), () {
+      if (mounted && _show3D) setState(() => _lazyLoaded = true);
+    });
+  }
 
   String get _modelSrc {
     // حالت‌های مختلف: writing -> انیمیشن جدا (اگر مدل انیمیشن داشت)
@@ -32,6 +42,42 @@ class _Assistant3DViewerState extends State<Assistant3DViewer> {
   Widget build(BuildContext context) {
     if (!_show3D || _failed) {
       return AnimatedAssistantCharacter(mood: widget.mood, size: 150);
+    }
+    if (!_lazyLoaded) {
+      // Placeholder سبک تا WebView سنگین لود نشه — استارت 2 ثانیه سریع‌تر
+      return Column(
+        children: [
+          Container(
+            height: widget.height,
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.primaryContainer.withOpacity(0.3),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: Theme.of(context).colorScheme.primary.withOpacity(0.2)),
+            ),
+            child: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const SizedBox(
+                    width: 32,
+                    height: 32,
+                    child: CircularProgressIndicator(strokeWidth: 3),
+                  ),
+                  const SizedBox(height: 12),
+                  Text('در حال آماده‌سازی 3D...', style: Theme.of(context).textTheme.bodySmall),
+                  const SizedBox(height: 8),
+                  AnimatedAssistantCharacter(mood: AssistantMood.idle, size: 80),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 6),
+          FilledButton.tonal(
+            onPressed: () => setState(() => _lazyLoaded = true),
+            child: const Text('بارگذاری فوری 3D'),
+          ),
+        ],
+      );
     }
 
     return Column(
