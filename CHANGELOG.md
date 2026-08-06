@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.2.1+4 — اتصال واقعی LLM محلی (فاز ۴۰.۲)
+
+### اضافه شده
+- اتصال واقعی به llama.cpp با مدل Qwen2.5 0.5B (GGUF) — کاملاً آفلاین و بدون API.
+- شیم C (`tool/csrc/llm_shim.c`): پل امن FFI که کل inference را سمت C نگه می‌دارد (حل مشکل ABI توابع struct-return).
+- `LlamaCppBackend` (FFI) + `LlamaModelLocator` + `LlamaAssetInstaller` (کپی مدل از asset).
+- ابزار تست زنده `tool/llm_smoke.dart` + اسکریپت‌های `download_llm_model.sh` و `build_llm_shim.sh`.
+- فعال‌سازی با `--dart-define=ENABLE_LOCAL_LLM=true`؛ بدون مدل، دستیار خودکار روی موتور قانون‌محور می‌ماند.
+- پاک‌سازی KV cache بین درخواست‌ها (llama_memory_seq_rm).
+- تست‌های واحد `llama_backend_test.dart` (یافتن مدل، fallback، خطاها).
+
+### اصلاح شده
+- وابستگی `llama_cpp_dart` → `ffi` (شیم مستقیم).
+
 ## 0.2.0+3 — ارتقای هوش مصنوعی: معماری هیبرید (فاز ۴۰)
 
 ### اضافه شده

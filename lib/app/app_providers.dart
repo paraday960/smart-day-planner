@@ -36,6 +36,7 @@ import '../services/goal_planning_service.dart';
 import '../services/goal_repository.dart';
 import '../services/habit_insight_service.dart';
 import '../services/hybrid_local_assistant.dart';
+import '../services/llama_backend.dart';
 import '../services/local_assistant.dart';
 import '../services/notification_service.dart';
 import '../services/planned_expense_repository.dart';
@@ -51,13 +52,14 @@ final smartPlannerProvider =
 final financeInsightsServiceProvider =
     Provider<FinanceInsightsService>((ref) => const FinanceInsightsService());
 
-/// دستیار گفتگوی اصلی: هیبرید (LLM محلی اختیاری + موتور قانون‌محور).
+/// دستیار گفتگوی اصلی: هیبرید (LLM محلی واقعی + موتور قانون‌محور).
 ///
-/// وقتی LLM در دسترس نباشد (پیش‌فرض)، خودکار به موتور قانون‌محور
+/// وقتی `ENABLE_LOCAL_LLM=true` و مدل GGUF در دسترس باشد از llama.cpp
+/// استفاده می‌کند؛ در غیر این صورت (پیش‌فرض) خودکار به موتور قانون‌محور
 /// ارتقایافته برمی‌گردد که با دادهٔ مالی کاربر هم کار می‌کند.
 final assistantProvider = Provider<LocalLlmAdapter>((ref) {
   return HybridLocalAssistant(
-    llm: MethodChannelLlmBackend(),
+    llm: LlamaCppBackend(),
     fallback: RuleBasedLocalAssistant(
       planner: ref.watch(smartPlannerProvider),
       context: AssistantContext(

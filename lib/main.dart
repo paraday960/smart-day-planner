@@ -3,6 +3,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'app/app_providers.dart';
+import 'app/feature_flags.dart';
 import 'app/smart_day_planner_root.dart';
 import 'services/allocation_repository.dart';
 import 'services/availability_repository.dart';
@@ -11,6 +12,7 @@ import 'services/conversation_memory_service.dart';
 import 'services/debt_repository.dart';
 import 'services/finance_repository.dart';
 import 'services/goal_repository.dart';
+import 'services/llama_asset_installer.dart';
 import 'services/notification_service.dart';
 import 'services/planned_expense_repository.dart';
 import 'services/security_service.dart';
@@ -45,6 +47,16 @@ Future<void> main() async {
   await securityService.load();
   await notificationService.initialize();
   await voiceResponseService.initialize();
+
+  // اگر LLM محلی فعال باشد و مدل به‌عنوان asset باندل شده باشد،
+  // یک‌بار آن را به دایرکتوری اسناد کپی می‌کنیم.
+  if (FeatureFlags.enableLocalLlm) {
+    try {
+      await const LlamaAssetInstaller().installIfNeeded();
+    } catch (_) {
+      // نبود مدل مشکلی نیست؛ دستیار به موتور قانون‌محور برمی‌گردد.
+    }
+  }
 
   runApp(
     ProviderScope(

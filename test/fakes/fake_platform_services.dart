@@ -8,7 +8,7 @@ import 'package:smart_day_planner/domain/services/voice_response_port.dart';
 import 'package:smart_day_planner/models/assistant_voice_gender.dart';
 import 'package:smart_day_planner/models/calendar_event_summary.dart';
 import 'package:smart_day_planner/models/task.dart';
-import 'package:smart_day_planner/services/hybrid_local_assistant.dart';
+import 'package:smart_day_planner/services/llama_backend.dart';
 
 class FakeNotificationService implements NotificationServicePort {
   bool initialized = false;

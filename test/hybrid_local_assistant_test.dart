@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:smart_day_planner/app/feature_flags.dart';
 import 'package:smart_day_planner/models/task.dart';
 import 'package:smart_day_planner/services/hybrid_local_assistant.dart';
+import 'package:smart_day_planner/services/llama_backend.dart';
 import 'package:smart_day_planner/services/local_assistant.dart';
 
 import 'fakes/fake_platform_services.dart';

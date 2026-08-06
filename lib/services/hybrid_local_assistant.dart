@@ -1,85 +1,13 @@
 import 'dart:async';
 
-import 'package:flutter/services.dart';
 
 import '../app/feature_flags.dart';
 import '../models/task.dart';
 import 'local_assistant.dart';
+import 'llama_backend.dart';
 import 'persian_nlu.dart';
 import 'smart_planner.dart';
 
-/// خطای مربوط به عدم دسترسی به LLM (باید به fallback برگردد).
-class LlmNotAvailableException implements Exception {
-  const LlmNotAvailableException([this.message = 'LLM در دسترس نیست']);
-  final String message;
-
-  @override
-  String toString() => message;
-}
-
-/// یک «پشتیبان» (backend) اجرای مدل زبانی محلی.
-///
-/// پیاده‌سازی واقعی می‌تواند llama.cpp / ONNX / TFLite باشد که از طریق
-/// MethodChannel یا پلاگین native در دسترس قرار می‌گیرد. برای تست،
-/// [FakeLlmBackend] در test/fakes قرار دارد.
-abstract class LlmBackend {
-  /// آیا مدل بارگذاری شده و آمادهٔ پاسخ است؟
-  Future<bool> get available;
-
-  /// اجرای inference و برگرداندن متن کامل پاسخ.
-  /// اگر خطا بدهد، [HybridLocalAssistant] به fallback برمی‌گردد.
-  Future<String> generate(String prompt);
-}
-
-/// پیاده‌سازی پیش‌فرض: از طریق MethodChannel با سمت native ارتباط می‌گیرد.
-///
-/// سمت Android/iOS باید channel با نام `ir.smartday.planner/llm` را
-/// پیاده‌سازی کند و دو متد داشته باشد:
-///   - `isAvailable` → bool
-///   - `generate` → { 'prompt': String } → String
-///
-/// اگر native پیاده‌سازی نشده باشد، `available` به‌درستی false می‌دهد و
-/// دستیار روی موتور قانون‌محور می‌ماند (هیچ خطایی به کاربر نمی‌رسد).
-class MethodChannelLlmBackend implements LlmBackend {
-  MethodChannelLlmBackend();
-
-  static const MethodChannel _channel =
-      MethodChannel('ir.smartday.planner/llm');
-
-  bool? _availabilityCache;
-
-  @override
-  Future<bool> get available async {
-    if (!FeatureFlags.enableLocalLlm) return false;
-    if (_availabilityCache != null) return _availabilityCache!;
-    try {
-      final ok = await _channel.invokeMethod<bool>('isAvailable') ?? false;
-      _availabilityCache = ok;
-      return ok;
-    } on PlatformException {
-      _availabilityCache = false;
-      return false;
-    } on MissingPluginException {
-      _availabilityCache = false;
-      return false;
-    }
-  }
-
-  @override
-  Future<String> generate(String prompt) async {
-    final result =
-        await _channel.invokeMethod<String>('generate', {'prompt': prompt});
-    if (result == null || result.trim().isEmpty) {
-      throw const LlmNotAvailableException('پاسخ خالی از LLM');
-    }
-    return result;
-  }
-}
-
-/// دستیار هیبرید: اگر LLM محلی در دسترس باشد از آن استفاده می‌کند،
-/// وگرنه به موتور قانون‌محور (rule-based) برمی‌گردد.
-///
-/// این کلاس با [LlmBackend] تست‌پذیر است؛ در تست‌ها از Fake استفاده می‌کنیم.
 class HybridLocalAssistant implements LocalLlmAdapter {
   HybridLocalAssistant({
     this.llm,

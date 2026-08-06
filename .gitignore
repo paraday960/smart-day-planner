@@ -9,3 +9,6 @@ coverage/
 android/.gradle/
 ios/Pods/
 *.iml
+
+# مدل‌های سنگین LLM — نباید در گیت باشند؛ با scripts/download_llm_model.sh دانلود می‌شوند
+assets/models/
