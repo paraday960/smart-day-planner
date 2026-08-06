@@ -9,6 +9,7 @@ import 'package:smart_day_planner/services/debt_repository.dart';
 import 'package:smart_day_planner/services/finance_repository.dart';
 import 'package:smart_day_planner/services/goal_repository.dart';
 import 'package:smart_day_planner/services/planned_expense_repository.dart';
+import 'package:smart_day_planner/services/local_assistant.dart';
 import 'package:smart_day_planner/services/security_service.dart';
 import 'package:smart_day_planner/services/task_repository.dart';
 
@@ -40,5 +41,7 @@ void main() {
     expect(container.read(taskRepositoryProvider), same(taskRepository));
     expect(container.read(taskActionsControllerProvider), isNotNull);
     expect(container.read(reportActionsControllerProvider), isNotNull);
+    // دستیار هیبرید باید با overrides قابل ساخت باشد
+    expect(container.read(assistantProvider), isA<LocalLlmAdapter>());
   });
 }

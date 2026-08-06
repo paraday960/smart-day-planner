@@ -12,6 +12,7 @@ void main() {
     expect(flags.containsKey('shareFiles'), isTrue);
     expect(flags.containsKey('smartNotifications'), isTrue);
     expect(flags.containsKey('encryptedBackup'), isTrue);
+    expect(flags.containsKey('localLlm'), isTrue);
     expect(FeatureFlags.hasRiskyPlatformFeatureEnabled, isTrue);
   });
 
@@ -25,6 +26,8 @@ void main() {
     expect(FeatureFlags.enableShareFiles, isTrue);
     expect(FeatureFlags.enableSmartNotifications, isTrue);
     expect(FeatureFlags.enableEncryptedBackup, isTrue);
+    // LLM محلی پیش‌فرض خاموش است (مدل سنگین است و باید جدا اضافه شود)
+    expect(FeatureFlags.enableLocalLlm, isFalse);
   });
 
   test('flag map values match the constants', () {
@@ -36,5 +39,6 @@ void main() {
     expect(flags['shareFiles'], FeatureFlags.enableShareFiles);
     expect(flags['smartNotifications'], FeatureFlags.enableSmartNotifications);
     expect(flags['encryptedBackup'], FeatureFlags.enableEncryptedBackup);
+    expect(flags['localLlm'], FeatureFlags.enableLocalLlm);
   });
 }

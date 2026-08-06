@@ -65,13 +65,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   late final ShareFileServicePort _shareFileService;
   late final CalendarServicePort _calendarService;
   late final SmartNotificationScheduler _smartNotificationScheduler;
-  late final RuleBasedLocalAssistant _assistant;
+  late final LocalLlmAdapter _assistant;
   late final VoiceCommandProcessor _voiceProcessor;
   final _speech = stt.SpeechToText();
   final _assistantController = TextEditingController();
   String _assistantAnswer = '';
   String _lastVoiceText = '';
-  String _voiceStatus = 'برای فرمان صوتی، دکمه میکروفون را نگه دار و فارسی صحبت کن. تشخیص صدا می‌تواند از سرویس رایگان گوشی و اینترنت استفاده کند.';
+  String _voiceStatus =
+      'برای فرمان صوتی، دکمه میکروفون را نگه دار و فارسی صحبت کن. تشخیص صدا می‌تواند از سرویس رایگان گوشی و اینترنت استفاده کند.';
   bool _speechReady = false;
   bool _isListening = false;
   double _soundLevel = 0;
@@ -112,8 +113,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     _forecastService = ref.read(forecastServiceProvider);
     _shareFileService = ref.read(shareFileServiceProvider);
     _calendarService = ref.read(calendarServiceProvider);
-    _assistant = RuleBasedLocalAssistant(planner: _planner);
-    _smartNotificationScheduler = SmartNotificationScheduler(notificationService: _notificationService);
+    _assistant = ref.read(assistantProvider);
+    _smartNotificationScheduler =
+        SmartNotificationScheduler(notificationService: _notificationService);
     _voiceProcessor = VoiceCommandProcessor(
       taskRepository: _repository,
       financeRepository: _financeRepository,
@@ -127,7 +129,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       planner: _planner,
       financeAssistant: _financeAssistant,
     );
-    _voiceResponseEnabled = FeatureFlags.enableVoiceResponse && _voiceResponseService.enabled;
+    _voiceResponseEnabled =
+        FeatureFlags.enableVoiceResponse && _voiceResponseService.enabled;
     _assistantVoiceGender = _voiceResponseService.gender;
     if (FeatureFlags.enableVoiceInput) {
       _initSpeech();
@@ -239,7 +242,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     if (!mounted) return;
     setState(() {
       _assistantAnswer = answer;
-      _voiceStatus = spokenText.isEmpty ? 'متنی تشخیص داده نشد.' : 'فرمان اجرا شد.';
+      _voiceStatus =
+          spokenText.isEmpty ? 'متنی تشخیص داده نشد.' : 'فرمان اجرا شد.';
     });
     if (FeatureFlags.enableVoiceResponse) {
       await _voiceResponseService.speak(answer);
@@ -247,14 +251,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Future<void> _setVoiceResponseEnabled(bool value) async {
-    if (!_isFeatureEnabled(FeatureFlags.enableVoiceResponse, 'پاسخ صوتی')) return;
+    if (!_isFeatureEnabled(FeatureFlags.enableVoiceResponse, 'پاسخ صوتی')) {
+      return;
+    }
     await _voiceResponseService.setEnabled(value);
     if (!mounted) return;
     setState(() => _voiceResponseEnabled = value);
   }
 
   Future<void> _setAssistantVoiceGender(AssistantVoiceGender gender) async {
-    if (!_isFeatureEnabled(FeatureFlags.enableVoiceResponse, 'پاسخ صوتی')) return;
+    if (!_isFeatureEnabled(FeatureFlags.enableVoiceResponse, 'پاسخ صوتی')) {
+      return;
+    }
     await _voiceResponseService.setGender(gender);
     if (!mounted) return;
     setState(() => _assistantVoiceGender = gender);
@@ -262,7 +270,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Future<void> _testAssistantVoice() async {
-    if (!_isFeatureEnabled(FeatureFlags.enableVoiceResponse, 'پاسخ صوتی')) return;
+    if (!_isFeatureEnabled(FeatureFlags.enableVoiceResponse, 'پاسخ صوتی')) {
+      return;
+    }
     final sample = await _voiceResponseService.testVoice();
     if (!mounted) return;
     setState(() => _assistantAnswer = sample);
@@ -279,7 +289,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             tabs: [
               Tab(icon: Icon(Icons.auto_awesome), text: 'امروز'),
               Tab(icon: Icon(Icons.checklist), text: 'کارها'),
-              Tab(icon: Icon(Icons.account_balance_wallet_outlined), text: 'حسابدار'),
+              Tab(
+                  icon: Icon(Icons.account_balance_wallet_outlined),
+                  text: 'حسابدار'),
               Tab(icon: Icon(Icons.chat_bubble_outline), text: 'دستیار'),
               Tab(icon: Icon(Icons.settings_outlined), text: 'تنظیمات'),
             ],
@@ -307,14 +319,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               onAddTransaction: _openTransactionDialog,
               onSetGoals: _openGoalsDialog,
               onAddPlannedExpense: _openPlannedExpenseDialog,
-              onDeletePlannedExpense: (item) => _plannedExpenseRepository.delete(item.id),
+              onDeletePlannedExpense: (item) =>
+                  _plannedExpenseRepository.delete(item.id),
               onAddDebt: _openDebtDialog,
               onPayDebt: _openDebtPaymentDialog,
               onDeleteDebt: (item) => _debtRepository.delete(item.id),
               onAllocateToDebt: _openDebtAllocationDialog,
               onAllocateToPlannedExpense: _openPlannedExpenseAllocationDialog,
               onSetCategoryBudget: _openCategoryBudgetDialog,
-              onDelete: (transaction) => _financeRepository.delete(transaction.id),
+              onDelete: (transaction) =>
+                  _financeRepository.delete(transaction.id),
             ),
             AssistantTab(
               controller: _assistantController,
@@ -398,7 +412,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       await _homeCoordinator.addTransaction(transaction);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('درآمد ${PersianFormat.money(transaction.amount)} ثبت شد.')),
+        SnackBar(
+            content: Text(
+                'درآمد ${PersianFormat.money(transaction.amount)} ثبت شد.')),
       );
     }
   }
@@ -416,7 +432,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   int _parseMoney(String value) {
-    final normalized = PersianFormat.englishDigits(value).replaceAll(',', '').replaceAll('٬', '').trim();
+    final normalized = PersianFormat.englishDigits(value)
+        .replaceAll(',', '')
+        .replaceAll('٬', '')
+        .trim();
     return int.tryParse(normalized) ?? 0;
   }
 
@@ -440,7 +459,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     await _homeCoordinator.setPin(pin);
   }
 
-
   Future<void> _disablePin() async {
     final pin = await CommonDialogs.askSecretText(
       context: context,
@@ -452,26 +470,35 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     _showSnack(ok ? 'قفل برنامه غیرفعال شد.' : 'رمز درست نیست.');
   }
 
-
   String _buildEncryptedBackup(String pass) {
     return _homeCoordinator.createEncryptedBackup(pass);
   }
 
   Future<void> _createEncryptedBackup() async {
-    if (!_isFeatureEnabled(FeatureFlags.enableEncryptedBackup, 'بکاپ رمزنگاری‌شده')) return;
-    final pass = await BackupDialogs.askBackupPassphrase(context, title: 'ساخت بکاپ رمزنگاری‌شده');
+    if (!_isFeatureEnabled(
+        FeatureFlags.enableEncryptedBackup, 'بکاپ رمزنگاری‌شده')) {
+      return;
+    }
+    final pass = await BackupDialogs.askBackupPassphrase(context,
+        title: 'ساخت بکاپ رمزنگاری‌شده');
     if (pass == null) return;
     try {
       final backup = _buildEncryptedBackup(pass);
-      await _showLargeText(title: 'بکاپ رمزنگاری‌شده', text: backup, copyLabel: 'کپی بکاپ');
+      await _showLargeText(
+          title: 'بکاپ رمزنگاری‌شده', text: backup, copyLabel: 'کپی بکاپ');
     } catch (e) {
       _showSnack(e.toString());
     }
   }
 
   Future<void> _shareEncryptedBackupFile() async {
-    if (!_isFeatureEnabled(FeatureFlags.enableEncryptedBackup && FeatureFlags.enableShareFiles, 'اشتراک فایل بکاپ')) return;
-    final pass = await BackupDialogs.askBackupPassphrase(context, title: 'اشتراک‌گذاری فایل بکاپ');
+    if (!_isFeatureEnabled(
+        FeatureFlags.enableEncryptedBackup && FeatureFlags.enableShareFiles,
+        'اشتراک فایل بکاپ')) {
+      return;
+    }
+    final pass = await BackupDialogs.askBackupPassphrase(context,
+        title: 'اشتراک‌گذاری فایل بکاپ');
     if (pass == null) return;
     try {
       final backup = _buildEncryptedBackup(pass);
@@ -479,14 +506,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         fileName: 'smart-day-planner-encrypted.backup',
         text: backup,
       );
-      await _shareFileService.shareFile(file, text: 'بکاپ رمزنگاری‌شده دستیار روزانه ایرانی');
+      await _shareFileService.shareFile(file,
+          text: 'بکاپ رمزنگاری‌شده دستیار روزانه ایرانی');
     } catch (e) {
       _showSnack(e.toString());
     }
   }
 
   Future<void> _restoreEncryptedBackup() async {
-    if (!_isFeatureEnabled(FeatureFlags.enableEncryptedBackup, 'بازیابی بکاپ')) return;
+    if (!_isFeatureEnabled(FeatureFlags.enableEncryptedBackup, 'بازیابی بکاپ')) {
+      return;
+    }
     final input = await BackupDialogs.restore(context);
     if (input == null) return;
     try {
@@ -501,11 +531,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Future<void> _exportTasksCsv() async {
-    await _showLargeText(title: 'خروجی CSV کارها', text: _reportActions.tasksCsv(_repository), copyLabel: 'کپی CSV');
+    await _showLargeText(
+        title: 'خروجی CSV کارها',
+        text: _reportActions.tasksCsv(_repository),
+        copyLabel: 'کپی CSV');
   }
 
   Future<void> _exportFinanceCsv() async {
-    await _showLargeText(title: 'خروجی CSV مالی', text: _reportActions.financeCsv(_financeRepository), copyLabel: 'کپی CSV');
+    await _showLargeText(
+        title: 'خروجی CSV مالی',
+        text: _reportActions.financeCsv(_financeRepository),
+        copyLabel: 'کپی CSV');
   }
 
   Future<void> _showMonthlyReport() async {
@@ -520,7 +556,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  Future<void> _showLargeText({required String title, required String text, required String copyLabel}) {
+  Future<void> _showLargeText(
+      {required String title,
+      required String text,
+      required String copyLabel}) {
     return CommonDialogs.showLargeText(
       context: context,
       title: title,
@@ -532,7 +571,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   void _showSnack(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
   }
 
   /// وقتی یک قابلیت پلتفرمی با feature flag (dart-define) خاموش شده باشد،
@@ -544,18 +584,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Future<void> _openPlannedExpenseDialog() async {
-    final input = await PlanningDialogs.plannedExpense(context: context, parseMoney: _parseMoney);
+    final input = await PlanningDialogs.plannedExpense(
+        context: context, parseMoney: _parseMoney);
     if (input == null || input.amount <= 0) return;
     await _homeCoordinator.addPlannedExpense(input);
   }
 
-
   Future<void> _openDebtDialog() async {
-    final input = await PlanningDialogs.debt(context: context, parseMoney: _parseMoney);
+    final input =
+        await PlanningDialogs.debt(context: context, parseMoney: _parseMoney);
     if (input == null || input.amount <= 0) return;
     await _homeCoordinator.addDebt(input);
   }
-
 
   Future<void> _openDebtPaymentDialog(DebtItem item) async {
     final amount = await PlanningDialogs.amount(
@@ -569,7 +609,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }
   }
 
-
   Future<void> _openDebtAllocationDialog(DebtItem item) async {
     await _openAllocationDialog(
       title: 'کنار گذاشتن پول برای بدهی ${item.personName}',
@@ -579,7 +618,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  Future<void> _openPlannedExpenseAllocationDialog(PlannedExpenseGoal item) async {
+  Future<void> _openPlannedExpenseAllocationDialog(
+      PlannedExpenseGoal item) async {
     await _openAllocationDialog(
       title: 'کنار گذاشتن پول برای «${item.title}»',
       targetType: AllocationTargetType.plannedExpense,
@@ -594,7 +634,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     required String targetId,
     required String note,
   }) async {
-    final amount = await PlanningDialogs.amount(context: context, title: title, parseMoney: _parseMoney);
+    final amount = await PlanningDialogs.amount(
+        context: context, title: title, parseMoney: _parseMoney);
     if (amount != null && amount > 0) {
       await _homeCoordinator.allocate(
         targetType: targetType,
@@ -605,13 +646,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }
   }
 
-
   Future<void> _openCategoryBudgetDialog() async {
-    final input = await PlanningDialogs.categoryBudget(context: context, parseMoney: _parseMoney);
+    final input = await PlanningDialogs.categoryBudget(
+        context: context, parseMoney: _parseMoney);
     if (input == null) return;
     await _homeCoordinator.saveCategoryBudget(input);
   }
-
 
   Future<void> _openAvailabilityDialog() async {
     final current = _availabilityRepository.settings;
@@ -626,9 +666,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     await _homeCoordinator.saveAvailability(input);
   }
 
-
   Future<void> _showSmartAlertsPreview() async {
-    if (!_isFeatureEnabled(FeatureFlags.enableSmartNotifications, 'هشدارهای هوشمند')) return;
+    if (!_isFeatureEnabled(
+        FeatureFlags.enableSmartNotifications, 'هشدارهای هوشمند')) {
+      return;
+    }
     final alerts = _notificationAdvisor.buildAlerts(
       debts: _debtRepository,
       plannedExpenses: _plannedExpenseRepository,
@@ -636,7 +678,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       budgets: _categoryBudgetRepository,
       finance: _financeRepository,
     );
-    await _showLargeText(title: 'پیش‌نمایش هشدارهای هوشمند', text: alerts.map((e) => '• $e').join('\n'), copyLabel: 'کپی هشدارها');
+    await _showLargeText(
+        title: 'پیش‌نمایش هشدارهای هوشمند',
+        text: alerts.map((e) => '• $e').join('\n'),
+        copyLabel: 'کپی هشدارها');
   }
 
   Future<void> _showPrintablePdfReport() async {
@@ -646,11 +691,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       financeRepository: _financeRepository,
       goalRepository: _goalRepository,
     );
-    await _showLargeText(title: 'گزارش HTML آماده PDF', text: html, copyLabel: 'کپی HTML');
+    await _showLargeText(
+        title: 'گزارش HTML آماده PDF', text: html, copyLabel: 'کپی HTML');
   }
 
   Future<void> _shareRealPdfReport() async {
-    if (!_isFeatureEnabled(FeatureFlags.enablePdfExport && FeatureFlags.enableShareFiles, 'PDF و اشتراک‌گذاری')) return;
+    if (!_isFeatureEnabled(
+        FeatureFlags.enablePdfExport && FeatureFlags.enableShareFiles,
+        'PDF و اشتراک‌گذاری')) {
+      return;
+    }
     try {
       await _reportActions.shareRealPdfReport(
         taskRepository: _repository,
@@ -665,11 +715,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Future<void> _showCalendarPreview() async {
     if (!_isFeatureEnabled(FeatureFlags.enableCalendar, 'تقویم گوشی')) return;
     final text = await _reportActions.calendarPreviewText(_calendarService);
-    await _showLargeText(title: 'رویدادهای تقویم ۷ روز آینده', text: text, copyLabel: 'کپی');
+    await _showLargeText(
+        title: 'رویدادهای تقویم ۷ روز آینده', text: text, copyLabel: 'کپی');
   }
 
   Future<void> _scheduleSmartAlerts() async {
-    if (!_isFeatureEnabled(FeatureFlags.enableSmartNotifications, 'زمان‌بندی هشدار')) return;
+    if (!_isFeatureEnabled(
+        FeatureFlags.enableSmartNotifications, 'زمان‌بندی هشدار')) {
+      return;
+    }
     final count = await _reportActions.scheduleSmartAlerts(
       scheduler: _smartNotificationScheduler,
       debtRepository: _debtRepository,
@@ -678,7 +732,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       categoryBudgetRepository: _categoryBudgetRepository,
       financeRepository: _financeRepository,
     );
-    _showSnack(count == 0 ? 'هشدار فوری برای زمان‌بندی پیدا نشد.' : '${PersianFormat.digits(count)} هشدار برای فردا زمان‌بندی شد.');
+    _showSnack(count == 0
+        ? 'هشدار فوری برای زمان‌بندی پیدا نشد.'
+        : '${PersianFormat.digits(count)} هشدار برای فردا زمان‌بندی شد.');
   }
 
   Future<void> _deleteTask(Task task) async {
@@ -690,7 +746,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   Future<void> _askAssistant() async {
     final prompt = _assistantController.text;
-    final answer = await _assistant.generate(prompt: prompt, tasks: _repository.tasks);
+    final answer =
+        await _assistant.generate(prompt: prompt, tasks: _repository.tasks);
     if (mounted) setState(() => _assistantAnswer = answer);
     if (FeatureFlags.enableVoiceResponse) {
       await _voiceResponseService.speak(answer);

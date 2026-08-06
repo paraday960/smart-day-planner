@@ -8,6 +8,7 @@ import 'package:smart_day_planner/domain/services/voice_response_port.dart';
 import 'package:smart_day_planner/models/assistant_voice_gender.dart';
 import 'package:smart_day_planner/models/calendar_event_summary.dart';
 import 'package:smart_day_planner/models/task.dart';
+import 'package:smart_day_planner/services/hybrid_local_assistant.dart';
 
 class FakeNotificationService implements NotificationServicePort {
   bool initialized = false;
@@ -42,7 +43,9 @@ class FakeNotificationService implements NotificationServicePort {
 }
 
 class FakeCalendarService implements CalendarServicePort {
-  FakeCalendarService({this.permission = true, List<CalendarEventSummary>? events}) : events = events ?? [];
+  FakeCalendarService(
+      {this.permission = true, List<CalendarEventSummary>? events})
+      : events = events ?? [];
 
   bool permission;
   final List<CalendarEventSummary> events;
@@ -83,7 +86,8 @@ class FakeShareFileService implements ShareFileServicePort {
   final sharedTexts = <String?>[];
 
   @override
-  Future<File> saveBytes({required String fileName, required Uint8List bytes}) async {
+  Future<File> saveBytes(
+      {required String fileName, required Uint8List bytes}) async {
     final file = File('${Directory.systemTemp.path}/$fileName');
     await file.writeAsBytes(bytes, flush: true);
     savedFiles.add(file);
@@ -91,7 +95,8 @@ class FakeShareFileService implements ShareFileServicePort {
   }
 
   @override
-  Future<File> saveText({required String fileName, required String text}) async {
+  Future<File> saveText(
+      {required String fileName, required String text}) async {
     final file = File('${Directory.systemTemp.path}/$fileName');
     await file.writeAsString(text, flush: true);
     savedFiles.add(file);
@@ -146,5 +151,29 @@ class FakeVoiceResponseService implements VoiceResponsePort {
     const sample = 'تست صدا';
     await speak(sample, force: true);
     return sample;
+  }
+}
+
+/// Fake برای تست لایهٔ هیبرید LLM.
+class FakeLlmBackend implements LlmBackend {
+  FakeLlmBackend(
+      {this.isReady = true, this.response = 'پاسخ مدل تست', this.failWith});
+
+  bool isReady;
+  String response;
+  Exception? failWith;
+
+  final prompts = <String>[];
+  int callCount = 0;
+
+  @override
+  Future<bool> get available async => isReady;
+
+  @override
+  Future<String> generate(String prompt) async {
+    callCount++;
+    prompts.add(prompt);
+    if (failWith != null) throw failWith!;
+    return response;
   }
 }

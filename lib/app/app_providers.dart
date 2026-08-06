@@ -31,9 +31,12 @@ import '../services/envelope_planning_service.dart';
 import '../services/finance_assistant.dart';
 import '../services/finance_repository.dart';
 import '../services/forecast_service.dart';
+import '../services/finance_insights_service.dart';
 import '../services/goal_planning_service.dart';
 import '../services/goal_repository.dart';
 import '../services/habit_insight_service.dart';
+import '../services/hybrid_local_assistant.dart';
+import '../services/local_assistant.dart';
 import '../services/notification_service.dart';
 import '../services/planned_expense_repository.dart';
 import '../services/security_service.dart';
@@ -43,46 +46,107 @@ import '../services/task_repository.dart';
 import '../services/voice_response_service.dart';
 import '../services/time_aware_planner.dart';
 
-final smartPlannerProvider = Provider<SmartPlanner>((ref) => const SmartPlanner());
-final dashboardControllerProvider = Provider<DashboardController>((ref) => const DashboardController());
-final financeControllerProvider = Provider<FinanceController>((ref) => const FinanceController());
-final financeAssistantProvider = Provider<FinanceAssistant>((ref) => const FinanceAssistant());
-final envelopePlanningServiceProvider = Provider<EnvelopePlanningService>((ref) => const EnvelopePlanningService());
-final goalPlanningServiceProvider = Provider<GoalPlanningService>((ref) => const GoalPlanningService());
-final debtPlanningServiceProvider = Provider<DebtPlanningService>((ref) => const DebtPlanningService());
-final forecastServiceProvider = Provider<ForecastService>((ref) => const ForecastService());
-final habitInsightServiceProvider = Provider<HabitInsightService>((ref) => const HabitInsightService());
-final chartInsightServiceProvider = Provider<ChartInsightService>((ref) => const ChartInsightService());
-final commandConfidenceServiceProvider = Provider<CommandConfidenceService>((ref) => const CommandConfidenceService());
-final timeAwarePlannerProvider = Provider<TimeAwarePlanner>((ref) => const TimeAwarePlanner());
-final taskActionsControllerProvider = Provider<TaskActionsController>((ref) => const TaskActionsController());
-final financeActionsControllerProvider = Provider<FinanceActionsController>((ref) => const FinanceActionsController());
-final debtActionsControllerProvider = Provider<DebtActionsController>((ref) => const DebtActionsController());
-final allocationActionsControllerProvider = Provider<AllocationActionsController>((ref) => const AllocationActionsController());
-final securityActionsControllerProvider = Provider<SecurityActionsController>((ref) => const SecurityActionsController());
-final backupActionsControllerProvider = Provider<BackupActionsController>((ref) => const BackupActionsController());
-final goalActionsControllerProvider = Provider<GoalActionsController>((ref) => const GoalActionsController());
+final smartPlannerProvider =
+    Provider<SmartPlanner>((ref) => const SmartPlanner());
+final financeInsightsServiceProvider =
+    Provider<FinanceInsightsService>((ref) => const FinanceInsightsService());
+
+/// دستیار گفتگوی اصلی: هیبرید (LLM محلی اختیاری + موتور قانون‌محور).
+///
+/// وقتی LLM در دسترس نباشد (پیش‌فرض)، خودکار به موتور قانون‌محور
+/// ارتقایافته برمی‌گردد که با دادهٔ مالی کاربر هم کار می‌کند.
+final assistantProvider = Provider<LocalLlmAdapter>((ref) {
+  return HybridLocalAssistant(
+    llm: MethodChannelLlmBackend(),
+    fallback: RuleBasedLocalAssistant(
+      planner: ref.watch(smartPlannerProvider),
+      context: AssistantContext(
+        finance: ref.watch(financeRepositoryProvider),
+        forecast: ref.watch(forecastServiceProvider),
+        insights: ref.watch(financeInsightsServiceProvider),
+      ),
+    ),
+  );
+});
+
+final dashboardControllerProvider =
+    Provider<DashboardController>((ref) => const DashboardController());
+final financeControllerProvider =
+    Provider<FinanceController>((ref) => const FinanceController());
+final financeAssistantProvider =
+    Provider<FinanceAssistant>((ref) => const FinanceAssistant());
+final envelopePlanningServiceProvider =
+    Provider<EnvelopePlanningService>((ref) => const EnvelopePlanningService());
+final goalPlanningServiceProvider =
+    Provider<GoalPlanningService>((ref) => const GoalPlanningService());
+final debtPlanningServiceProvider =
+    Provider<DebtPlanningService>((ref) => const DebtPlanningService());
+final forecastServiceProvider =
+    Provider<ForecastService>((ref) => const ForecastService());
+final habitInsightServiceProvider =
+    Provider<HabitInsightService>((ref) => const HabitInsightService());
+final chartInsightServiceProvider =
+    Provider<ChartInsightService>((ref) => const ChartInsightService());
+final commandConfidenceServiceProvider = Provider<CommandConfidenceService>(
+    (ref) => const CommandConfidenceService());
+final timeAwarePlannerProvider =
+    Provider<TimeAwarePlanner>((ref) => const TimeAwarePlanner());
+final taskActionsControllerProvider =
+    Provider<TaskActionsController>((ref) => const TaskActionsController());
+final financeActionsControllerProvider = Provider<FinanceActionsController>(
+    (ref) => const FinanceActionsController());
+final debtActionsControllerProvider =
+    Provider<DebtActionsController>((ref) => const DebtActionsController());
+final allocationActionsControllerProvider =
+    Provider<AllocationActionsController>(
+        (ref) => const AllocationActionsController());
+final securityActionsControllerProvider = Provider<SecurityActionsController>(
+    (ref) => const SecurityActionsController());
+final backupActionsControllerProvider =
+    Provider<BackupActionsController>((ref) => const BackupActionsController());
+final goalActionsControllerProvider =
+    Provider<GoalActionsController>((ref) => const GoalActionsController());
 final reportActionsControllerProvider = Provider<ReportActionsController>(
-  (ref) => ReportActionsController(shareFileService: ref.watch(shareFileServiceProvider)),
+  (ref) => ReportActionsController(
+      shareFileService: ref.watch(shareFileServiceProvider)),
 );
-final calculateRequiredDailyIncomeProvider = Provider<CalculateRequiredDailyIncome>((ref) => const CalculateRequiredDailyIncome());
+final calculateRequiredDailyIncomeProvider =
+    Provider<CalculateRequiredDailyIncome>(
+        (ref) => const CalculateRequiredDailyIncome());
 
 // Repository/service providers. In production they are overridden in main.dart
 // with the already initialized instances. In tests they can be overridden with fakes.
-final taskRepositoryProvider = Provider<TaskRepository>((ref) => throw UnimplementedError('TaskRepository override نشده است.'));
-final financeRepositoryProvider = Provider<FinanceRepository>((ref) => throw UnimplementedError('FinanceRepository override نشده است.'));
-final goalRepositoryProvider = Provider<GoalRepository>((ref) => throw UnimplementedError('GoalRepository override نشده است.'));
-final plannedExpenseRepositoryProvider = Provider<PlannedExpenseRepository>((ref) => throw UnimplementedError('PlannedExpenseRepository override نشده است.'));
-final debtRepositoryProvider = Provider<DebtRepository>((ref) => throw UnimplementedError('DebtRepository override نشده است.'));
-final allocationRepositoryProvider = Provider<AllocationRepository>((ref) => throw UnimplementedError('AllocationRepository override نشده است.'));
-final categoryBudgetRepositoryProvider = Provider<CategoryBudgetRepository>((ref) => throw UnimplementedError('CategoryBudgetRepository override نشده است.'));
-final availabilityRepositoryProvider = Provider<AvailabilityRepository>((ref) => throw UnimplementedError('AvailabilityRepository override نشده است.'));
-final conversationMemoryServiceProvider = Provider<ConversationMemoryService>((ref) => throw UnimplementedError('ConversationMemoryService override نشده است.'));
-final notificationServiceProvider = Provider<NotificationServicePort>((ref) => NotificationService.instance);
-final calendarServiceProvider = Provider<CalendarServicePort>((ref) => CalendarService());
-final shareFileServiceProvider = Provider<ShareFileServicePort>((ref) => const ShareFileService());
-final voiceResponseServiceProvider = Provider<VoiceResponsePort>((ref) => VoiceResponseService.instance);
-final securityServiceProvider = Provider<SecurityService>((ref) => SecurityService.instance);
+final taskRepositoryProvider = Provider<TaskRepository>(
+    (ref) => throw UnimplementedError('TaskRepository override نشده است.'));
+final financeRepositoryProvider = Provider<FinanceRepository>(
+    (ref) => throw UnimplementedError('FinanceRepository override نشده است.'));
+final goalRepositoryProvider = Provider<GoalRepository>(
+    (ref) => throw UnimplementedError('GoalRepository override نشده است.'));
+final plannedExpenseRepositoryProvider = Provider<PlannedExpenseRepository>(
+    (ref) => throw UnimplementedError(
+        'PlannedExpenseRepository override نشده است.'));
+final debtRepositoryProvider = Provider<DebtRepository>(
+    (ref) => throw UnimplementedError('DebtRepository override نشده است.'));
+final allocationRepositoryProvider = Provider<AllocationRepository>((ref) =>
+    throw UnimplementedError('AllocationRepository override نشده است.'));
+final categoryBudgetRepositoryProvider = Provider<CategoryBudgetRepository>(
+    (ref) => throw UnimplementedError(
+        'CategoryBudgetRepository override نشده است.'));
+final availabilityRepositoryProvider = Provider<AvailabilityRepository>((ref) =>
+    throw UnimplementedError('AvailabilityRepository override نشده است.'));
+final conversationMemoryServiceProvider = Provider<ConversationMemoryService>(
+    (ref) => throw UnimplementedError(
+        'ConversationMemoryService override نشده است.'));
+final notificationServiceProvider =
+    Provider<NotificationServicePort>((ref) => NotificationService.instance);
+final calendarServiceProvider =
+    Provider<CalendarServicePort>((ref) => CalendarService());
+final shareFileServiceProvider =
+    Provider<ShareFileServicePort>((ref) => const ShareFileService());
+final voiceResponseServiceProvider =
+    Provider<VoiceResponsePort>((ref) => VoiceResponseService.instance);
+final securityServiceProvider =
+    Provider<SecurityService>((ref) => SecurityService.instance);
 
 List<Override> buildAppOverrides({
   required TaskRepository taskRepository,
@@ -102,12 +166,16 @@ List<Override> buildAppOverrides({
     taskRepositoryProvider.overrideWith((ref) => taskRepository),
     financeRepositoryProvider.overrideWith((ref) => financeRepository),
     goalRepositoryProvider.overrideWith((ref) => goalRepository),
-    plannedExpenseRepositoryProvider.overrideWith((ref) => plannedExpenseRepository),
+    plannedExpenseRepositoryProvider
+        .overrideWith((ref) => plannedExpenseRepository),
     debtRepositoryProvider.overrideWith((ref) => debtRepository),
     allocationRepositoryProvider.overrideWith((ref) => allocationRepository),
-    categoryBudgetRepositoryProvider.overrideWith((ref) => categoryBudgetRepository),
-    availabilityRepositoryProvider.overrideWith((ref) => availabilityRepository),
-    conversationMemoryServiceProvider.overrideWith((ref) => conversationMemoryService),
+    categoryBudgetRepositoryProvider
+        .overrideWith((ref) => categoryBudgetRepository),
+    availabilityRepositoryProvider
+        .overrideWith((ref) => availabilityRepository),
+    conversationMemoryServiceProvider
+        .overrideWith((ref) => conversationMemoryService),
     notificationServiceProvider.overrideWith((ref) => notificationService),
     voiceResponseServiceProvider.overrideWith((ref) => voiceResponseService),
     securityServiceProvider.overrideWith((ref) => securityService),
@@ -137,13 +205,14 @@ final homeCoordinatorProvider = Provider<HomeCoordinator>((ref) {
   );
 });
 
-final homeCoordinatorFactoryProvider = Provider<HomeCoordinatorFactory>((ref) => const HomeCoordinatorFactory());
+final homeCoordinatorFactoryProvider =
+    Provider<HomeCoordinatorFactory>((ref) => const HomeCoordinatorFactory());
 
 final homeCoordinatorV2Provider = Provider<HomeCoordinatorV2>((ref) {
   return ref.watch(homeCoordinatorFactoryProvider).create(
-    tasks: ref.watch(taskRepositoryProvider),
-    finance: ref.watch(financeRepositoryProvider),
-    debts: ref.watch(debtRepositoryProvider),
-    allocations: ref.watch(allocationRepositoryProvider),
-  );
+        tasks: ref.watch(taskRepositoryProvider),
+        finance: ref.watch(financeRepositoryProvider),
+        debts: ref.watch(debtRepositoryProvider),
+        allocations: ref.watch(allocationRepositoryProvider),
+      );
 });
