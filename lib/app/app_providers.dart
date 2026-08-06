@@ -81,6 +81,12 @@ final assistantProvider = Provider<LocalLlmAdapter>((ref) {
           tasks: ref.watch(taskRepositoryProvider).tasks,
           transactions: ref.watch(financeRepositoryProvider).transactions,
         ),
+        taskRepo: ref.watch(taskRepositoryProvider),
+        goalRepo: ref.watch(goalRepositoryProvider),
+        plannedRepo: ref.watch(plannedExpenseRepositoryProvider),
+        debtRepo: ref.watch(debtRepositoryProvider),
+        allocationRepo: ref.watch(allocationRepositoryProvider),
+        budgetRepo: ref.watch(categoryBudgetRepositoryProvider),
       ),
     ),
   );

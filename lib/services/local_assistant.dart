@@ -10,6 +10,11 @@ import 'predictive_scheduler_service.dart';
 import 'debt_repayment_planner.dart';
 import 'finance_insights_service.dart';
 import 'finance_repository.dart';
+import 'category_budget_repository.dart';
+import 'allocation_repository.dart';
+import 'planned_expense_repository.dart';
+import 'goal_repository.dart';
+import 'task_repository.dart';
 import 'forecast_service.dart';
 import 'persian_nlu.dart';
 import 'smart_planner.dart';
@@ -35,11 +40,23 @@ class AssistantContext {
     this.debts,
     this.workProfile = WorkProfile.empty,
     this.repaymentPlanner = const DebtRepaymentPlanner(),
+    this.taskRepo,
+    this.goalRepo,
+    this.plannedRepo,
+    this.debtRepo,
+    this.allocationRepo,
+    this.budgetRepo,
   });
 
   final FinanceRepository? finance;
   final ForecastService forecast;
   final FinanceInsightsService insights;
+  final TaskRepository? taskRepo;
+  final GoalRepository? goalRepo;
+  final PlannedExpenseRepository? plannedRepo;
+  final DebtRepository? debtRepo;
+  final AllocationRepository? allocationRepo;
+  final CategoryBudgetRepository? budgetRepo;
 
   /// تنظیمات ساعت کاری/تعطیلات کاربر (از تنظیمات برنامه).
   /// اگر null باشد، دستیار با پنجرهٔ پیش‌فرض ۹ تا ۱۸ برنامه می‌چیند.
@@ -415,6 +432,48 @@ class RuleBasedLocalAssistant implements LocalLlmAdapter {
       patterns: ['خوب بود', 'عالی بود', 'دمت گرم', 'ممنون خوب بود', 'پیشنهاد خوب', 'خوبه', '👍'],
     ),
     NluIntent(
+      id: 'show_all_data',
+      priority: 72,
+      patterns: [
+        'همه اطلاعات',
+        'همه چی رو نشون بده',
+        'همه داده ها',
+        'کل اطلاعات',
+        'نمایش همه',
+        'همه اطلاعاتم',
+        'داشبورد کامل',
+        'خلاصه همه',
+        'وضعیت کلی همه',
+      ],
+    ),
+    NluIntent(
+      id: 'manage_tasks',
+      priority: 70,
+      patterns: [
+        'کار جدید',
+        'کار بساز',
+        'وظیفه جدید',
+        'کار اضافه کن',
+        'تسک جدید',
+        'لیست کارها',
+        'کارها رو نشون بده',
+        'کارهام',
+      ],
+    ),
+    NluIntent(
+      id: 'manage_finance',
+      priority: 70,
+      patterns: [
+        'همه تراکنش ها',
+        'تراکنش ها رو نشون بده',
+        'لیست هزینه ها',
+        'لیست درآمدها',
+        'حسابم',
+        'تراکنش هام',
+        'مالی رو نشون بده',
+      ],
+    ),
+    NluIntent(
       id: 'feedback_negative',
       priority: 75,
       patterns: ['بد بود', 'به درد نخورد', 'اشتباه بود', 'پیشنهاد بد', 'بد', '👎', 'نمی‌خوام'],
@@ -515,6 +574,12 @@ class RuleBasedLocalAssistant implements LocalLlmAdapter {
         return await _handleFeedback(tasks, true);
       case 'feedback_negative':
         return await _handleFeedback(tasks, false);
+      case 'show_all_data':
+        return _showAllData(tasks);
+      case 'manage_tasks':
+        return _manageTasks(tasks);
+      case 'manage_finance':
+        return _manageFinance();
       case 'small_talk':
         return 'من که همیشه سرحالم؛ چون وظیفه‌ام کمک به توئه. 😊 از کجا شروع کنیم؟';
       default:
@@ -556,7 +621,8 @@ class RuleBasedLocalAssistant implements LocalLlmAdapter {
         '• «پیشنهاد بده» — پیشنهاد خودکار بر اساس رفتارت\n'
         '• «وضعیت کلی» — مغز یکپارچه: امتیاز، حال مالی و توصیه شخصی\n'
         '• «صبح بخیر» — بریفینگ شخصی صبح\n'
-        '• «هفته آینده چطوره؟» — پیش‌بینی ۷ روز + زمان‌بندی خودکار'
+        '• «هفته آینده چطوره؟» — پیش‌بینی ۷ روز + زمان‌بندی خودکار\n'
+        '• «همه اطلاعات رو نشون بده» — مدیریت و نمایش همه داده‌ها توسط دستیار'
   }
 
   String _nextTask(List<Task> tasks) {
@@ -973,6 +1039,77 @@ class RuleBasedLocalAssistant implements LocalLlmAdapter {
       debts: _context.debts ?? [],
     );
     return const AIBrainService().morningBriefing(brain, tasks);
+  }
+
+  String _showAllData(List<Task> tasks) {
+    final finance = _context.finance;
+    final buf = StringBuffer()..writeln('📊 همه اطلاعاتت (مدیریت توسط دستیار):');
+    // کارها
+    final open = tasks.where((t) => !t.isDone).length;
+    final done = tasks.where((t) => t.isDone).length;
+    buf.writeln('📋 کارها: \${PersianFormat.digits(open)} باز، \${PersianFormat.digits(done)} انجام‌شده');
+    for (final t in tasks.where((t) => !t.isDone).take(3)) {
+      buf.writeln('  • \${t.title} (اهمیت \${PersianFormat.digits(t.importance)}، \${t.category})');
+    }
+    if (open > 3) buf.writeln('  ... و \${PersianFormat.digits(open-3)} کار دیگر');
+    // مالی
+    if (finance != null) {
+      final txs = finance.transactions;
+      final income = txs.where((e) => e.type == FinanceTransactionType.income).fold<int>(0, (s,e) => s+e.amount);
+      final expense = txs.where((e) => e.type == FinanceTransactionType.expense).fold<int>(0, (s,e) => s+e.amount);
+      buf.writeln('💰 مالی: درآمد \${PersianFormat.money(income)}، هزینه \${PersianFormat.money(expense)}، تراز \${PersianFormat.money(income-expense)}');
+      for (final tx in txs.take(3)) {
+        buf.writeln('  • \${tx.type == FinanceTransactionType.income ? '💵' : '💸'} \${tx.category}: \${PersianFormat.money(tx.amount)}');
+      }
+    }
+    // بدهی
+    final debts = _context.debts ?? [];
+    if (debts.isNotEmpty) {
+      buf.writeln('💳 بدهی‌ها: \${PersianFormat.digits(debts.length)} مورد');
+      for (final d in debts.take(3)) buf.writeln('  • \${d.personName}: \${PersianFormat.money(d.remainingAmount)} تا \${PersianFormat.jalaliDate(d.dueAt)}');
+    } else {
+      buf.writeln('💳 بدهی: نداری ✅');
+    }
+    // اهداف
+    final goals = _context.goalRepo;
+    if (goals != null) {
+      if (goals.dailyIncomeGoal > 0) buf.writeln('🎯 هدف روزانه: \${PersianFormat.money(goals.dailyIncomeGoal)}');
+      if (goals.monthlyIncomeGoal > 0) buf.writeln('🎯 هدف ماهانه: \${PersianFormat.money(goals.monthlyIncomeGoal)}');
+    }
+    // بودجه
+    final budgets = _context.budgetRepo;
+    if (budgets != null && budgets.budgets.isNotEmpty) {
+      buf.writeln('📊 بودجه: \${PersianFormat.digits(budgets.budgets.length)} دسته');
+      for (final b in budgets.budgets.take(3)) buf.writeln('  • \${b.category}: \${PersianFormat.money(b.limit)}');
+    }
+    buf.writeln('---');
+    buf.writeln('برای مدیریت بگو: «کار جدید بساز»، «هزینه ثبت کن»، یا «بدهی اضافه کن» — همه توسط من انجام می‌شه 🤖');
+    return buf.toString();
+  }
+
+  String _manageTasks(List<Task> tasks) {
+    final open = tasks.where((t) => !t.isDone).toList();
+    if (open.isEmpty) return 'کاری نداری. بگو «کار جدید: تماس با مشتری فردا ساعت ۱۰» تا بسازم.';
+    final buf = StringBuffer()..writeln('📋 کارهای باز (\${PersianFormat.digits(open.length)}):');
+    for (final t in open.take(5)) {
+      buf.writeln('• \${t.title} — \${t.category} — اهمیت \${PersianFormat.digits(t.importance)} \${t.dueAt != null ? 'تا \${PersianFormat.jalaliDate(t.dueAt!)}' : ''}');
+    }
+    if (open.length > 5) buf.writeln('و \${PersianFormat.digits(open.length-5)} کار دیگر');
+    buf.writeln('برای مدیریت: «کار جدید ...» یا «کار X رو حذف کن»');
+    return buf.toString();
+  }
+
+  String _manageFinance() {
+    final finance = _context.finance;
+    if (finance == null || finance.transactions.isEmpty) return 'تراکنشی نداری. بگو «درآمد ۲ میلیون ثبت کن» یا «هزینه ۳۰۰ هزار».';
+    final txs = finance.transactions;
+    final buf = StringBuffer()..writeln('💰 تراکنش‌ها (\${PersianFormat.digits(txs.length)}):');
+    for (final tx in txs.take(5)) {
+      buf.writeln('• \${tx.type == FinanceTransactionType.income ? 'درآمد' : 'هزینه'} \${PersianFormat.money(tx.amount)} — \${tx.category} — \${PersianFormat.jalaliDate(tx.createdAt)}');
+    }
+    if (txs.length > 5) buf.writeln('و \${PersianFormat.digits(txs.length-5)} مورد دیگر');
+    buf.writeln('تراز ماه: \${PersianFormat.money(finance.netThisMonth())}');
+    return buf.toString();
   }
 
   String _dailyBrief(List<Task> tasks) {

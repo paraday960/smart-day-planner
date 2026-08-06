@@ -54,7 +54,7 @@ class AssistantTab extends ConsumerWidget {
           child: _AssistantStatusChip(label: assistantStatusLabel),
         ),
         const SizedBox(height: 8),
-        const Text('نمونه فرمان‌ها: «کار جدید تماس با مشتری اضافه کن»، «درآمد سه میلیون ثبت کن»، «هزینه دویست هزار ثبت کن»، «برنامه امروزمو بچین»، «الان چی کار کنم؟»'),
+        const Text('نمونه فرمان‌ها: «همه اطلاعات رو نشون بده» • «کار جدید تماس با مشتری» • «درآمد/هزینه ثبت کن» • «همه تراکنش‌ها» • «وضعیت کلی» — همه توسط دستیار 🤖'),
         const SizedBox(height: 12),
         PushToTalkCard(
           speechReady: speechReady,
