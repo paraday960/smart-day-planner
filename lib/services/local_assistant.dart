@@ -1,11 +1,13 @@
 import '../models/finance_transaction.dart';
 import '../models/task.dart';
+import '../models/work_time_settings.dart';
 import '../utils/persian_format.dart';
 import 'finance_insights_service.dart';
 import 'finance_repository.dart';
 import 'forecast_service.dart';
 import 'persian_nlu.dart';
 import 'smart_planner.dart';
+import 'time_aware_planner.dart';
 
 /// قرارداد اتصال LLM آفلاین واقعی.
 /// بعداً می‌توانی این را با llama.cpp / ONNX / TFLite پیاده‌سازی کنی.
@@ -22,11 +24,16 @@ class AssistantContext {
     this.finance,
     this.forecast = const ForecastService(),
     this.insights = const FinanceInsightsService(),
+    this.availability,
   });
 
   final FinanceRepository? finance;
   final ForecastService forecast;
   final FinanceInsightsService insights;
+
+  /// تنظیمات ساعت کاری/تعطیلات کاربر (از تنظیمات برنامه).
+  /// اگر null باشد، دستیار با پنجرهٔ پیش‌فرض ۹ تا ۱۸ برنامه می‌چیند.
+  final WorkTimeSettings? availability;
 }
 
 /// نسخهٔ ارتقایافتهٔ دستیار قانون‌محور (بدون هیچ LLM).
@@ -39,10 +46,16 @@ class RuleBasedLocalAssistant implements LocalLlmAdapter {
     SmartPlanner planner = const SmartPlanner(),
     AssistantContext context = const AssistantContext(),
   })  : _planner = planner,
-        _context = context;
+        _context = context,
+        _timeAware = context.availability == null
+            ? null
+            : TimeAwarePlanner(planner: planner);
 
   final SmartPlanner _planner;
   final AssistantContext _context;
+
+  /// برنامه‌ریزی با رعایت ساعت کاری/تعطیلات کاربر (اگر تنظیم شده باشد).
+  final TimeAwarePlanner? _timeAware;
 
   static const List<NluIntent> _intents = [
     NluIntent(
@@ -393,11 +406,34 @@ class RuleBasedLocalAssistant implements LocalLlmAdapter {
   }
 
   String _todayPlan(List<Task> tasks) {
+    // اگر ساعت کاری/تعطیلات کاربر تنظیم شده باشد، با رعایت آن برنامه می‌چینیم.
+    final timeAware = _timeAware;
+    final availability = _context.availability;
+    if (timeAware != null && availability != null) {
+      final plan = timeAware.buildWorkWindowPlan(
+        tasks: tasks,
+        settings: availability,
+      );
+      if (plan.isEmpty) {
+        if (availability.isOffDay(DateTime.now())) {
+          return 'امروز طبق تنظیماتت روز تعطیل است؛ برنامه‌ای نمی‌چینم. استراحتت را بکن. 😌';
+        }
+        return 'برای امروز برنامهٔ قابل چیدن ندارم؛ یا زمان کاری تمام شده یا کاری ثبت نشده.';
+      }
+      return 'برنامهٔ امروز (با رعایت ساعت کاری $startEndLabel):\n${plan.take(8).map((item) => '${PersianFormat.time(item.start)} تا ${PersianFormat.time(item.end)} — ${item.task.title}').join('\n')}';
+    }
+
     final plan = _planner.buildTodayPlan(tasks);
     if (plan.isEmpty) {
       return 'برای امروز برنامهٔ قابل چیدن ندارم؛ یا زمان روز تمام شده یا کاری ثبت نشده.';
     }
     return 'برنامهٔ امروز:\n${plan.take(8).map((item) => '${PersianFormat.time(item.start)} تا ${PersianFormat.time(item.end)} — ${item.task.title}').join('\n')}';
+  }
+
+  String get startEndLabel {
+    final a = _context.availability;
+    if (a == null) return '۹ تا ۱۸';
+    return '${PersianFormat.digits(a.startHour)} تا ${PersianFormat.digits(a.endHour)}';
   }
 
   String _weekPlan(List<Task> tasks) {

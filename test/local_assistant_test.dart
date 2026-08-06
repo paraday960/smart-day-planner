@@ -5,6 +5,7 @@ import 'package:smart_day_planner/models/finance_transaction.dart';
 import 'package:smart_day_planner/models/task.dart';
 import 'package:smart_day_planner/services/finance_insights_service.dart';
 import 'package:smart_day_planner/services/finance_repository.dart';
+import 'package:smart_day_planner/models/work_time_settings.dart';
 import 'package:smart_day_planner/services/local_assistant.dart';
 
 Task _task({
@@ -198,6 +199,27 @@ void main() {
       final answer = await financeAware.generate(
           prompt: 'ریسک مالی دارم؟', tasks: _sampleTasks());
       expect(answer, contains('عقب'));
+    });
+  });
+
+  group('RuleBasedLocalAssistant: با ساعت کاری (TimeAwarePlanner)', () {
+    final availabilityAware = RuleBasedLocalAssistant(
+      context: AssistantContext(
+        // همهٔ روزها باز، ساعت کاری ۸ تا ۱۷
+        availability: const WorkTimeSettings(
+          startHour: 8,
+          endHour: 17,
+          offWeekdays: {},
+          breakMinutesPerHour: 10,
+        ),
+      ),
+    );
+
+    test('برنامهٔ امروز ساعت کاری کاربر را رعایت می‌کند', () async {
+      final answer = await availabilityAware.generate(
+          prompt: 'برنامه امروزمو بچین', tasks: _sampleTasks());
+      expect(answer, contains('با رعایت ساعت کاری'));
+      expect(answer, contains('۸ تا ۱۷'));
     });
   });
 }

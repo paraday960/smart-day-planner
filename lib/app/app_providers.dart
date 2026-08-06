@@ -66,6 +66,7 @@ final assistantProvider = Provider<LocalLlmAdapter>((ref) {
         finance: ref.watch(financeRepositoryProvider),
         forecast: ref.watch(forecastServiceProvider),
         insights: ref.watch(financeInsightsServiceProvider),
+        availability: ref.watch(availabilityRepositoryProvider).settings,
       ),
     ),
   );

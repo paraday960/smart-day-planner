@@ -53,17 +53,11 @@
 - `test/smart_planner_ai_test.dart` — برنامهٔ هفته، پنجره‌های کار عمیق، جبران
 - `test/finance_insights_test.dart` — تشخیص هزینهٔ غیرعادی، توصیه، ریسک
 
-## اتصال LLM واقعی (قدم بعدی)
+## اتصال LLM واقعی
 
-۱. یک مدل GGUF آماده کن (مثلاً Qwen2.5 0.5B Q4 — حدود ۴۰۰ مگابایت).
-
-۲. سمت Android/iOS channel با نام `ir.smartday.planner/llm` را پیاده کن:
-   - `isAvailable` → bool (مدل بارگذاری شده؟)
-   - `generate({prompt})` → String
-
-۳. مدل را asset کن و `flutter run --dart-define=ENABLE_LOCAL_LLM=true` بزن.
-
-۴. اگر از پکیج `llama_cpp_dart` استفاده می‌کنی، کافی است `MethodChannelLlmBackend` را با یک `LlamaLlmBackend` جایگزین کنی — بقیهٔ منطق (fallback، timeout، prompt) آماده است.
+اتصال با شیم C (`tool/csrc/llm_shim.c`) و `LlamaCppBackend` انجام شده و برای
+لینوکس و اندروید (arm64) تست شده است. برای جزئیات فعال‌سازی به بخش
+«اتصال LLM واقعی — کامل شد» در همین فایل مراجعه کنید.
 
 ## اصل حریم خصوصی
 

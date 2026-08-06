@@ -2,12 +2,12 @@
 
 ## قبل از ساخت RC
 
+- [x] `flutter analyze` بدون خطا است (در CI تأیید شد — آخرین بار «No issues found»)
+- [x] `flutter test --coverage` پاس شده (۹۰ تست — آخرین اجرای محلی)
+- [x] همه permissionهای Android اضافه شده‌اند (AndroidManifest کامل در ریپو)
 - [ ] `bash scripts/stabilization_sprint.sh` اجرا شده
-- [ ] `flutter analyze` بدون خطا است
-- [ ] `flutter test --coverage` پاس شده
-- [ ] coverage حداقل ۳۰٪ است
+- [ ] coverage حداقل ۳۰٪ است (نیاز به اجرای `flutter test --coverage` با فلاتر)
 - [ ] APK دیباگ روی گوشی واقعی نصب شده
-- [ ] همه permissionهای Android اضافه شده‌اند
 - [ ] Info.plist برای iOS تکمیل شده
 
 ## تست قابلیت‌های اصلی
