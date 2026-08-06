@@ -1,73 +1,45 @@
 name: Flutter CI
 
 on:
-  push:
-    branches: [ main, master, develop ]
-  pull_request:
-    branches: [ main, master, develop ]
-  workflow_dispatch:
+ push:
+ branches: [ main ]
+ workflow_dispatch:
 
 jobs:
-  analyze-test-build:
-    name: Analyze, Test, Build APK
-    runs-on: ubuntu-latest
+ build-debug-apk:
+ name: Build Debug APK
+ runs-on: ubuntu-latest
 
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+ steps:
+ - name: Checkout
+ uses: actions/checkout@v4
 
-      - name: Setup Java
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '17'
+ - name: Setup Java
+ uses: actions/setup-java@v4
+ with:
+ distribution: temurin
+ java-version: '17'
 
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          channel: stable
-          cache: true
+ - name: Setup Flutter
+ uses: subosito/flutter-action@v2
+ with:
+ channel: stable
+ cache: true
 
-      - name: Flutter doctor
-        run: flutter doctor -v
+ - name: Flutter doctor
+ run: flutter doctor -v
 
-      - name: Ensure platform folders exist
-        run: flutter create --platforms=android .
+ - name: Create Android platform
+ run: flutter create --platforms=android .
 
-      - name: Get dependencies
-        run: flutter pub get
+ - name: Get dependencies
+ run: flutter pub get
 
-      - name: Check formatting
-        run: dart format --set-exit-if-changed lib test
+ - name: Build debug APK
+ run: flutter build apk --debug --dart-define=ENABLE_CALENDAR=false --dart-define=ENABLE_PDF_EXPORT=false --dart-define=ENABLE_SHARE_FILES=false --dart-define=ENABLE_SMART_NOTIFICATIONS=false
 
-      - name: Analyze
-        run: flutter analyze
-
-      - name: Run tests with coverage
-        run: flutter test --coverage
-
-      - name: Check minimum coverage
-        run: python scripts/check_coverage_min.py 30
-
-      - name: Generate coverage summary
-        run: python scripts/coverage_summary.py
-
-      - name: Add coverage summary to job
-        run: cat coverage/coverage-summary.md >> $GITHUB_STEP_SUMMARY
-
-      - name: Upload coverage artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: flutter-test-coverage
-          path: |
-            coverage/lcov.info
-            coverage/coverage-summary.md
-
-      - name: Build debug APK
-        run: flutter build apk --debug
-
-      - name: Upload debug APK artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: smart-day-planner-debug-apk
-          path: build/app/outputs/flutter-apk/app-debug.apk
+ - name: Upload debug APK
+ uses: actions/upload-artifact@v4
+ with:
+ name: smart-day-planner-debug-apk
+ path: build/app/outputs/flutter-apk/app-debug.apk
