@@ -105,6 +105,17 @@ jobs:
           cat android/app/build.gradle 2>&1 | head -n 200 || true
           cat android/app/build.gradle.kts 2>&1 | head -n 300 || true
 
+      - name: Clean up auto-generated widget_test
+        # flutter create یک test/widget_test.dart پیش‌فرض با ارجاع به MyApp تولید می‌کند
+        # که با این پروژه تداخل دارد و کامپایل تست را خراب می‌کند.
+        run: |
+          if [ -f test/widget_test.dart ]; then
+            if grep -q "MyApp" test/widget_test.dart; then
+              rm -f test/widget_test.dart
+              echo "Removed conflicting auto-generated widget_test.dart"
+            fi
+          fi
+
       - name: Get dependencies
         run: flutter pub get
 
