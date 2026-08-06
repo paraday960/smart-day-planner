@@ -1,0 +1,6 @@
+# نمونه - این فایل را کپی کن به android/key.properties و رمزها را پر کن
+# برای ساخت keystore: keytool -genkey -v -keystore ~/smart-day-planner.jks -keyalg RSA -keysize 2048 -validity 10000 -alias smartday
+storePassword=رمز_استور
+keyPassword=رمز_کلید
+keyAlias=smartday
+storeFile=/home/شما/smart-day-planner.jks

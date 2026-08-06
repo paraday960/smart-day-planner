@@ -1,7 +1,7 @@
 name: smart_day_planner
 description: Offline AI-first daily planner for Android and iOS.
 publish_to: "none"
-version: 0.2.5+8
+version: 1.0.0+1
 
 environment:
   sdk: ">=3.4.0 <4.0.0"
@@ -33,6 +33,7 @@ dependencies:
   vosk_flutter: ^0.3.48
   # استخراج مدل‌های zip Vosk از دایرکتوری اسناد
   archive: ^3.6.1
+  flutter_launcher_icons: ^0.14.2
   # مدل سه‌بعدی تعاملی دستیار (.glb) — با انگشت بچرخان
   model_viewer_plus: ^1.9.1
 
@@ -55,3 +56,9 @@ flutter:
   # بعداً اگر مدل LLM محلی اضافه کردی، فایل مدل را اینجا asset کن:
   # assets:
   #   - assets/models/tinyllama-q4.gguf
+
+flutter_icons:
+  android: true
+  ios: true
+  image_path: "assets/icon/icon.png"
+  min_sdk_android: 21
