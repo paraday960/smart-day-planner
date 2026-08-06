@@ -50,12 +50,4 @@ class FeatureFlags {
         'offlineSpeech': enableOfflineSpeech,
         'autonomousAgent': enableAutonomousAgent,
       };
-
-  static bool get hasRiskyPlatformFeatureEnabled =>
-      enableVoiceInput ||
-      enableVoiceResponse ||
-      enableCalendar ||
-      enablePdfExport ||
-      enableShareFiles ||
-      enableSmartNotifications;
 }

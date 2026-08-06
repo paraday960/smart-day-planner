@@ -3,8 +3,12 @@ class AppConfig {
 
   static const appNameFa = 'دستیار روزانه ایرانی';
   static const appNameEn = 'Smart Day Planner Iranian';
-  static const packageName = 'ir.smartday.planner';
-  static const versionName = '0.1.0';
+
+  /// باید با `applicationId` در `android/app/build.gradle.kts` هماهنگ باشد.
+  static const packageName = 'ir.smartday.smart_day_planner';
+
+  /// باید با `version` در `pubspec.yaml` هماهنگ باشد (نسخه و build).
+  static const versionName = '1.0.0';
   static const versionCode = 1;
 
   /// ایمیل پشتیبانی — قبل از انتشار واقعی مقدار واقعی بگذارید.

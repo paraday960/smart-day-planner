@@ -13,7 +13,6 @@ void main() {
     expect(flags.containsKey('smartNotifications'), isTrue);
     expect(flags.containsKey('encryptedBackup'), isTrue);
     expect(flags.containsKey('localLlm'), isTrue);
-    expect(FeatureFlags.hasRiskyPlatformFeatureEnabled, isTrue);
   });
 
   test('default release keeps every feature enabled', () {
