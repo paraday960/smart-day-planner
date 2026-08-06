@@ -35,6 +35,7 @@ import '../services/finance_assistant.dart';
 import '../services/forecast_service.dart';
 import '../services/finance_repository.dart';
 import '../services/goal_repository.dart';
+import '../services/hybrid_local_assistant.dart';
 import '../services/local_assistant.dart';
 import '../domain/services/share_file_service_port.dart';
 import '../services/planned_expense_repository.dart';
@@ -66,6 +67,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   late final CalendarServicePort _calendarService;
   late final SmartNotificationScheduler _smartNotificationScheduler;
   late final LocalLlmAdapter _assistant;
+  String _assistantStatusLabel = 'هوش قانونی (بدون LLM)';
   late final VoiceCommandProcessor _voiceProcessor;
   final _speech = stt.SpeechToText();
   final _assistantController = TextEditingController();
@@ -113,7 +115,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     _forecastService = ref.read(forecastServiceProvider);
     _shareFileService = ref.read(shareFileServiceProvider);
     _calendarService = ref.read(calendarServiceProvider);
-    _assistant = ref.read(assistantProvider);
+    final assistant = ref.read(assistantProvider);
+    _assistant = assistant;
+    _assistantStatusLabel =
+        assistant is HybridLocalAssistant ? assistant.statusLabel : 'هوش قانونی (بدون LLM)';
     _smartNotificationScheduler =
         SmartNotificationScheduler(notificationService: _notificationService);
     _voiceProcessor = VoiceCommandProcessor(
@@ -333,6 +338,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             AssistantTab(
               controller: _assistantController,
               answer: _assistantAnswer,
+              assistantStatusLabel: _assistantStatusLabel,
               speechReady: _speechReady,
               isListening: _isListening,
               lastVoiceText: _lastVoiceText,

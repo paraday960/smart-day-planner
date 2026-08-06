@@ -20,6 +20,7 @@ class AssistantTab extends ConsumerWidget {
     required this.onVoiceResponseEnabledChanged,
     required this.onVoiceGenderChanged,
     required this.onTestVoice,
+    this.assistantStatusLabel = 'هوش قانونی (بدون LLM)',
   });
 
   final TextEditingController controller;
@@ -38,12 +39,20 @@ class AssistantTab extends ConsumerWidget {
   final ValueChanged<AssistantVoiceGender> onVoiceGenderChanged;
   final VoidCallback onTestVoice;
 
+  /// وضعیت موتور هوش (LLM محلی / قانونی) برای نمایش به کاربر.
+  final String assistantStatusLabel;
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
       children: [
         Text('دستیار فارسی', style: Theme.of(context).textTheme.titleLarge),
+        const SizedBox(height: 8),
+        Align(
+          alignment: Alignment.centerRight,
+          child: _AssistantStatusChip(label: assistantStatusLabel),
+        ),
         const SizedBox(height: 8),
         const Text('نمونه فرمان‌ها: «کار جدید تماس با مشتری اضافه کن»، «درآمد سه میلیون ثبت کن»، «هزینه دویست هزار ثبت کن»، «برنامه امروزمو بچین»، «الان چی کار کنم؟»'),
         const SizedBox(height: 12),
@@ -240,3 +249,26 @@ class PushToTalkCard extends StatelessWidget {
   }
 }
 
+
+/// نشانگر وضعیت موتور هوش (LLM محلی / قانونی).
+class _AssistantStatusChip extends StatelessWidget {
+  const _AssistantStatusChip({required this.label});
+
+  final String label;
+
+  bool get _isHybrid => label.contains('ترکیبی');
+
+  @override
+  Widget build(BuildContext context) {
+    final color = _isHybrid ? Colors.green : Colors.blueGrey;
+    final icon = _isHybrid ? Icons.memory : Icons.rule;
+    return Chip(
+      avatar: Icon(icon, size: 18, color: color),
+      label: Text(label, style: TextStyle(fontSize: 12, color: color)),
+      backgroundColor: color.withValues(alpha: 0.08),
+      side: BorderSide(color: color.withValues(alpha: 0.4)),
+      visualDensity: VisualDensity.compact,
+      padding: EdgeInsets.zero,
+    );
+  }
+}

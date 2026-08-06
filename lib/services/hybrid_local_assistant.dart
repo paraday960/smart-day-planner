@@ -30,10 +30,17 @@ class HybridLocalAssistant implements LocalLlmAdapter {
   final bool _enabled;
 
   /// وضعیت فعلی برای نمایش در UI.
-  String get statusLabel => _enabled && llm != null
-      ? 'هوش ترکیبی (LLM + قانونی)'
-      : 'هوش قانونی (بدون LLM)';
+  ///
+  /// - اگر LLM فعال و متصل باشد: «هوش ترکیبی (LLM محلی فعال)»
+  /// - اگر LLM فعال ولی بدون backend: «هوش قانونی (LLM فعال ولی مدل یافت نشد)»
+  /// - در غیر این صورت: «هوش قانونی (بدون LLM)»
+  String get statusLabel {
+    if (_enabled && llm != null) return 'هوش ترکیبی (LLM محلی فعال)';
+    if (_enabled) return 'هوش قانونی (LLM فعال ولی مدل یافت نشد)';
+    return 'هوش قانونی (بدون LLM)';
+  }
 
+  /// آیا LLM فعال و متصل است؟
   bool get hasLlmConfigured => _enabled && llm != null;
 
   @override
