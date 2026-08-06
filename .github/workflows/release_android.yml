@@ -1,0 +1,68 @@
+name: Android Release Build
+
+on:
+  workflow_dispatch:
+    inputs:
+      build_type:
+        description: 'Build type'
+        required: true
+        default: 'apk'
+        type: choice
+        options:
+          - apk
+          - appbundle
+
+jobs:
+  release-build:
+    name: Build Android Release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Ensure platform folders exist
+        run: flutter create --platforms=android .
+
+      - name: Get dependencies
+        run: flutter pub get
+
+      - name: Analyze
+        run: flutter analyze
+
+      - name: Tests
+        run: flutter test
+
+      - name: Build release APK
+        if: ${{ inputs.build_type == 'apk' }}
+        run: flutter build apk --release
+
+      - name: Build release App Bundle
+        if: ${{ inputs.build_type == 'appbundle' }}
+        run: flutter build appbundle --release
+
+      - name: Upload APK artifact
+        if: ${{ inputs.build_type == 'apk' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: smart-day-planner-release-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
+
+      - name: Upload AAB artifact
+        if: ${{ inputs.build_type == 'appbundle' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: smart-day-planner-release-aab
+          path: build/app/outputs/bundle/release/app-release.aab

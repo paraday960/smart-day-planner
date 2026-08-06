@@ -1,0 +1,31 @@
+name: گزارش باگ
+لطفاً باگ را با جزئیات ثبت کنید.
+title: "[Bug]: "
+labels: [bug]
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: شرح مشکل
+      description: دقیقاً چه اتفاقی افتاد؟
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: مراحل بازتولید
+      value: |
+        1. 
+        2. 
+        3. 
+    validations:
+      required: true
+  - type: input
+    id: device
+    attributes:
+      label: دستگاه و نسخه سیستم‌عامل
+      placeholder: مثال: Samsung A52 / Android 13
+  - type: textarea
+    id: logs
+    attributes:
+      label: لاگ یا اسکرین‌شات

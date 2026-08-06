@@ -1,0 +1,46 @@
+name: smart_day_planner
+description: Offline AI-first daily planner for Android and iOS.
+publish_to: "none"
+version: 0.1.0+1
+
+environment:
+  sdk: ">=3.4.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+  shared_preferences: ^2.3.2
+  intl: ^0.19.0
+  speech_to_text: ^7.0.0
+  flutter_tts: ^4.0.2
+  sqflite: ^2.3.3+1
+  path: ^1.9.0
+  flutter_local_notifications: ^17.2.3
+  timezone: ^0.9.4
+  shamsi_date: ^1.0.2
+  crypto: ^3.0.5
+  encrypt: ^5.0.3
+  device_calendar: ^4.3.3
+  pdf: ^3.11.1
+  path_provider: ^2.1.4
+  share_plus: ^10.0.2
+  flutter_riverpod: ^2.5.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/fonts/Vazirmatn-Regular.ttf
+  fonts:
+    - family: Vazirmatn
+      fonts:
+        - asset: assets/fonts/Vazirmatn-Regular.ttf
+  # بعداً اگر مدل LLM محلی اضافه کردی، فایل مدل را اینجا asset کن:
+  # assets:
+  #   - assets/models/tinyllama-q4.gguf

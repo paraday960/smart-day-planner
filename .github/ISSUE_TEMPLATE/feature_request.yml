@@ -1,0 +1,22 @@
+name: درخواست قابلیت
+description: پیشنهاد قابلیت جدید برای برنامه
+title: "[Feature]: "
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: مسئله‌ای که می‌خواهی حل شود
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: راه‌حل پیشنهادی
+    validations:
+      required: true
+  - type: textarea
+    id: examples
+    attributes:
+      label: مثال فرمان یا سناریو
+      placeholder: مثال: «به ممد یک میلیون بدهکارم...»
