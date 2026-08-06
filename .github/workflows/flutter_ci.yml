@@ -1,87 +1,36 @@
-name: Flutter CI
-
-on:
-  push:
-    branches: [ main ]
-  workflow_dispatch:
-
-jobs:
-  build-debug-apk:
-    name: Build Debug APK
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Java
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '17'
-
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          channel: stable
-          cache: true
-
-      - name: Flutter doctor
-        run: flutter doctor -v
-
-      - name: Create Android platform
-        run: flutter create --platforms=android .
-
       - name: Enable Android desugaring
         run: |
           python - <<'PY2'
           from pathlib import Path
 
-          candidates = [
-              Path("android/app/build.gradle"),
-              Path("android/app/build.gradle.kts"),
-          ]
+          groovy = Path("android/app/build.gradle")
+          kotlin = Path("android/app/build.gradle.kts")
 
-          for gradle in candidates:
-              if not gradle.exists():
-                  continue
+          if groovy.exists():
+              text = groovy.read_text()
+              if "coreLibraryDesugaringEnabled true" not in text:
+                  text = text.replace(
+                      "compileOptions {",
+                      "compileOptions {\n        coreLibraryDesugaringEnabled true"
+                  )
+              if "desugar_jdk_libs" not in text:
+                  text = text.replace(
+                      "dependencies {",
+                      "dependencies {\n    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.1.4'"
+                  )
+              groovy.write_text(text)
 
-              text = gradle.read_text()
-
-              if gradle.suffix == ".kts":
-                  if "isCoreLibraryDesugaringEnabled" not in text:
-                      text = text.replace(
-                          "compileOptions {",
-                          "compileOptions {\n        isCoreLibraryDesugaringEnabled = true"
-                      )
-                  if "desugar_jdk_libs" not in text:
-                      text = text.replace(
-                          "dependencies {",
-                          'dependencies {\n    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")'
-                      )
-              else:
-                  if "coreLibraryDesugaringEnabled" not in text:
-                      text = text.replace(
-                          "compileOptions {",
-                          "compileOptions {\n        coreLibraryDesugaringEnabled true"
-                      )
-                  if "desugar_jdk_libs" not in text:
-                      text = text.replace(
-                          "dependencies {",
-                          "dependencies {\n    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.1.4'"
-                      )
-
-              gradle.write_text(text)
+          if kotlin.exists():
+              text = kotlin.read_text()
+              if "isCoreLibraryDesugaringEnabled = true" not in text:
+                  text = text.replace(
+                      "compileOptions {",
+                      "compileOptions {\n        isCoreLibraryDesugaringEnabled = true"
+                  )
+              if "desugar_jdk_libs" not in text:
+                  text = text.replace(
+                      "dependencies {",
+                      "dependencies {\n    coreLibraryDesugaring(\"com.android.tools:desugar_jdk_libs:2.1.4\")"
+                  )
+              kotlin.write_text(text)
           PY2
-
-      - name: Get dependencies
-        run: flutter pub get
-
-      - name: Build debug APK
-        run: flutter build apk --debug --dart-define=ENABLE_CALENDAR=false --dart-define=ENABLE_PDF_EXPORT=false --dart-define=ENABLE_SHARE_FILES=false --dart-define=ENABLE_SMART_NOTIFICATIONS=false
-
-      - name: Upload debug APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: smart-day-planner-debug-apk
-          path: build/app/outputs/flutter-apk/app-debug.apk
