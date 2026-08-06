@@ -5,6 +5,7 @@ import '../models/work_time_settings.dart';
 import '../utils/persian_format.dart';
 import 'advanced_habit_learning_service.dart';
 import 'ai_brain_service.dart';
+import 'feedback_learning_service.dart';
 import 'predictive_scheduler_service.dart';
 import 'debt_repayment_planner.dart';
 import 'finance_insights_service.dart';
@@ -409,6 +410,16 @@ class RuleBasedLocalAssistant implements LocalLlmAdapter {
       ],
     ),
     NluIntent(
+      id: 'feedback_positive',
+      priority: 75,
+      patterns: ['خوب بود', 'عالی بود', 'دمت گرم', 'ممنون خوب بود', 'پیشنهاد خوب', 'خوبه', '👍'],
+    ),
+    NluIntent(
+      id: 'feedback_negative',
+      priority: 75,
+      patterns: ['بد بود', 'به درد نخورد', 'اشتباه بود', 'پیشنهاد بد', 'بد', '👎', 'نمی‌خوام'],
+    ),
+    NluIntent(
       id: 'forecast_30',
       priority: 68,
       patterns: [
@@ -500,6 +511,10 @@ class RuleBasedLocalAssistant implements LocalLlmAdapter {
         return _morningBriefing(tasks);
       case 'forecast_30':
         return _forecast30(tasks);
+      case 'feedback_positive':
+        return await _handleFeedback(tasks, true);
+      case 'feedback_negative':
+        return await _handleFeedback(tasks, false);
       case 'small_talk':
         return 'من که همیشه سرحالم؛ چون وظیفه‌ام کمک به توئه. 😊 از کجا شروع کنیم؟';
       default:
@@ -924,6 +939,13 @@ class RuleBasedLocalAssistant implements LocalLlmAdapter {
       buf.writeln('💳 بدهی: ${PersianFormat.money(brain.debtPlan!.totalRemaining)}');
     }
     return buf.toString();
+  }
+
+  Future<String> _handleFeedback(List<Task> tasks, bool positive) async {
+    final svc = FeedbackLearningService();
+    await svc.recordFeedback(suggestionType: 'general', type: positive ? FeedbackType.positive : FeedbackType.negative);
+    if (positive) return 'ممنون! 😊 یاد گرفتم این مدل پیشنهاد رو بیشتر بدم. باز هم بگو چی دوست داری.';
+    return 'متوجه شدم 🙏 یاد گرفتم این مدل پیشنهاد رو کمتر بدم. دفعه بعد بهتر پیشنهاد می‌دم.';
   }
 
   String _forecast30(List<Task> tasks) {
