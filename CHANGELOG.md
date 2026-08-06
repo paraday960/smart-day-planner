@@ -1,5 +1,19 @@
 # Changelog
 
+## Unreleased — ارتقای امنیت بکاپ + تمیزکاری 🔒
+
+### امنیت
+- `BackupService`: مهاجرت از AES-CBC (بدون احراز اصالت) به **AES-GCM** برای رمزنگاری بکاپ — دستکاری فایل یا رمز اشتباه حالا تشخیص داده می‌شود.
+- استخراج کلید بکاپ از `sha256(prefix|passphrase)` (بدون نمک) به **PBKDF2-HMAC-SHA256** با نمک تصادفی و ۲۰۰٬۰۰۰ تکرار تغییر کرد.
+- قالب بکاپ به نسخهٔ ۲ ارتقا یافت؛ بکاپ‌های قدیمی (نسخهٔ ۱) قابل بازیابی نیستند.
+- تست‌ها: بررسی قالب جدید، نمک/IV تصادفی، و تشخیص دستکاری (authenticity).
+
+### تمیزکاری و هم‌راستا کردن
+- حذف کد مردهٔ `HomeCoordinatorV2`/`HomeCoordinatorFactory` و provider مربوطه؛ `HomeCoordinator` اصلی (پیاده‌ساز Portها) تنها مسیر است.
+- حذف `FeatureFlags.hasRiskyPlatformFeatureEnabled` (بلااستفاده در تولید).
+- هم‌راستا کردن `lib/app_config.dart` با `android/app/build.gradle.kts` و `pubspec.yaml` (packageName و نسخه).
+- افزودن `docs/KNOWN_GAPS.md`: نقشهٔ راه تکمیل شکاف‌های شناخته‌شده (LLM محلی، Vosk، iOS، وب).
+
 ## 1.0.0+1 — انتشار رسمی 🎉 (فاز نهایی)
 
 ### آماده انتشار

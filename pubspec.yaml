@@ -22,6 +22,8 @@ dependencies:
   shamsi_date: ^1.0.2
   crypto: ^3.0.5
   encrypt: ^5.0.3
+  # رمزنگاری امن: PBKDF2 برای استخراج کلید و AES-GCM برای رمزنگاری احرازشده
+  pointycastle: ^3.9.1
   device_calendar: ^4.3.3
   pdf: ^3.11.1
   path_provider: ^2.1.4

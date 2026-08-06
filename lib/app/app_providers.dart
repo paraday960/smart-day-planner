@@ -10,8 +10,6 @@ import '../application/dashboard/dashboard_controller.dart';
 import '../application/finance/finance_actions_controller.dart';
 import '../application/finance/finance_controller.dart';
 import '../application/home/home_coordinator.dart';
-import '../application/home/home_coordinator_factory.dart';
-import '../application/home/home_coordinator_v2.dart';
 import '../application/tasks/task_actions_controller.dart';
 import '../domain/usecases/calculate_required_daily_income.dart';
 import '../services/allocation_repository.dart';
@@ -243,16 +241,4 @@ final homeCoordinatorProvider = Provider<HomeCoordinator>((ref) {
     securityActions: ref.watch(securityActionsControllerProvider),
     reportActions: ref.watch(reportActionsControllerProvider),
   );
-});
-
-final homeCoordinatorFactoryProvider =
-    Provider<HomeCoordinatorFactory>((ref) => const HomeCoordinatorFactory());
-
-final homeCoordinatorV2Provider = Provider<HomeCoordinatorV2>((ref) {
-  return ref.watch(homeCoordinatorFactoryProvider).create(
-        tasks: ref.watch(taskRepositoryProvider),
-        finance: ref.watch(financeRepositoryProvider),
-        debts: ref.watch(debtRepositoryProvider),
-        allocations: ref.watch(allocationRepositoryProvider),
-      );
 });
