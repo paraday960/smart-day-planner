@@ -1,12 +1,14 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+import 'package:smart_day_planner/models/debt_item.dart';
 import 'package:smart_day_planner/models/finance_transaction.dart';
 import 'package:smart_day_planner/models/task.dart';
+import 'package:smart_day_planner/models/work_time_settings.dart';
 import 'package:smart_day_planner/services/finance_insights_service.dart';
 import 'package:smart_day_planner/services/finance_repository.dart';
-import 'package:smart_day_planner/models/work_time_settings.dart';
 import 'package:smart_day_planner/services/local_assistant.dart';
+import 'package:smart_day_planner/services/work_learning_service.dart';
 
 Task _task({
   required String id,
@@ -220,6 +222,84 @@ void main() {
           prompt: 'برنامه امروزمو بچین', tasks: _sampleTasks());
       expect(answer, contains('با رعایت ساعت کاری'));
       expect(answer, contains('۸ تا ۱۷'));
+    });
+  });
+
+  group('RuleBasedLocalAssistant: حل مسئلهٔ پرداخت بدهی', () {
+    final now = DateTime.now();
+    final debts = [
+      DebtItem(
+        id: 'd1',
+        type: DebtType.debt,
+        personName: 'علی',
+        amount: 20000000,
+        dueAt: now.add(const Duration(days: 30)),
+        createdAt: now,
+      ),
+      DebtItem(
+        id: 'd2',
+        type: DebtType.debt,
+        personName: 'محمد',
+        amount: 5000000,
+        dueAt: now.add(const Duration(days: 30)),
+        createdAt: now,
+      ),
+      DebtItem(
+        id: 'd3',
+        type: DebtType.debt,
+        personName: 'حسن',
+        amount: 1000000,
+        dueAt: now.add(const Duration(days: 30)),
+        createdAt: now,
+      ),
+    ];
+
+    // پروفایل: ۳۰۰ هزار در ساعت، ۲ ساعت کار در روز → توان ۶۰۰ هزار/روز
+    final profile = WorkProfile(
+      avgDailyWorkMinutes: 120,
+      avgHourlyRate: 300000,
+      dailyEarningCapacity: 600000,
+      historyDays: 5,
+      sampleCount: 6,
+    );
+
+    final repaymentAssistant = RuleBasedLocalAssistant(
+      context: AssistantContext(
+        debts: debts,
+        workProfile: profile,
+      ),
+    );
+
+    test('برنامهٔ پرداخت → مجموع، اولویت و نیاز روزانه', () async {
+      final answer = await repaymentAssistant.generate(
+          prompt: 'برنامه پرداخت بدهی‌ها چیه؟', tasks: const []);
+      // مجموع ۲۶ میلیون
+      expect(answer, contains('۲۶٬۰۰۰٬۰۰۰'));
+      // اولویت‌بندی
+      expect(answer, contains('اولویت پرداخت'));
+      expect(answer, contains('علی'));
+      expect(answer, contains('محمد'));
+      expect(answer, contains('حسن'));
+      // نیاز روزانه: ۲۶ میلیون / ۳۰ روز ≈ ۸۶۷ هزار
+      expect(answer, contains('روزی'));
+      // ساعت لازم با درآمد ساعتی
+      expect(answer, contains('ساعت کار در روز'));
+    });
+
+    test('بدون بدهی → پیام مناسب', () async {
+      final empty = RuleBasedLocalAssistant(
+        context: const AssistantContext(),
+      );
+      final answer =
+          await empty.generate(prompt: 'برنامه پرداخت بدهی', tasks: const []);
+      expect(answer, contains('بدهی فعالی نداری'));
+    });
+
+    test('پرسش «چقدر کار کنم تا قسط‌ها تموم شه» → برنامهٔ پرداخت', () async {
+      final answer = await repaymentAssistant.generate(
+          prompt: 'چقدر کار کنم تا قسط‌هام تموم شه؟', tasks: const []);
+      expect(answer, contains('مجموع بدهی‌هایت'));
+      expect(answer, contains('ساعت کار در روز'));
     });
   });
 }

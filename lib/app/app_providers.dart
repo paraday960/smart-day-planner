@@ -38,6 +38,7 @@ import '../services/habit_insight_service.dart';
 import '../services/hybrid_local_assistant.dart';
 import '../services/llama_backend.dart';
 import '../services/local_assistant.dart';
+import '../services/work_learning_service.dart';
 import '../services/notification_service.dart';
 import '../services/planned_expense_repository.dart';
 import '../services/security_service.dart';
@@ -51,6 +52,8 @@ final smartPlannerProvider =
     Provider<SmartPlanner>((ref) => const SmartPlanner());
 final financeInsightsServiceProvider =
     Provider<FinanceInsightsService>((ref) => const FinanceInsightsService());
+final workLearningServiceProvider =
+    Provider<WorkLearningService>((ref) => const WorkLearningService());
 
 /// دستیار گفتگوی اصلی: هیبرید (LLM محلی واقعی + موتور قانون‌محور).
 ///
@@ -67,6 +70,11 @@ final assistantProvider = Provider<LocalLlmAdapter>((ref) {
         forecast: ref.watch(forecastServiceProvider),
         insights: ref.watch(financeInsightsServiceProvider),
         availability: ref.watch(availabilityRepositoryProvider).settings,
+        debts: ref.watch(debtRepositoryProvider).activeItems,
+        workProfile: ref.watch(workLearningServiceProvider).profile(
+          tasks: ref.watch(taskRepositoryProvider).tasks,
+          transactions: ref.watch(financeRepositoryProvider).transactions,
+        ),
       ),
     ),
   );

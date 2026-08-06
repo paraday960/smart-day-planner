@@ -103,6 +103,12 @@ class VoiceCommandProcessor {
     }
 
     if (_containsAny(text, ['بدهکارم', 'بدهکار هستم', 'بدهی دارم', 'طلب دارم', 'ازم طلب داره', 'ازش طلب دارم'])) {
+      // اگر چند نفر با مبالغ جدا در یک جمله باشند («به علی و محمد بدهکارم،
+      // به علی ۲۰ میل...») → ثبت دسته‌ای + محاسبهٔ برنامهٔ پرداخت
+      final multiNames = _extractMultiDebtPersons(text);
+      if (multiNames.length >= 2) {
+        return _handleMultiDebtCommand(rawText, text, multiNames);
+      }
       return _handleDebtCommand(rawText, text);
     }
 
@@ -435,6 +441,100 @@ class VoiceCommandProcessor {
     return 'پرداخت ${PersianFormat.money(payment)} برای بدهی ${best.personName} ثبت شد.';
   }
 
+  /// استخراج چند نام از «به علی و محمد و حسن بدهکارم».
+  /// اگر فقط یک نام باشد (یا الگو پیدا نشود) لیست خالی برمی‌گردد.
+  List<String> _extractMultiDebtPersons(String text) {
+    final normalized = _normalize(text);
+    final match = RegExp(r'به\s+(.+?)\s+بدهکارم').firstMatch(normalized);
+    if (match == null) return const [];
+
+    final rawNames = match.group(1)!;
+    // جدا کردن با «و» — ولی «و» داخل مبالغ (مثل «بیست و پنج») نیست چون
+    // این بخش قبل از «بدهکارم» فقط نام‌ها را دارد.
+    final names = rawNames
+        .split('و')
+        .map((n) => n.trim())
+        .where((n) => n.isNotEmpty && n.length <= 20)
+        .toList();
+    return names.length >= 2 ? names : const [];
+  }
+
+  /// ثبت دسته‌ای چند بدهی + محاسبهٔ فوری برنامهٔ پرداخت.
+  Future<String> _handleMultiDebtCommand(
+      String rawText, String text, List<String> persons) async {
+    final repo = debtRepository;
+    if (repo == null) return 'بخش بدهی و طلب هنوز به فرمان صوتی وصل نشده است.';
+
+    final dueAt = _guessDueAt(text) ?? DateTime.now().add(const Duration(days: 30));
+    final type = _containsAny(text, ['طلب دارم', 'ازش طلب دارم'])
+        ? DebtType.receivable
+        : DebtType.debt;
+
+    // برای هر نام، مبلغ مخصوصش را پیدا کن («به علی ۲۰ میل، به محمد پنج میل»)
+    final registered = <String, int>{};
+    for (final person in persons) {
+      final amount = _extractAmountForPerson(text, person);
+      if (amount == null || amount <= 0) continue;
+
+      final item = DebtItem(
+        id: DateTime.now().microsecondsSinceEpoch.toString() + person,
+        type: type,
+        personName: person,
+        amount: amount,
+        dueAt: dueAt,
+        createdAt: DateTime.now(),
+        notes: rawText.trim(),
+      );
+      await repo.add(item);
+      registered[person] = amount;
+    }
+
+    if (registered.isEmpty) {
+      return 'چند نفر را شنیدم ولی مبلغ‌ها را کامل نفهمیدم. مثال: «به علی و محمد بدهکارم، به علی ۲۰ میلیون، به محمد پنج میلیون، تا ماه آینده».';
+    }
+
+    // ── محاسبهٔ برنامهٔ پرداخت ──
+    final total = registered.values.fold<int>(0, (a, b) => a + b);
+    final now = DateTime.now();
+    final horizonDays = DateTime(dueAt.year, dueAt.month, dueAt.day)
+            .difference(DateTime(now.year, now.month, now.day))
+            .inDays >
+        0
+        ? DateTime(dueAt.year, dueAt.month, dueAt.day)
+            .difference(DateTime(now.year, now.month, now.day))
+            .inDays
+        : 1;
+    final requiredDaily = (total / horizonDays).ceil();
+    final hourly = financeRepository.averageHourlyRate();
+    final requiredHours = hourly > 0 ? requiredDaily / hourly : 0.0;
+
+    final buffer = StringBuffer()
+      ..writeln('${PersianFormat.digits(registered.length)} بدهی ثبت شد:')
+      ..writeln(registered.entries
+          .map((e) => '• ${e.key}: ${PersianFormat.money(e.value)}')
+          .join('\n'))
+      ..writeln('مجموع: ${PersianFormat.money(total)}، مهلت: ${PersianFormat.jalaliDate(dueAt)} (${PersianFormat.digits(horizonDays)} روز).')
+      ..writeln('برای پرداخت همه باید روزی حدود ${PersianFormat.money(requiredDaily)} در بیاوری.');
+    if (hourly > 0) {
+      buffer.writeln('با میانگین درآمد ساعتی ${PersianFormat.money(hourly.round())}، یعنی ${PersianFormat.digits(requiredHours.toStringAsFixed(requiredHours >= 10 ? 0 : 1))} ساعت کار در روز.');
+    } else {
+      buffer.writeln('برای محاسبهٔ ساعت دقیق، چند کار درآمدزا با زمان واقعی ثبت کن.');
+    }
+    buffer.writeln('اولویت با فوری‌ترین مهلت است؛ برای برنامهٔ کامل بگو «برنامه پرداخت بدهی‌ها».');
+    return buffer.toString();
+  }
+
+  /// پیدا کردن مبلغ اختصاصی یک شخص: «به <نام> <مبلغ>».
+  int? _extractAmountForPerson(String text, String person) {
+    final normalized = _normalize(text);
+    final match = RegExp('به\\s*$person\\s*(.+?)(?=به\\s|\\،|،|\\.|$)')
+        .firstMatch(normalized);
+    if (match == null) return null;
+    final segment = match.group(1)!;
+    final amount = _parseAmount(segment);
+    return amount > 0 ? amount : null;
+  }
+
   Future<String> _handleDebtCommand(String rawText, String text) async {
     final repo = debtRepository;
     if (repo == null) return 'بخش بدهی و طلب هنوز به فرمان صوتی وصل نشده است.';
@@ -698,6 +798,28 @@ class VoiceCommandProcessor {
 
   DateTime? _guessDueAt(String text) {
     final now = DateTime.now();
+
+    // ── مهلت‌های «ماه» ──
+    // «تا ماه آینده» / «ماه دیگه» / «ماه بعد» → آخر ماه بعد
+    if (_containsAny(text, ['تا ماه آینده', 'ماه آینده', 'ماه دیگه', 'ماه بعد', 'تا ماه دیگه'])) {
+      final next = DateTime(now.year, now.month + 1, 1);
+      return DateTime(next.year, next.month + 1, 0, 23, 59);
+    }
+    // «تا ۲ ماه دیگه» / «تا ۱ ماه دیگر»
+    final monthsDigit = RegExp(r'تا\s+(\d+)\s*ماه\s*(دیگه|دیگر|بعد)?').firstMatch(text);
+    if (monthsDigit != null) {
+      final m = int.parse(monthsDigit.group(1)!);
+      final target = DateTime(now.year, now.month + m, 1);
+      return DateTime(target.year, target.month + 1, 0, 23, 59);
+    }
+    final monthsWord = RegExp(r'تا\s+(\S+)\s*ماه\s*(دیگه|دیگر|بعد)?').firstMatch(text);
+    if (monthsWord != null) {
+      final m = _parseSmallNumber(monthsWord.group(1)!);
+      if (m != null) {
+        final target = DateTime(now.year, now.month + m, 1);
+        return DateTime(target.year, target.month + 1, 0, 23, 59);
+      }
+    }
 
     final relativeMinutes = RegExp(r'تا\s+(\d+)\s*(دقیقه|مین)\s*(دیگه|دیگر)?').firstMatch(text);
     if (relativeMinutes != null) {

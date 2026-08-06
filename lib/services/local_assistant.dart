@@ -1,13 +1,16 @@
+import '../models/debt_item.dart';
 import '../models/finance_transaction.dart';
 import '../models/task.dart';
 import '../models/work_time_settings.dart';
 import '../utils/persian_format.dart';
+import 'debt_repayment_planner.dart';
 import 'finance_insights_service.dart';
 import 'finance_repository.dart';
 import 'forecast_service.dart';
 import 'persian_nlu.dart';
 import 'smart_planner.dart';
 import 'time_aware_planner.dart';
+import 'work_learning_service.dart';
 
 /// قرارداد اتصال LLM آفلاین واقعی.
 /// بعداً می‌توانی این را با llama.cpp / ONNX / TFLite پیاده‌سازی کنی.
@@ -25,6 +28,9 @@ class AssistantContext {
     this.forecast = const ForecastService(),
     this.insights = const FinanceInsightsService(),
     this.availability,
+    this.debts,
+    this.workProfile = WorkProfile.empty,
+    this.repaymentPlanner = const DebtRepaymentPlanner(),
   });
 
   final FinanceRepository? finance;
@@ -34,6 +40,15 @@ class AssistantContext {
   /// تنظیمات ساعت کاری/تعطیلات کاربر (از تنظیمات برنامه).
   /// اگر null باشد، دستیار با پنجرهٔ پیش‌فرض ۹ تا ۱۸ برنامه می‌چیند.
   final WorkTimeSettings? availability;
+
+  /// بدهی‌های فعال کاربر (برای برنامهٔ پرداخت).
+  final List<DebtItem>? debts;
+
+  /// پروفایل کاریِ یادگرفته‌شده از سابقه (برای امکان‌سنجی پرداخت).
+  final WorkProfile workProfile;
+
+  /// موتور محاسبهٔ برنامهٔ پرداخت.
+  final DebtRepaymentPlanner repaymentPlanner;
 }
 
 /// نسخهٔ ارتقایافتهٔ دستیار قانون‌محور (بدون هیچ LLM).
@@ -299,6 +314,32 @@ class RuleBasedLocalAssistant implements LocalLlmAdapter {
       ],
     ),
     NluIntent(
+      id: 'repayment_plan',
+      priority: 65,
+      patterns: [
+        'بدهیهام کی تموم',
+        'بدهیهام کی تموم میشه',
+        'کی تموم میشه',
+        'برنامه پرداخت',
+        'برنامه پرداخت بدهی',
+        'چقدر کار کنم تا',
+        'قسط',
+        'قسط ها',
+        'قسطها',
+        'تا ماه آینده',
+        'پرداخت بدهی',
+        'میتونم پرداخت کنم',
+        'میتونم پس بدم',
+        'اول کدوم بدهی',
+        'کدوم بدهی اول',
+        'الویت بدهی',
+        'اولویت بدهی',
+        'کی میتونم بدم',
+        'کی میتونم پرداخت کنم',
+        'بدهیام',
+      ],
+    ),
+    NluIntent(
       id: 'small_talk',
       priority: 20,
       patterns: ['حالت چطوره', 'چه خبر', 'خوبی', 'چطوری', 'حال و احوالت'],
@@ -348,6 +389,8 @@ class RuleBasedLocalAssistant implements LocalLlmAdapter {
         return _catchUp(tasks);
       case 'motivation':
         return _motivation(tasks);
+      case 'repayment_plan':
+        return _repaymentPlan();
       case 'small_talk':
         return 'من که همیشه سرحالم؛ چون وظیفه‌ام کمک به توئه. 😊 از کجا شروع کنیم؟';
       default:
@@ -606,6 +649,69 @@ class RuleBasedLocalAssistant implements LocalLlmAdapter {
     final small = shortest.first;
     return 'حسش رو درک می‌کنم. 🌱 پیشنهاد: فقط «${small.title}» را انجام بده (حدود ${PersianFormat.minutes(small.estimatedMinutes)}). '
         'شروع کوچک، مغز را به حرکت درمی‌آورد و ادامه‌اش راحت‌تر می‌شود. بعدش دوباره از من بپرس.';
+  }
+
+  /// پاسخ «حل مسئلهٔ پرداخت بدهی» با استفاده از سابقهٔ کاربر.
+  String _repaymentPlan() {
+    final debts = _context.debts;
+    if (debts == null || debts.isEmpty) {
+      return 'بدهی فعالی نداری که برنامهٔ پرداخت برایش بچینم. اگر بدهی داری، بگو: «به ممد دو میلیون بدهکارم تا آخر ماه».';
+    }
+
+    final profile = _context.workProfile;
+    final planner = _context.repaymentPlanner;
+
+    final plan = planner.plan(
+      debts: debts
+          .map((d) => RepaymentDebt(
+                personName: d.personName,
+                amount: d.remainingAmount,
+                dueAt: d.dueAt,
+              ))
+          .toList(),
+      profile: profile,
+    );
+
+    if (plan.totalRemaining <= 0) {
+      return 'مجموع باقی‌ماندهٔ بدهی‌هایت صفر است؛ همه چیز پرداخت شده. 🎉';
+    }
+
+    final buffer = StringBuffer()
+      ..writeln('مجموع بدهی‌هایت: ${PersianFormat.money(plan.totalRemaining)}.')
+      ..writeln('اولویت پرداخت:')
+      ..writeln(plan.priority
+          .take(5)
+          .map((d) => '${PersianFormat.digits(d.rank)}. ${d.personName} — ${PersianFormat.money(d.amount)} (${PersianFormat.digits(d.daysLeft)} روز مانده)')
+          .join('\n'));
+
+    // محاسبهٔ نیاز روزانه
+    buffer
+      ..writeln('تا فوری‌ترین مهلت (${plan.horizonLabel}) باید روزی حدود ${PersianFormat.money(plan.requiredDailyEarning)} در بیاوری.');
+
+    // با درآمد ساعتی یادگرفته‌شده
+    if (profile.avgHourlyRate > 0) {
+      buffer.writeln('با میانگین درآمد ساعتی ${PersianFormat.money(profile.avgHourlyRate.round())}، یعنی حدود ${plan.requiredHoursLabel} کار در روز.');
+
+      if (plan.feasible) {
+        buffer.writeln('✅ شدنی است.');
+      } else {
+        buffer.writeln('⚠️ با ساعت‌های معقول (تا ${PersianFormat.digits(DebtRepaymentPlanner.maxReasonableHoursPerDay.round())} ساعت در روز) نمی‌رسد؛ یا مهلت را تمدید کن یا بدهی را بازپرداخت جزئی کن.');
+      }
+    } else {
+      buffer.writeln('برای دقیق‌تر شدن محاسبه، چند کار درآمدزا را با زمان واقعی ثبت کن تا درآمد ساعتی‌ات را یاد بگیرم.');
+    }
+
+    // تاریخ پایان با توان یادگرفته‌شده
+    if (profile.hasEnoughData && profile.dailyEarningCapacity > 0) {
+      final payoff = plan.estimatedPayoffDate;
+      if (payoff != null) {
+        buffer.writeln('با روند فعلیات (${PersianFormat.minutes(profile.avgDailyWorkMinutes.round())} کار در روز ≈ ${PersianFormat.money(profile.dailyEarningCapacity.round())} درآمد روزانه)، همهٔ بدهی‌ها حدود ${PersianFormat.jalaliDate(payoff)} تموم می‌شود.');
+      }
+    } else if (!plan.feasible && profile.hasEnoughData) {
+      buffer.writeln('برای رسیدن باید روزی حدود ${PersianFormat.digits((plan.requiredHoursPerDay).toStringAsFixed(0))} ساعت کار کنی — بیشتر از روند فعلیات.');
+    }
+
+    return buffer.toString();
   }
 
   String _dailyBrief(List<Task> tasks) {
