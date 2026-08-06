@@ -1,4 +1,5 @@
 import 'package:device_calendar/device_calendar.dart';
+import 'package:timezone/timezone.dart' as tz;
 
 import '../domain/services/calendar_service_port.dart';
 
@@ -38,7 +39,7 @@ class CalendarService implements CalendarServicePort {
         if (start == null || eventEnd == null) continue;
         result.add(CalendarEventSummary(
           title: event.title ?? 'رویداد بدون عنوان',
-          start: start,
+          start: tz.TZDateTime.from(start, tz.local),
           end: eventEnd,
           calendarName: calendar.name ?? 'تقویم',
         ));
@@ -67,8 +68,8 @@ class CalendarService implements CalendarServicePort {
       writable.first.id,
       title: title,
       description: description,
-      start: start,
-      end: end,
+      start: tz.TZDateTime.from(start, tz.local),
+      end: tz.TZDateTime.from(end, tz.local),
     );
     final result = await _plugin.createOrUpdateEvent(event);
     return result?.isSuccess ?? false;

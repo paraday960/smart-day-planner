@@ -7,6 +7,7 @@ import '../domain/services/notification_service_port.dart';
 import '../domain/services/voice_response_port.dart';
 import '../models/debt_item.dart';
 import '../models/finance_transaction.dart';
+import '../models/money_allocation.dart';
 import '../models/planned_expense_goal.dart';
 import '../models/task.dart';
 import '../application/actions/report_actions_controller.dart';
