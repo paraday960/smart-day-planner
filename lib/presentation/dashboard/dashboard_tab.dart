@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../app/app_providers.dart';
 import '../../models/task.dart';
 import '../../utils/persian_format.dart';
+import '../shared/empty_state_widget.dart';
 import '../shared/goal_progress_card.dart';
 import '../shared/metric_card.dart';
 import '../shared/plan_card.dart';
@@ -74,6 +75,8 @@ class DashboardTab extends ConsumerWidget {
           ),
         ),
         if (state.brainProfile != null) const SizedBox(height: 12),
+        if (tasks.isEmpty && financeRepository.transactions.isEmpty)
+          EmptyStateWidget(icon: Icons.waving_hand, title: 'خوش اومدی! 👋', subtitle: 'هنوز با هم آشنا نشدیم — ۳ تا کار و ۲ تا هزینه ثبت کن تا مغز هوشمندت رو بشناسمت', hint: 'دستیار همه رو خودکار انجام می‌ده، فقط بگو: «همه اطلاعات رو نشون بده»', actionLabel: 'شروع با دستیار', onAction: () => DefaultTabController.of(context).animateTo(3)),
         Card.filled(
           child: ListTile(
             leading: const Icon(Icons.today),

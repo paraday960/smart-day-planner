@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../app/app_providers.dart';
 import '../../models/task.dart';
 import '../../utils/persian_format.dart';
+import '../shared/empty_state_widget.dart';
 
 class TasksTab extends ConsumerWidget {
   const TasksTab({
@@ -35,9 +36,7 @@ class TasksTab extends ConsumerWidget {
         Text('کارهای باز', style: Theme.of(context).textTheme.titleLarge),
         const SizedBox(height: 8),
         if (open.isEmpty)
-          const Card.outlined(
-            child: Padding(padding: EdgeInsets.all(16), child: Text('کاری باز نیست.')),
-          )
+          EmptyStateWidget(icon: Icons.checklist_outlined, title: 'هنوز کاری نساختی', subtitle: 'اولین کارت رو بساز تا دستیار هوشمند برنامه‌ات رو بچینه', hint: 'بگو: «کار جدید: تماس با مشتری فردا ساعت ۱۰» یا دکمه + پایین رو بزن', actionLabel: 'فهمیدم', onAction: () {})
         else
           ...open.map(
             (task) => TaskCard(
@@ -55,9 +54,7 @@ class TasksTab extends ConsumerWidget {
         Text('انجام‌شده‌ها', style: Theme.of(context).textTheme.titleLarge),
         const SizedBox(height: 8),
         if (done.isEmpty)
-          const Card.outlined(
-            child: Padding(padding: EdgeInsets.all(16), child: Text('هنوز کاری کامل نشده.')),
-          )
+          const Card.outlined(child: Padding(padding: EdgeInsets.all(16), child: Text('هنوز کاری کامل نشده — یه کار باز رو تکمیل کن!')))
         else
           ...done.map(
             (task) => TaskCard(

@@ -7,6 +7,7 @@ import '../../models/finance_transaction.dart';
 import '../../models/planned_expense_goal.dart';
 import '../../services/chart_insight_service.dart';
 import '../../utils/persian_format.dart';
+import '../shared/empty_state_widget.dart';
 
 class FinanceTab extends ConsumerWidget {
   const FinanceTab({
@@ -85,6 +86,7 @@ class FinanceTab extends ConsumerWidget {
     final expenseShares = chartInsightService.monthlyExpenseCategoryShares(repository);
     final suggestions = assistant.suggestions(repository);
 
+    final hasData = financeRepository.transactions.isNotEmpty;
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
       children: [
