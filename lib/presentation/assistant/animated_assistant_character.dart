@@ -24,6 +24,7 @@ class _AnimatedAssistantCharacterState extends State<AnimatedAssistantCharacter>
   late AnimationController _notebookController;
   late AnimationController _penController;
   late AnimationController _swayController;
+  late AnimationController _3dController;
 
   @override
   void initState() {
@@ -43,6 +44,7 @@ class _AnimatedAssistantCharacterState extends State<AnimatedAssistantCharacter>
     _notebookController = AnimationController(vsync: this, duration: const Duration(milliseconds: 600));
     _penController = AnimationController(vsync: this, duration: const Duration(milliseconds: 400))..repeat(reverse: true);
     _swayController = AnimationController(vsync: this, duration: const Duration(milliseconds: 3000))..repeat(reverse: true);
+    _3dController = AnimationController(vsync: this, duration: const Duration(milliseconds: 4000))..repeat(reverse: true);
   }
 
   @override
@@ -69,6 +71,7 @@ class _AnimatedAssistantCharacterState extends State<AnimatedAssistantCharacter>
     _notebookController.dispose();
     _penController.dispose();
     _swayController.dispose();
+    _3dController.dispose();
     super.dispose();
   }
 
@@ -76,7 +79,21 @@ class _AnimatedAssistantCharacterState extends State<AnimatedAssistantCharacter>
   Widget build(BuildContext context) {
     final size = widget.size;
     return AnimatedBuilder(
-      animation: _swayController,
+      animation: _3dController,
+      builder: (_, child3d) {
+        final rotY = (math.sin(_3dController.value * math.pi * 2) * 0.08); // ~4.5 درجه
+        final rotX = (math.cos(_swayController.value * math.pi * 2) * 0.04);
+        return Transform(
+          alignment: Alignment.center,
+          transform: Matrix4.identity()
+            ..setEntry(3, 2, 0.0015)
+            ..rotateY(rotY)
+            ..rotateX(rotX),
+          child: child3d,
+        );
+      },
+      child: AnimatedBuilder(
+        animation: _swayController,
       builder: (_, child) {
         final sway = math.sin(_swayController.value * math.pi * 2) * 1.5;
         return Transform.translate(offset: Offset(sway, 0), child: child);
@@ -222,8 +239,20 @@ class _AnimatedAssistantCharacterState extends State<AnimatedAssistantCharacter>
                 )),
               ),
             ),
-          // دفتر یادداشت متحرک
-          SlideTransition(
+          // دفتر یادداشت سه‌بعدی با flip
+          AnimatedBuilder(
+            animation: _notebookController,
+            builder: (_, child) {
+              final flip = (1 - _notebookController.value) * 1.2; // از افقی به عمودی
+              return Transform(
+                alignment: Alignment.bottomCenter,
+                transform: Matrix4.identity()
+                  ..setEntry(3, 2, 0.002)
+                  ..rotateX(flip),
+                child: child,
+              );
+            },
+            child: SlideTransition(
             position: Tween<Offset>(begin: const Offset(0, 0.8), end: Offset.zero).animate(CurvedAnimation(parent: _notebookController, curve: Curves.easeOutBack)),
             child: FadeTransition(
               opacity: _notebookController,
@@ -304,6 +333,7 @@ class _AnimatedAssistantCharacterState extends State<AnimatedAssistantCharacter>
               ),
             ),
           ),
+          ),
           // فکر کردن: حباب
           if (widget.mood == AssistantMood.thinking)
             Positioned(
@@ -333,6 +363,7 @@ class _AnimatedAssistantCharacterState extends State<AnimatedAssistantCharacter>
               ),
             ),
         ],
+        ),
         ),
       ),
     );
