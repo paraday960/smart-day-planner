@@ -1,8 +1,8 @@
 import 'dart:convert';
+import 'dart:math';
 import 'dart:typed_data';
 
-import 'package:crypto/crypto.dart';
-import 'package:encrypt/encrypt.dart' as enc;
+import 'package:pointycastle/export.dart';
 
 import '../models/category_budget.dart';
 import '../models/debt_item.dart';
@@ -11,8 +11,23 @@ import '../models/money_allocation.dart';
 import '../models/planned_expense_goal.dart';
 import '../models/task.dart';
 
+/// رمزنگاری امن بکاپ با:
+///  - استخراج کلید با PBKDF2-HMAC-SHA256 (نمک اختصاصی + تکرار بالا) به‌جای SHA-256 خام
+///  - رمزنگاری با AES-GCM (محرمانگی + احراز اصالت) به‌جای AES-CBC بدون MAC
+///
+/// قبل از تغییر: کلید از sha256(prefix|passphrase) بدون نمک استخراج می‌شد و
+/// AES-CBC بدون MAC استفاده می‌شد (قابلیت دستکاری بایت‌ها). الان کلید از
+/// PBKDF2 با نمک تصادفی و تکرار زیاد می‌آید و GCM هم اصالت را تضمین می‌کند.
 class BackupService {
   const BackupService();
+
+  static const int _iterations = 200000;
+  static const int _saltLength = 16;
+  static const int _nonceLength = 12; // 96-bit nonce استاندارد GCM
+
+  /// [backupFormatVersion] نسخهٔ قالب بکاپ است. نسخهٔ ۲ یعنی قالب امن جدید.
+  /// بکاپ‌های قدیمی (نسخهٔ ۱) دیگر قابل بازیابی نیستند.
+  static const int backupFormatVersion = 2;
 
   String createEncryptedBackup({
     required List<Task> tasks,
@@ -47,17 +62,21 @@ class BackupService {
       },
     };
 
-    final plain = jsonEncode(payload);
-    final key = _keyFromPassphrase(passphrase);
-    final iv = enc.IV.fromSecureRandom(16);
-    final encrypter = enc.Encrypter(enc.AES(key, mode: enc.AESMode.cbc));
-    final encrypted = encrypter.encrypt(plain, iv: iv);
+    final plain = utf8.encode(jsonEncode(payload));
+
+    final salt = _randomBytes(_saltLength);
+    final nonce = _randomBytes(_nonceLength);
+    final key = _deriveKey(passphrase, salt, _iterations);
+
+    final encrypted = _aesGcmEncrypt(key: key, nonce: nonce, plaintext: plain);
 
     return jsonEncode({
       'type': 'smart_day_planner_encrypted_backup',
-      'version': 1,
-      'iv': iv.base64,
-      'data': encrypted.base64,
+      'format': backupFormatVersion,
+      'salt': base64Encode(salt),
+      'iterations': _iterations,
+      'iv': base64Encode(nonce),
+      'data': base64Encode(encrypted),
     });
   }
 
@@ -67,12 +86,34 @@ class BackupService {
       throw ArgumentError('فرمت بکاپ معتبر نیست.');
     }
 
-    final key = _keyFromPassphrase(passphrase);
-    final iv = enc.IV.fromBase64(wrapper['iv'] as String);
-    final encrypted = enc.Encrypted.fromBase64(wrapper['data'] as String);
-    final encrypter = enc.Encrypter(enc.AES(key, mode: enc.AESMode.cbc));
-    final plain = encrypter.decrypt(encrypted, iv: iv);
-    final payload = jsonDecode(plain) as Map<String, dynamic>;
+    final format = (wrapper['format'] as num?)?.toInt() ?? 1;
+    if (format != backupFormatVersion) {
+      throw ArgumentError(
+        'قالب بکاپ (نسخهٔ $format) پشتیبانی نمی‌شود. این نسخه فقط نسخهٔ $backupFormatVersion را می‌خواند.',
+      );
+    }
+
+    final salt = _base64Bytes(wrapper['salt'] as String);
+    final nonce = _base64Bytes(wrapper['iv'] as String);
+    final encrypted = _base64Bytes(wrapper['data'] as String);
+    final iterations = (wrapper['iterations'] as num?)?.toInt() ?? _iterations;
+    if (iterations < 1000) {
+      throw ArgumentError('بکاپ معتبر نیست: تعداد تکرار کلید خیلی کم است.');
+    }
+
+    final key = _deriveKey(passphrase, salt, iterations);
+
+    final Uint8List plain;
+    try {
+      plain = _aesGcmDecrypt(key: key, nonce: nonce, ciphertext: encrypted);
+    } on ArgumentError {
+      rethrow;
+    } catch (_) {
+      // GCM در صورت اشتباه بودن رمز یا دستکاری فایل در doFinal خطا می‌دهد.
+      throw ArgumentError('رمز بکاپ اشتباه است یا فایل دستکاری شده است.');
+    }
+
+    final payload = jsonDecode(utf8.decode(plain)) as Map<String, dynamic>;
 
     return RestoredBackup(
       tasks: ((payload['tasks'] as List<dynamic>?) ?? [])
@@ -99,9 +140,51 @@ class BackupService {
     );
   }
 
-  enc.Key _keyFromPassphrase(String passphrase) {
-    final digest = sha256.convert(utf8.encode('smart_day_planner|${passphrase.trim()}')).bytes;
-    return enc.Key(Uint8List.fromList(digest));
+  /// استخراج کلید از رمز عبور با PBKDF2-HMAC-SHA256 و نمک اختصاصی.
+  Uint8List _deriveKey(String passphrase, Uint8List salt, int iterations) {
+    final derivator = PBKDF2KeyDerivator(HMac(SHA256Digest(), 64))
+      ..init(Pbkdf2Parameters(salt, iterations, 32));
+    return derivator.process(utf8.encode(passphrase.trim())) as Uint8List;
+  }
+
+  /// AES-GCM با nonce ۹۶-بیت. خروجی شامل ciphertext + tag احراز اصالت است.
+  Uint8List _aesGcmEncrypt({
+    required Uint8List key,
+    required Uint8List nonce,
+    required Uint8List plaintext,
+  }) {
+    final cipher = GCMBlockCipher(AESEngine())
+      ..init(true, AEADParameters(KeyParameter(key), 128, nonce, Uint8List(0)));
+
+    final out = Uint8List(cipher.getOutputSize(plaintext.length));
+    final len1 = cipher.processBytes(plaintext, 0, plaintext.length, out, 0);
+    final len2 = cipher.doFinal(out, len1);
+    return Uint8List.sublistView(out, 0, len1 + len2);
+  }
+
+  Uint8List _aesGcmDecrypt({
+    required Uint8List key,
+    required Uint8List nonce,
+    required Uint8List ciphertext,
+  }) {
+    final cipher = GCMBlockCipher(AESEngine())
+      ..init(false, AEADParameters(KeyParameter(key), 128, nonce, Uint8List(0)));
+
+    final out = Uint8List(cipher.getOutputSize(ciphertext.length));
+    final len1 = cipher.processBytes(ciphertext, 0, ciphertext.length, out, 0);
+    final len2 = cipher.doFinal(out, len1);
+    return Uint8List.sublistView(out, 0, len1 + len2);
+  }
+
+  Uint8List _randomBytes(int length) {
+    final random = Random.secure();
+    return Uint8List.fromList(
+      List<int>.generate(length, (_) => random.nextInt(256)),
+    );
+  }
+
+  Uint8List _base64Bytes(String value) {
+    return Uint8List.fromList(base64Decode(value));
   }
 }
 
@@ -128,4 +211,3 @@ class RestoredBackup {
   final int monthlyIncomeGoal;
   final int dailyDeepWorkMinutes;
 }
-

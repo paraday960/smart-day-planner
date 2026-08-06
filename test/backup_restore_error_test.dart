@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:smart_day_planner/application/actions/backup_actions_controller.dart';
 
@@ -38,6 +40,43 @@ void main() {
         categoryBudgetRepository: FakeCategoryBudgetRepository(),
       ),
       throwsA(anything),
+    );
+  });
+
+  test('restoreBackup detects tampered backup (AES-GCM authenticity)', () async {
+    const controller = BackupActionsController();
+
+    final backup = controller.createBackup(
+      taskRepository: FakeTaskRepository(),
+      financeRepository: FakeFinanceRepository(),
+      goalRepository: FakeGoalRepository(),
+      plannedExpenseRepository: FakePlannedExpenseRepository(),
+      debtRepository: FakeDebtRepository(),
+      allocationRepository: FakeAllocationRepository(),
+      categoryBudgetRepository: FakeCategoryBudgetRepository(),
+      passphrase: 'correct-password',
+    );
+
+    // تغییر یک بایت از محتوای رمزنگاری‌شده → GCM باید خطا بدهد
+    final wrapper = jsonDecode(backup) as Map<String, dynamic>;
+    final data = base64Decode(wrapper['data'] as String);
+    data[0] = (data[0] ^ 0xFF);
+    wrapper['data'] = base64Encode(data);
+    final tampered = jsonEncode(wrapper);
+
+    await expectLater(
+      controller.restoreBackup(
+        encryptedBackup: tampered,
+        passphrase: 'correct-password',
+        taskRepository: FakeTaskRepository(),
+        financeRepository: FakeFinanceRepository(),
+        goalRepository: FakeGoalRepository(),
+        plannedExpenseRepository: FakePlannedExpenseRepository(),
+        debtRepository: FakeDebtRepository(),
+        allocationRepository: FakeAllocationRepository(),
+        categoryBudgetRepository: FakeCategoryBudgetRepository(),
+      ),
+      throwsArgumentError,
     );
   });
 }
