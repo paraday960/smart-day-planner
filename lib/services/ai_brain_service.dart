@@ -104,14 +104,46 @@ class AIBrainService {
   final SmartInsightsService smartInsights;
   final DebtRepaymentPlanner debtPlanner;
 
-  /// تحلیل جامع — ورودی همه داده‌های کاربر، خروجی یک پروفایل واحد
+  // کش ۵ دقیقه‌ای برای کارآمدی — UI گیر نمی‌کنه
+  static AIBrainProfile? _cachedProfile;
+  static DateTime? _cachedAt;
+  static int? _cachedHash;
+  static const _cacheTtl = Duration(minutes: 5);
+
+  static int _hashInputs(List<Task> tasks, List<FinanceTransaction> txs, List<DebtItem> debts) {
+    var h = tasks.length * 1000003 ^ txs.length * 9176 ^ debts.length * 31;
+    if (tasks.isNotEmpty) h ^= tasks.first.id.hashCode ^ tasks.last.id.hashCode;
+    if (txs.isNotEmpty) h ^= txs.first.id.hashCode;
+    return h;
+  }
+
+  static bool _isCacheValid(int hash) {
+    if (_cachedProfile == null || _cachedAt == null || _cachedHash == null) return false;
+    if (_cachedHash != hash) return false;
+    if (DateTime.now().difference(_cachedAt!) > _cacheTtl) return false;
+    return true;
+  }
+
+  /// پاک کردن کش (بعد از تغییر داده)
+  static void invalidateCache() {
+    _cachedProfile = null;
+    _cachedAt = null;
+    _cachedHash = null;
+  }
+
+  /// تحلیل جامع — ورودی همه داده‌های کاربر، خروجی یک پروفایل واحد (با کش ۵ دقیقه‌ای)
   AIBrainProfile analyze({
     required List<Task> tasks,
     required List<FinanceTransaction> transactions,
     required FinanceRepository finance,
     List<DebtItem> debts = const [],
     DateTime? now,
+    bool useCache = true,
   }) {
+    final hash = _hashInputs(tasks, transactions, debts);
+    if (useCache && _isCacheValid(hash)) {
+      return _cachedProfile!;
+    }
     final current = now ?? DateTime.now();
 
     // ۱. پروفایل‌های پایه
@@ -149,7 +181,7 @@ class AIBrainService {
     // ۶. بهترین اقدام بعدی
     final nextAction = _nextAction(tasks: tasks, habitProfile: habitProfile, health: health, debtPlan: debtPlan);
 
-    return AIBrainProfile(
+    final profile = AIBrainProfile(
       workProfile: workProfile,
       habitProfile: habitProfile,
       financeHealth: health,
@@ -159,6 +191,10 @@ class AIBrainService {
       mood: mood,
       nextAction: nextAction,
     );
+    _cachedProfile = profile;
+    _cachedAt = DateTime.now();
+    _cachedHash = hash;
+    return profile;
   }
 
   /// پیام صبح بخیر شخصی‌سازی شده
