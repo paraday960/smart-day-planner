@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../services/voice_response_service.dart';
+import 'animated_assistant_character.dart';
 
-class AssistantTab extends ConsumerWidget {
+class AssistantTab extends ConsumerStatefulWidget {
   const AssistantTab({super.key, 
     required this.controller,
     required this.answer,
@@ -38,44 +39,95 @@ class AssistantTab extends ConsumerWidget {
   final ValueChanged<bool> onVoiceResponseEnabledChanged;
   final ValueChanged<AssistantVoiceGender> onVoiceGenderChanged;
   final VoidCallback onTestVoice;
-
-  /// وضعیت موتور هوش (LLM محلی / قانونی) برای نمایش به کاربر.
   final String assistantStatusLabel;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<AssistantTab> createState() => _AssistantTabState();
+}
+
+class _AssistantTabState extends ConsumerState<AssistantTab> {
+  AssistantMood _mood = AssistantMood.idle;
+
+  @override
+  void didUpdateWidget(covariant AssistantTab oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // تشخیص حالت بر اساس متن جواب
+    if (widget.isListening) {
+      _mood = AssistantMood.listening;
+    } else if (widget.answer.contains('خودکار انجام شد') || widget.answer.contains('📒') || widget.answer.contains('ثبت شد')) {
+      _mood = AssistantMood.writing;
+      Future.delayed(const Duration(milliseconds: 2500), () {
+        if (mounted) setState(() => _mood = AssistantMood.happy);
+      });
+      Future.delayed(const Duration(milliseconds: 4000), () {
+        if (mounted) setState(() => _mood = AssistantMood.idle);
+      });
+    } else if (widget.answer.contains('فکر') || widget.answer.contains('...')) {
+      _mood = AssistantMood.thinking;
+    } else if (widget.answer.isNotEmpty) {
+      _mood = AssistantMood.happy;
+      Future.delayed(const Duration(milliseconds: 2000), () {
+        if (mounted) setState(() => _mood = AssistantMood.idle);
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // به‌روزرسانی mood بر اساس listening
+    if (widget.isListening && _mood != AssistantMood.listening) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) setState(() => _mood = AssistantMood.listening);
+      });
+    } else if (!widget.isListening && _mood == AssistantMood.listening) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) setState(() => _mood = AssistantMood.idle);
+      });
+    }
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
       children: [
+        // 🧑‍💼 کاراکتر زنده دستیار
+        Center(
+          child: AnimatedAssistantCharacter(mood: _mood, size: 150),
+        ),
+        const SizedBox(height: 4),
+        Center(
+          child: Text(
+            _mood == AssistantMood.listening ? 'دارم گوش می‌دم...' : _mood == AssistantMood.writing ? 'دارم یادداشت می‌کنم... 📒' : _mood == AssistantMood.thinking ? 'دارم فکر می‌کنم...' : _mood == AssistantMood.happy ? 'انجام شد! 😊' : 'سلام، من دستیارت هستم!',
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.primary),
+          ),
+        ),
+        const SizedBox(height: 12),
         Text('دستیار فارسی', style: Theme.of(context).textTheme.titleLarge),
         const SizedBox(height: 8),
         Align(
           alignment: Alignment.centerRight,
-          child: _AssistantStatusChip(label: assistantStatusLabel),
+          child: _AssistantStatusChip(label: widget.assistantStatusLabel),
         ),
         const SizedBox(height: 8),
         const Text('نمونه فرمان‌ها: «همه اطلاعات رو نشون بده» • «کار جدید تماس با مشتری» • «درآمد/هزینه ثبت کن» • «همه تراکنش‌ها» • «وضعیت کلی» — همه توسط دستیار 🤖'),
         const SizedBox(height: 12),
         PushToTalkCard(
-          speechReady: speechReady,
-          isListening: isListening,
-          lastVoiceText: lastVoiceText,
-          voiceStatus: voiceStatus,
-          soundLevel: soundLevel,
-          onVoiceDown: onVoiceDown,
-          onVoiceUp: onVoiceUp,
+          speechReady: widget.speechReady,
+          isListening: widget.isListening,
+          lastVoiceText: widget.lastVoiceText,
+          voiceStatus: widget.voiceStatus,
+          soundLevel: widget.soundLevel,
+          onVoiceDown: widget.onVoiceDown,
+          onVoiceUp: widget.onVoiceUp,
         ),
         const SizedBox(height: 12),
         VoiceResponseSettingsCard(
-          enabled: voiceResponseEnabled,
-          gender: assistantVoiceGender,
-          onEnabledChanged: onVoiceResponseEnabledChanged,
-          onGenderChanged: onVoiceGenderChanged,
-          onTestVoice: onTestVoice,
+          enabled: widget.voiceResponseEnabled,
+          gender: widget.assistantVoiceGender,
+          onEnabledChanged: widget.onVoiceResponseEnabledChanged,
+          onGenderChanged: widget.onVoiceGenderChanged,
+          onTestVoice: widget.onTestVoice,
         ),
         const SizedBox(height: 12),
         TextField(
-          controller: controller,
+          controller: widget.controller,
           minLines: 1,
           maxLines: 3,
           textInputAction: TextInputAction.send,
