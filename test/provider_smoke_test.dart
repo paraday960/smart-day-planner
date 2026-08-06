@@ -8,13 +8,15 @@ import 'package:smart_day_planner/services/conversation_memory_service.dart';
 import 'package:smart_day_planner/services/debt_repository.dart';
 import 'package:smart_day_planner/services/finance_repository.dart';
 import 'package:smart_day_planner/services/goal_repository.dart';
-import 'package:smart_day_planner/services/notification_service.dart';
 import 'package:smart_day_planner/services/planned_expense_repository.dart';
 import 'package:smart_day_planner/services/security_service.dart';
 import 'package:smart_day_planner/services/task_repository.dart';
-import 'package:smart_day_planner/services/voice_response_service.dart';
+
+import 'fakes/fake_platform_services.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   test('repository providers can be overridden for tests', () {
     final taskRepository = TaskRepository();
     final container = ProviderContainer(
@@ -28,8 +30,8 @@ void main() {
         categoryBudgetRepository: CategoryBudgetRepository(),
         availabilityRepository: AvailabilityRepository(),
         conversationMemoryService: ConversationMemoryService(),
-        notificationService: NotificationService.instance,
-        voiceResponseService: VoiceResponseService.instance,
+        notificationService: FakeNotificationService(),
+        voiceResponseService: FakeVoiceResponseService(),
         securityService: SecurityService.instance,
       ),
     );

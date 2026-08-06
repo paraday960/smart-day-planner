@@ -13,7 +13,11 @@ class VoiceResponseService implements VoiceResponsePort {
   static const _enabledKey = 'smart_day_planner.voice_response.enabled';
   static const _genderKey = 'smart_day_planner.voice_response.gender';
 
-  final FlutterTts _tts = FlutterTts();
+  FlutterTts? _tts;
+  FlutterTts get _ttsInstance {
+    _tts ??= FlutterTts();
+    return _tts!;
+  }
 
   bool _initialized = false;
   bool _enabled = true;
@@ -35,11 +39,11 @@ class VoiceResponseService implements VoiceResponsePort {
       orElse: () => AssistantVoiceGender.feminine,
     );
 
-    await _tts.setLanguage('fa-IR');
-    await _tts.setSpeechRate(0.46);
-    await _tts.setPitch(1.0);
-    await _tts.setVolume(1.0);
-    await _tts.awaitSpeakCompletion(false);
+    await _ttsInstance.setLanguage('fa-IR');
+    await _ttsInstance.setSpeechRate(0.46);
+    await _ttsInstance.setPitch(1.0);
+    await _ttsInstance.setVolume(1.0);
+    await _ttsInstance.awaitSpeakCompletion(false);
 
     await _loadPersianVoices();
     await _applyPreferredVoice();
@@ -68,11 +72,14 @@ class VoiceResponseService implements VoiceResponsePort {
     final cleanText = _prepareForSpeech(text);
     if (cleanText.trim().isEmpty) return;
 
-    await _tts.stop();
-    await _tts.speak(cleanText);
+    await _ttsInstance.stop();
+    await _ttsInstance.speak(cleanText);
   }
 
-  Future<void> stop() => _tts.stop();
+  Future<void> stop() async {
+    if (_tts == null) return;
+    await _tts!.stop();
+  }
 
   Future<String> testVoice() async {
     final sample = _gender == AssistantVoiceGender.feminine
@@ -84,7 +91,7 @@ class VoiceResponseService implements VoiceResponsePort {
 
   Future<void> _loadPersianVoices() async {
     try {
-      final voices = await _tts.getVoices;
+      final voices = await _ttsInstance.getVoices;
       if (voices is! List) return;
 
       _persianVoices = voices
@@ -102,13 +109,13 @@ class VoiceResponseService implements VoiceResponsePort {
   }
 
   Future<void> _applyPreferredVoice() async {
-    await _tts.setLanguage('fa-IR');
+    await _ttsInstance.setLanguage('fa-IR');
 
     final preferred = _pickVoice(_gender);
     if (preferred == null) return;
 
     try {
-      await _tts.setVoice(preferred);
+      await _ttsInstance.setVoice(preferred);
     } catch (_) {
       // اگر موتور گفتار گوشی setVoice را قبول نکرد، همان زبان فارسی سیستم استفاده می‌شود.
     }

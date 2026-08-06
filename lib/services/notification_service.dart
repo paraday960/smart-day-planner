@@ -10,9 +10,15 @@ class NotificationService implements NotificationServicePort {
 
   static final NotificationService instance = NotificationService._();
 
-  final FlutterLocalNotificationsPlugin _plugin = FlutterLocalNotificationsPlugin();
+  FlutterLocalNotificationsPlugin? _plugin;
+  FlutterLocalNotificationsPlugin get _pluginInstance {
+    _plugin ??= FlutterLocalNotificationsPlugin();
+    return _plugin!;
+  }
+
   bool _initialized = false;
 
+  @override
   Future<void> initialize() async {
     if (_initialized) return;
 
@@ -25,7 +31,7 @@ class NotificationService implements NotificationServicePort {
       requestSoundPermission: false,
     );
 
-    await _plugin.initialize(
+    await _pluginInstance.initialize(
       const InitializationSettings(android: android, iOS: ios),
     );
 
@@ -34,15 +40,16 @@ class NotificationService implements NotificationServicePort {
   }
 
   Future<void> _requestPermissions() async {
-    await _plugin
+    await _pluginInstance
         .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
         ?.requestNotificationsPermission();
 
-    await _plugin
+    await _pluginInstance
         .resolvePlatformSpecificImplementation<IOSFlutterLocalNotificationsPlugin>()
         ?.requestPermissions(alert: true, badge: true, sound: true);
   }
 
+  @override
   Future<void> scheduleTaskReminder(Task task) async {
     if (task.dueAt == null || task.isDone) {
       await cancelTaskReminder(task.id);
@@ -56,7 +63,7 @@ class NotificationService implements NotificationServicePort {
 
     await initialize();
 
-    await _plugin.zonedSchedule(
+    await _pluginInstance.zonedSchedule(
       _notificationId(task.id),
       'یادآوری کار',
       'تا مهلت انجام «${task.title}» زمان زیادی نمانده.',
@@ -77,10 +84,13 @@ class NotificationService implements NotificationServicePort {
     );
   }
 
+  @override
   Future<void> cancelTaskReminder(String taskId) async {
-    await _plugin.cancel(_notificationId(taskId));
+    if (_plugin == null) return;
+    await _plugin!.cancel(_notificationId(taskId));
   }
 
+  @override
   Future<void> scheduleSmartAlert({
     required int id,
     required String title,
@@ -89,7 +99,7 @@ class NotificationService implements NotificationServicePort {
   }) async {
     if (when.isBefore(DateTime.now())) return;
     await initialize();
-    await _plugin.zonedSchedule(
+    await _pluginInstance.zonedSchedule(
       id,
       title,
       body,
