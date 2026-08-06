@@ -5,6 +5,7 @@ import '../models/work_time_settings.dart';
 import '../utils/persian_format.dart';
 import 'advanced_habit_learning_service.dart';
 import 'ai_brain_service.dart';
+import 'predictive_scheduler_service.dart';
 import 'debt_repayment_planner.dart';
 import 'finance_insights_service.dart';
 import 'finance_repository.dart';
@@ -408,6 +409,23 @@ class RuleBasedLocalAssistant implements LocalLlmAdapter {
       ],
     ),
     NluIntent(
+      id: 'forecast_30',
+      priority: 68,
+      patterns: [
+        'هفته آینده',
+        'ماه آینده',
+        '۳۰ روز',
+        'سی روز',
+        'پیش بینی هفته',
+        'پیش‌بینی هفته',
+        'هشدار هفته',
+        'زمان بندی خودکار',
+        'زمان‌بندی خودکار',
+        'کی کار کنم',
+        'بهترین زمان کار',
+      ],
+    ),
+    NluIntent(
       id: 'morning_briefing',
       priority: 65,
       patterns: [
@@ -480,6 +498,8 @@ class RuleBasedLocalAssistant implements LocalLlmAdapter {
         return _brainStatus(tasks);
       case 'morning_briefing':
         return _morningBriefing(tasks);
+      case 'forecast_30':
+        return _forecast30(tasks);
       case 'small_talk':
         return 'من که همیشه سرحالم؛ چون وظیفه‌ام کمک به توئه. 😊 از کجا شروع کنیم؟';
       default:
@@ -520,7 +540,8 @@ class RuleBasedLocalAssistant implements LocalLlmAdapter {
         '• «ماه بعد چقدر خرج می‌کنم؟» — پیش‌بینی مالی هوشمند\n'
         '• «پیشنهاد بده» — پیشنهاد خودکار بر اساس رفتارت\n'
         '• «وضعیت کلی» — مغز یکپارچه: امتیاز، حال مالی و توصیه شخصی\n'
-        '• «صبح بخیر» — بریفینگ شخصی صبح'
+        '• «صبح بخیر» — بریفینگ شخصی صبح\n'
+        '• «هفته آینده چطوره؟» — پیش‌بینی ۷ روز + زمان‌بندی خودکار'
   }
 
   String _nextTask(List<Task> tasks) {
@@ -901,6 +922,21 @@ class RuleBasedLocalAssistant implements LocalLlmAdapter {
     }
     if (brain.debtPlan != null && brain.debtPlan!.totalRemaining > 0) {
       buf.writeln('💳 بدهی: ${PersianFormat.money(brain.debtPlan!.totalRemaining)}');
+    }
+    return buf.toString();
+  }
+
+  String _forecast30(List<Task> tasks) {
+    final finance = _context.finance;
+    if (finance == null) return 'برای پیش‌بینی باید به داده متصل باشم.';
+    final svc = const PredictiveSchedulerService();
+    final warnings = svc.next7DaysWarnings(transactions: finance.transactions, tasks: tasks);
+    final schedule = svc.autoSchedule(tasks: tasks, habitProfile: const AdvancedHabitLearningService().analyze(tasks: tasks, transactions: finance.transactions));
+    final buf = StringBuffer()..writeln('🔮 پیش‌بینی هوشمند ۷ روز آینده:');
+    for (final w in warnings) buf.writeln('• $w');
+    if (schedule.isNotEmpty) {
+      buf.writeln('⏰ زمان‌بندی پیشنهادی:');
+      for (final s in schedule.take(3)) buf.writeln('• «\${s.task.title}» → \${PersianFormat.jalaliDate(s.suggestedStart)} ساعت \${PersianFormat.time(s.suggestedStart)} (${s.reason})');
     }
     return buf.toString();
   }

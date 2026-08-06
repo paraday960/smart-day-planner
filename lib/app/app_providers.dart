@@ -37,6 +37,7 @@ import '../services/goal_repository.dart';
 import '../services/advanced_habit_learning_service.dart';
 import '../services/ai_brain_service.dart';
 import '../services/brain_memory_service.dart';
+import '../services/predictive_scheduler_service.dart';
 import '../services/autonomous_agent_service.dart';
 import '../services/habit_insight_service.dart';
 import '../services/hybrid_local_assistant.dart';
@@ -100,6 +101,9 @@ final forecastServiceProvider =
     Provider<ForecastService>((ref) => const ForecastService());
 final brainMemoryServiceProvider =
     Provider<BrainMemoryService>((ref) => BrainMemoryService());
+
+final predictiveSchedulerServiceProvider =
+    Provider<PredictiveSchedulerService>((ref) => const PredictiveSchedulerService());
 
 final aiBrainServiceProvider =
     Provider<AIBrainService>((ref) => const AIBrainService());
