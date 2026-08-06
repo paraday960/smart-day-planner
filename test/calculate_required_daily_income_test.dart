@@ -4,7 +4,7 @@ import 'package:smart_day_planner/domain/usecases/calculate_required_daily_incom
 void main() {
   group('CalculateRequiredDailyIncome', () {
     test('calculates daily income based on remaining amount and days left', () {
-      final usecase = CalculateRequiredDailyIncome();
+      const usecase = CalculateRequiredDailyIncome();
       final result = usecase(
         targetAmount: 1000000,
         savedAmount: 200000,
@@ -18,7 +18,7 @@ void main() {
     });
 
     test('uses at least one day to avoid division by zero', () {
-      final usecase = CalculateRequiredDailyIncome();
+      const usecase = CalculateRequiredDailyIncome();
       final result = usecase(
         targetAmount: 500000,
         savedAmount: 0,

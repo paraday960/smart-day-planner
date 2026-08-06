@@ -12,7 +12,9 @@ class PlannedExpenseRepository extends ChangeNotifier implements PlannedExpenseR
   final List<PlannedExpenseGoal> _items = [];
   bool _loaded = false;
 
+  @override
   List<PlannedExpenseGoal> get items => List.unmodifiable(_items);
+  @override
   List<PlannedExpenseGoal> get activeItems => _items.where((e) => e.isActive).toList()
     ..sort((a, b) => a.dueAt.compareTo(b.dueAt));
   bool get loaded => _loaded;
@@ -29,11 +31,13 @@ class PlannedExpenseRepository extends ChangeNotifier implements PlannedExpenseR
     notifyListeners();
   }
 
+  @override
   Future<void> add(PlannedExpenseGoal item) async {
     _items.add(item);
     await _save();
   }
 
+  @override
   Future<void> update(PlannedExpenseGoal item) async {
     final index = _items.indexWhere((e) => e.id == item.id);
     if (index == -1) return;
@@ -41,11 +45,13 @@ class PlannedExpenseRepository extends ChangeNotifier implements PlannedExpenseR
     await _save();
   }
 
+  @override
   Future<void> delete(String id) async {
     _items.removeWhere((e) => e.id == id);
     await _save();
   }
 
+  @override
   Future<void> markDone(String id) async {
     final index = _items.indexWhere((e) => e.id == id);
     if (index == -1) return;
@@ -53,6 +59,7 @@ class PlannedExpenseRepository extends ChangeNotifier implements PlannedExpenseR
     await _save();
   }
 
+  @override
   Future<void> replaceAll(List<PlannedExpenseGoal> items) async {
     _items
       ..clear()

@@ -35,7 +35,7 @@ void main() {
           voiceResponseService: VoiceResponseService.instance,
           securityService: SecurityService.instance,
         ),
-        child: MaterialApp(
+        child: const MaterialApp(
           home: Directionality(
             textDirection: TextDirection.rtl,
             child: Scaffold(

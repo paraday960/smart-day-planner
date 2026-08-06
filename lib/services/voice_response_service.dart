@@ -24,10 +24,13 @@ class VoiceResponseService implements VoiceResponsePort {
   AssistantVoiceGender _gender = AssistantVoiceGender.feminine;
   List<Map<String, String>> _persianVoices = [];
 
+  @override
   bool get enabled => _enabled;
+  @override
   AssistantVoiceGender get gender => _gender;
   List<Map<String, String>> get persianVoices => List.unmodifiable(_persianVoices);
 
+  @override
   Future<void> initialize() async {
     if (_initialized) return;
 
@@ -51,6 +54,7 @@ class VoiceResponseService implements VoiceResponsePort {
     _initialized = true;
   }
 
+  @override
   Future<void> setEnabled(bool value) async {
     _enabled = value;
     final prefs = await SharedPreferences.getInstance();
@@ -58,6 +62,7 @@ class VoiceResponseService implements VoiceResponsePort {
     if (!value) await stop();
   }
 
+  @override
   Future<void> setGender(AssistantVoiceGender gender) async {
     _gender = gender;
     final prefs = await SharedPreferences.getInstance();
@@ -65,6 +70,7 @@ class VoiceResponseService implements VoiceResponsePort {
     await _applyPreferredVoice();
   }
 
+  @override
   Future<void> speak(String text, {bool force = false}) async {
     await initialize();
     if (!_enabled && !force) return;
@@ -76,11 +82,13 @@ class VoiceResponseService implements VoiceResponsePort {
     await _ttsInstance.speak(cleanText);
   }
 
+  @override
   Future<void> stop() async {
     if (_tts == null) return;
     await _tts!.stop();
   }
 
+  @override
   Future<String> testVoice() async {
     final sample = _gender == AssistantVoiceGender.feminine
         ? 'سلام، من دستیار فارسی شما هستم. با صدای زن آماده کمک به برنامه‌ریزی و حسابداری روزانه‌ات هستم.'

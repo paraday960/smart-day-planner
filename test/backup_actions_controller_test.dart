@@ -12,7 +12,7 @@ import 'package:smart_day_planner/services/task_repository.dart';
 
 void main() {
   test('createBackup returns encrypted backup wrapper', () {
-    final controller = BackupActionsController();
+    const controller = BackupActionsController();
 
     final backup = controller.createBackup(
       taskRepository: TaskRepository(),

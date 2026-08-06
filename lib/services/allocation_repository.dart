@@ -12,6 +12,7 @@ class AllocationRepository extends ChangeNotifier implements AllocationRepositor
   final List<MoneyAllocation> _items = [];
   bool _loaded = false;
 
+  @override
   List<MoneyAllocation> get items => List.unmodifiable(_items);
   bool get loaded => _loaded;
 
@@ -27,24 +28,29 @@ class AllocationRepository extends ChangeNotifier implements AllocationRepositor
     notifyListeners();
   }
 
+  @override
   int totalFor(AllocationTargetType targetType, String targetId) {
     return _items
         .where((e) => e.targetType == targetType && e.targetId == targetId)
         .fold<int>(0, (sum, e) => sum + e.amount);
   }
 
+  @override
   int totalAllocated() => _items.fold<int>(0, (sum, e) => sum + e.amount);
 
+  @override
   Future<void> add(MoneyAllocation allocation) async {
     _items.add(allocation);
     await _save();
   }
 
+  @override
   Future<void> delete(String id) async {
     _items.removeWhere((e) => e.id == id);
     await _save();
   }
 
+  @override
   Future<void> replaceAll(List<MoneyAllocation> items) async {
     _items
       ..clear()

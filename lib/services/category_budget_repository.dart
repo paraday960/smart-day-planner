@@ -12,6 +12,7 @@ class CategoryBudgetRepository extends ChangeNotifier implements CategoryBudgetR
   final List<CategoryBudget> _items = [];
   bool _loaded = false;
 
+  @override
   List<CategoryBudget> get items => List.unmodifiable(_items);
   bool get loaded => _loaded;
 
@@ -27,6 +28,7 @@ class CategoryBudgetRepository extends ChangeNotifier implements CategoryBudgetR
     notifyListeners();
   }
 
+  @override
   CategoryBudget? budgetFor(String category) {
     for (final item in _items) {
       if (item.category == category) return item;
@@ -34,6 +36,7 @@ class CategoryBudgetRepository extends ChangeNotifier implements CategoryBudgetR
     return null;
   }
 
+  @override
   Future<void> upsert(String category, int monthlyLimit) async {
     final index = _items.indexWhere((e) => e.category == category);
     final item = CategoryBudget(
@@ -50,11 +53,13 @@ class CategoryBudgetRepository extends ChangeNotifier implements CategoryBudgetR
     await _save();
   }
 
+  @override
   Future<void> delete(String id) async {
     _items.removeWhere((e) => e.id == id);
     await _save();
   }
 
+  @override
   Future<void> replaceAll(List<CategoryBudget> items) async {
     _items
       ..clear()

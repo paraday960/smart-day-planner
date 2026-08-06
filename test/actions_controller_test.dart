@@ -8,7 +8,7 @@ import 'package:smart_day_planner/models/money_allocation.dart';
 void main() {
   group('DebtActionsController', () {
     test('builds expense transaction for debt payment', () {
-      final controller = DebtActionsController();
+      const controller = DebtActionsController();
       final debt = DebtItem(
         id: 'd1',
         type: DebtType.debt,
@@ -26,7 +26,7 @@ void main() {
     });
 
     test('builds income transaction for receivable collection', () {
-      final controller = DebtActionsController();
+      const controller = DebtActionsController();
       final receivable = DebtItem(
         id: 'r1',
         type: DebtType.receivable,
@@ -46,7 +46,7 @@ void main() {
 
   group('AllocationActionsController', () {
     test('builds allocation for debt envelope', () {
-      final controller = AllocationActionsController();
+      const controller = AllocationActionsController();
       final allocation = controller.buildAllocation(
         targetType: AllocationTargetType.debt,
         targetId: 'd1',

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 
 import '../app/app_providers.dart';
+import '../app/feature_flags.dart';
 import '../domain/services/notification_service_port.dart';
 import '../domain/services/voice_response_port.dart';
 import '../models/debt_item.dart';
@@ -35,7 +36,6 @@ import '../services/forecast_service.dart';
 import '../services/finance_repository.dart';
 import '../services/goal_repository.dart';
 import '../services/local_assistant.dart';
-import '../services/notification_service.dart';
 import '../domain/services/share_file_service_port.dart';
 import '../services/planned_expense_repository.dart';
 import '../services/security_service.dart';
@@ -127,9 +127,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       planner: _planner,
       financeAssistant: _financeAssistant,
     );
-    _voiceResponseEnabled = _voiceResponseService.enabled;
+    _voiceResponseEnabled = FeatureFlags.enableVoiceResponse && _voiceResponseService.enabled;
     _assistantVoiceGender = _voiceResponseService.gender;
-    _initSpeech();
+    if (FeatureFlags.enableVoiceInput) {
+      _initSpeech();
+    }
     _repository.addListener(_onRepositoryChanged);
     _financeRepository.addListener(_onRepositoryChanged);
     _goalRepository.addListener(_onRepositoryChanged);
@@ -188,6 +190,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Future<void> _startVoiceCommand() async {
+    if (!_isFeatureEnabled(FeatureFlags.enableVoiceInput, 'فرمان صوتی')) return;
     if (!_speechReady) await _initSpeech();
     if (!_speechReady || _speech.isListening) return;
 
@@ -198,9 +201,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     });
 
     await _speech.listen(
-      localeId: 'fa_IR',
-      listenFor: const Duration(seconds: 45),
-      pauseFor: const Duration(seconds: 4),
       onSoundLevelChange: (level) {
         if (mounted) setState(() => _soundLevel = level);
       },
@@ -209,6 +209,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         setState(() => _lastVoiceText = result.recognizedWords);
       },
       listenOptions: stt.SpeechListenOptions(
+        localeId: 'fa_IR',
+        listenFor: const Duration(seconds: 45),
+        pauseFor: const Duration(seconds: 4),
         listenMode: stt.ListenMode.dictation,
         partialResults: true,
         cancelOnError: false,
@@ -238,16 +241,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       _assistantAnswer = answer;
       _voiceStatus = spokenText.isEmpty ? 'متنی تشخیص داده نشد.' : 'فرمان اجرا شد.';
     });
-    await _voiceResponseService.speak(answer);
+    if (FeatureFlags.enableVoiceResponse) {
+      await _voiceResponseService.speak(answer);
+    }
   }
 
   Future<void> _setVoiceResponseEnabled(bool value) async {
+    if (!_isFeatureEnabled(FeatureFlags.enableVoiceResponse, 'پاسخ صوتی')) return;
     await _voiceResponseService.setEnabled(value);
     if (!mounted) return;
     setState(() => _voiceResponseEnabled = value);
   }
 
   Future<void> _setAssistantVoiceGender(AssistantVoiceGender gender) async {
+    if (!_isFeatureEnabled(FeatureFlags.enableVoiceResponse, 'پاسخ صوتی')) return;
     await _voiceResponseService.setGender(gender);
     if (!mounted) return;
     setState(() => _assistantVoiceGender = gender);
@@ -255,6 +262,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Future<void> _testAssistantVoice() async {
+    if (!_isFeatureEnabled(FeatureFlags.enableVoiceResponse, 'پاسخ صوتی')) return;
     final sample = await _voiceResponseService.testVoice();
     if (!mounted) return;
     setState(() => _assistantAnswer = sample);
@@ -450,6 +458,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Future<void> _createEncryptedBackup() async {
+    if (!_isFeatureEnabled(FeatureFlags.enableEncryptedBackup, 'بکاپ رمزنگاری‌شده')) return;
     final pass = await BackupDialogs.askBackupPassphrase(context, title: 'ساخت بکاپ رمزنگاری‌شده');
     if (pass == null) return;
     try {
@@ -461,6 +470,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Future<void> _shareEncryptedBackupFile() async {
+    if (!_isFeatureEnabled(FeatureFlags.enableEncryptedBackup && FeatureFlags.enableShareFiles, 'اشتراک فایل بکاپ')) return;
     final pass = await BackupDialogs.askBackupPassphrase(context, title: 'اشتراک‌گذاری فایل بکاپ');
     if (pass == null) return;
     try {
@@ -476,6 +486,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Future<void> _restoreEncryptedBackup() async {
+    if (!_isFeatureEnabled(FeatureFlags.enableEncryptedBackup, 'بازیابی بکاپ')) return;
     final input = await BackupDialogs.restore(context);
     if (input == null) return;
     try {
@@ -524,10 +535,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
   }
 
+  /// وقتی یک قابلیت پلتفرمی با feature flag (dart-define) خاموش شده باشد،
+  /// عملیات مربوطه اجرا نمی‌شود و پیام مناسب به کاربر نشان داده می‌شود.
+  bool _isFeatureEnabled(bool enabled, String featureName) {
+    if (enabled) return true;
+    _showSnack('قابلیت «$featureName» در این نسخه غیرفعال است.');
+    return false;
+  }
+
   Future<void> _openPlannedExpenseDialog() async {
     final input = await PlanningDialogs.plannedExpense(context: context, parseMoney: _parseMoney);
     if (input == null || input.amount <= 0) return;
-await _homeCoordinator.addPlannedExpense(input);
+    await _homeCoordinator.addPlannedExpense(input);
   }
 
 
@@ -604,11 +623,12 @@ await _homeCoordinator.addPlannedExpense(input);
       fridayOff: current.offWeekdays.contains(DateTime.friday),
     );
     if (input == null) return;
-await _homeCoordinator.saveAvailability(input);
+    await _homeCoordinator.saveAvailability(input);
   }
 
 
   Future<void> _showSmartAlertsPreview() async {
+    if (!_isFeatureEnabled(FeatureFlags.enableSmartNotifications, 'هشدارهای هوشمند')) return;
     final alerts = _notificationAdvisor.buildAlerts(
       debts: _debtRepository,
       plannedExpenses: _plannedExpenseRepository,
@@ -620,6 +640,7 @@ await _homeCoordinator.saveAvailability(input);
   }
 
   Future<void> _showPrintablePdfReport() async {
+    if (!_isFeatureEnabled(FeatureFlags.enablePdfExport, 'خروجی PDF')) return;
     final html = _reportActions.printableHtmlReport(
       taskRepository: _repository,
       financeRepository: _financeRepository,
@@ -629,6 +650,7 @@ await _homeCoordinator.saveAvailability(input);
   }
 
   Future<void> _shareRealPdfReport() async {
+    if (!_isFeatureEnabled(FeatureFlags.enablePdfExport && FeatureFlags.enableShareFiles, 'PDF و اشتراک‌گذاری')) return;
     try {
       await _reportActions.shareRealPdfReport(
         taskRepository: _repository,
@@ -641,11 +663,13 @@ await _homeCoordinator.saveAvailability(input);
   }
 
   Future<void> _showCalendarPreview() async {
+    if (!_isFeatureEnabled(FeatureFlags.enableCalendar, 'تقویم گوشی')) return;
     final text = await _reportActions.calendarPreviewText(_calendarService);
     await _showLargeText(title: 'رویدادهای تقویم ۷ روز آینده', text: text, copyLabel: 'کپی');
   }
 
   Future<void> _scheduleSmartAlerts() async {
+    if (!_isFeatureEnabled(FeatureFlags.enableSmartNotifications, 'زمان‌بندی هشدار')) return;
     final count = await _reportActions.scheduleSmartAlerts(
       scheduler: _smartNotificationScheduler,
       debtRepository: _debtRepository,
@@ -668,6 +692,8 @@ await _homeCoordinator.saveAvailability(input);
     final prompt = _assistantController.text;
     final answer = await _assistant.generate(prompt: prompt, tasks: _repository.tasks);
     if (mounted) setState(() => _assistantAnswer = answer);
-    await _voiceResponseService.speak(answer);
+    if (FeatureFlags.enableVoiceResponse) {
+      await _voiceResponseService.speak(answer);
+    }
   }
 }

@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../services/voice_response_service.dart';
 
 class AssistantTab extends ConsumerWidget {
-  const AssistantTab({
+  const AssistantTab({super.key, 
     required this.controller,
     required this.answer,
     required this.speechReady,
@@ -102,7 +102,7 @@ class AssistantTab extends ConsumerWidget {
 }
 
 class VoiceResponseSettingsCard extends StatelessWidget {
-  const VoiceResponseSettingsCard({
+  const VoiceResponseSettingsCard({super.key, 
     required this.enabled,
     required this.gender,
     required this.onEnabledChanged,
@@ -163,7 +163,7 @@ class VoiceResponseSettingsCard extends StatelessWidget {
 }
 
 class PushToTalkCard extends StatelessWidget {
-  const PushToTalkCard({
+  const PushToTalkCard({super.key, 
     required this.speechReady,
     required this.isListening,
     required this.lastVoiceText,
@@ -204,7 +204,7 @@ class PushToTalkCard extends StatelessWidget {
                   boxShadow: [
                     if (isListening)
                       BoxShadow(
-                        color: Colors.red.withOpacity(0.25 + level * 0.35),
+                        color: Colors.red.withValues(alpha: 0.25 + level * 0.35),
                         blurRadius: 18 + level * 18,
                         spreadRadius: 2 + level * 6,
                       ),

@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.1.1+2 — تکمیل Feature Flags و پاکسازی لینت (فاز ۳۹+)
+
+### اضافه شده
+- Feature Flags حالا واقعاً روی رفتار برنامه اثر می‌گذارند: با `--dart-define` می‌توانی فرمان صوتی، پاسخ صوتی، تقویم، PDF، اشتراک فایل، هشدارهای هوشمند و بکاپ رمزنگاری‌شده را خاموش کنی (در بیلد امن/دیباگ).
+- تست ویجت گیتینگ: `test/feature_gating_widget_test.dart` ثابت می‌کند flagها در هر دو حالت روشن و خاموش درست کار می‌کنند.
+- گام CI برای تأیید گیتینگ با همه flagهای خاموش در `flutter_ci.yml`.
+- قفل `pubspec.lock` برای بیلدهای تکرارپذیر.
+
+### اصلاح شده
+- استفاده از `TableHelper.fromTextArray` به‌جای API منسوخشده `Table.fromTextArray` در PDF.
+- افزودن `@override`های ازدست‌رفته و حذف ایمپورت‌های بلااستفاده (لینت از ۸۷ مورد به صفر رسید).
+- رفع deprecation های `speech_to_text` (انتقال `localeId`/`listenFor`/`pauseFor` به `SpeechListenOptions`).
+- فرمت‌بندی چند خط نامرتب در `home_screen.dart`.
+
 ## 0.1.0+1 — MVP تا فاز ۱۲
 
 ### اضافه شده

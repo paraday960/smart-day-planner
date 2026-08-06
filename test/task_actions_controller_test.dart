@@ -9,7 +9,7 @@ void main() {
   test('saveTask adds task and schedules reminder', () async {
     final tasks = FakeTaskRepository();
     final notifications = FakeNotificationService();
-    final controller = TaskActionsController();
+    const controller = TaskActionsController();
     final task = Task(
       id: 't1',
       title: 'تماس با مشتری',
@@ -31,7 +31,7 @@ void main() {
   test('completeTask marks task done and cancels reminder', () async {
     final tasks = FakeTaskRepository();
     final notifications = FakeNotificationService();
-    final controller = TaskActionsController();
+    const controller = TaskActionsController();
     final task = Task(id: 't1', title: 'پروژه', createdAt: DateTime(2026, 1, 1));
     await tasks.add(task);
 

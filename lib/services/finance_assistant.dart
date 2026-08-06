@@ -1,4 +1,3 @@
-import '../models/finance_transaction.dart';
 import '../models/task.dart';
 import '../utils/persian_format.dart';
 import 'finance_repository.dart';

@@ -12,7 +12,9 @@ class DebtRepository extends ChangeNotifier implements DebtRepositoryPort {
   final List<DebtItem> _items = [];
   bool _loaded = false;
 
+  @override
   List<DebtItem> get items => List.unmodifiable(_items);
+  @override
   List<DebtItem> get activeItems => _items.where((e) => e.isActive).toList()
     ..sort((a, b) => a.dueAt.compareTo(b.dueAt));
   bool get loaded => _loaded;
@@ -29,11 +31,13 @@ class DebtRepository extends ChangeNotifier implements DebtRepositoryPort {
     notifyListeners();
   }
 
+  @override
   Future<void> add(DebtItem item) async {
     _items.add(item);
     await _save();
   }
 
+  @override
   Future<void> update(DebtItem item) async {
     final index = _items.indexWhere((e) => e.id == item.id);
     if (index == -1) return;
@@ -41,11 +45,13 @@ class DebtRepository extends ChangeNotifier implements DebtRepositoryPort {
     await _save();
   }
 
+  @override
   Future<void> delete(String id) async {
     _items.removeWhere((e) => e.id == id);
     await _save();
   }
 
+  @override
   Future<void> addPayment(String id, int amount) async {
     final index = _items.indexWhere((e) => e.id == id);
     if (index == -1) return;
@@ -58,6 +64,7 @@ class DebtRepository extends ChangeNotifier implements DebtRepositoryPort {
     await _save();
   }
 
+  @override
   Future<void> markSettled(String id) async {
     final index = _items.indexWhere((e) => e.id == id);
     if (index == -1) return;
@@ -66,6 +73,7 @@ class DebtRepository extends ChangeNotifier implements DebtRepositoryPort {
     await _save();
   }
 
+  @override
   Future<void> replaceAll(List<DebtItem> items) async {
     _items
       ..clear()

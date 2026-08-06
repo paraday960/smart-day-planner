@@ -15,6 +15,7 @@ class TaskRepository extends ChangeNotifier implements TaskRepositoryPort {
   final List<Task> _tasks = [];
   bool _loaded = false;
 
+  @override
   List<Task> get tasks => List.unmodifiable(_tasks);
   bool get loaded => _loaded;
 
@@ -27,24 +28,28 @@ class TaskRepository extends ChangeNotifier implements TaskRepositoryPort {
     notifyListeners();
   }
 
+  @override
   Future<void> add(Task task) async {
     final db = await DatabaseService.instance.database;
     await _upsert(db, task);
     await _refreshAndNotify(db);
   }
 
+  @override
   Future<void> update(Task task) async {
     final db = await DatabaseService.instance.database;
     await _upsert(db, task);
     await _refreshAndNotify(db);
   }
 
+  @override
   Future<void> delete(String id) async {
     final db = await DatabaseService.instance.database;
     await db.delete('tasks', where: 'id = ?', whereArgs: [id]);
     await _refreshAndNotify(db);
   }
 
+  @override
   Future<void> replaceAll(List<Task> tasks) async {
     final db = await DatabaseService.instance.database;
     final batch = db.batch();
@@ -56,12 +61,14 @@ class TaskRepository extends ChangeNotifier implements TaskRepositoryPort {
     await _refreshAndNotify(db);
   }
 
+  @override
   Future<void> togglePin(String id) async {
     final task = _findById(id);
     if (task == null) return;
     await update(task.copyWith(isPinned: !task.isPinned));
   }
 
+  @override
   Future<void> complete(String id, {required int actualMinutes}) async {
     final task = _findById(id);
     if (task == null) return;
@@ -74,6 +81,7 @@ class TaskRepository extends ChangeNotifier implements TaskRepositoryPort {
     );
   }
 
+  @override
   Future<void> reopen(String id) async {
     final task = _findById(id);
     if (task == null) return;

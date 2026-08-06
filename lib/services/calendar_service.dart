@@ -10,11 +10,13 @@ class CalendarService implements CalendarServicePort {
 
   final DeviceCalendarPlugin _plugin;
 
+  @override
   Future<bool> requestPermission() async {
     final permissions = await _plugin.requestPermissions();
     return permissions.isSuccess && (permissions.data ?? false);
   }
 
+  @override
   Future<List<CalendarEventSummary>> upcomingEvents({int days = 7}) async {
     final hasPermission = await requestPermission();
     if (!hasPermission) return const [];
@@ -50,6 +52,7 @@ class CalendarService implements CalendarServicePort {
     return result.take(20).toList();
   }
 
+  @override
   Future<bool> addReminderEvent({
     required String title,
     required DateTime start,

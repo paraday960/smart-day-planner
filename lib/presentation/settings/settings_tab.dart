@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../app/app_providers.dart';
 
 class SettingsTab extends ConsumerWidget {
-  const SettingsTab({
+  const SettingsTab({super.key, 
     required this.onSetPin,
     required this.onDisablePin,
     required this.onLockNow,

@@ -13,8 +13,11 @@ class GoalRepository extends ChangeNotifier implements GoalRepositoryPort {
   int _dailyDeepWorkMinutes = 120;
   bool _loaded = false;
 
+  @override
   int get dailyIncomeGoal => _dailyIncomeGoal;
+  @override
   int get monthlyIncomeGoal => _monthlyIncomeGoal;
+  @override
   int get dailyDeepWorkMinutes => _dailyDeepWorkMinutes;
   bool get loaded => _loaded;
 
@@ -27,6 +30,7 @@ class GoalRepository extends ChangeNotifier implements GoalRepositoryPort {
     notifyListeners();
   }
 
+  @override
   Future<void> setGoals({
     required int dailyIncomeGoal,
     required int monthlyIncomeGoal,

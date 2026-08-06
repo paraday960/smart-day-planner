@@ -9,18 +9,21 @@ import '../domain/services/share_file_service_port.dart';
 class ShareFileService implements ShareFileServicePort {
   const ShareFileService();
 
+  @override
   Future<File> saveBytes({required String fileName, required Uint8List bytes}) async {
     final dir = await getApplicationDocumentsDirectory();
     final file = File('${dir.path}/$fileName');
     return file.writeAsBytes(bytes, flush: true);
   }
 
+  @override
   Future<File> saveText({required String fileName, required String text}) async {
     final dir = await getApplicationDocumentsDirectory();
     final file = File('${dir.path}/$fileName');
     return file.writeAsString(text, flush: true);
   }
 
+  @override
   Future<void> shareFile(File file, {String? text}) async {
     await Share.shareXFiles([XFile(file.path)], text: text);
   }

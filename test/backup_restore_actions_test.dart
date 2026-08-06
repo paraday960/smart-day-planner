@@ -33,7 +33,7 @@ void main() {
     ));
     await sourceGoals.setGoals(dailyIncomeGoal: 1000000, monthlyIncomeGoal: 20000000, dailyDeepWorkMinutes: 120);
 
-    final controller = BackupActionsController();
+    const controller = BackupActionsController();
     final backup = controller.createBackup(
       taskRepository: sourceTasks,
       financeRepository: sourceFinance,

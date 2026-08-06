@@ -5,7 +5,7 @@ import 'fakes/fake_repositories.dart';
 
 void main() {
   test('restoreBackup throws when passphrase is wrong', () async {
-    final controller = BackupActionsController();
+    const controller = BackupActionsController();
     final tasks = FakeTaskRepository();
     final finance = FakeFinanceRepository();
     final goals = FakeGoalRepository();

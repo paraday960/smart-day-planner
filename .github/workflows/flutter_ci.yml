@@ -108,6 +108,22 @@ jobs:
       - name: Get dependencies
         run: flutter pub get
 
+      - name: Run unit tests
+        run: flutter test --exclude-tags=needs-real-device
+
+      - name: Verify feature flag gating (safe build config)
+        # در بیلد امن همه قابلیت‌های پلتفرمی پرریسک خاموش هستند؛
+        # این تست مطمئن می‌شود flagها واقعاً روی رفتار برنامه اثر می‌گذارند.
+        run: |
+          flutter test test/feature_gating_widget_test.dart \
+            --dart-define=ENABLE_VOICE_INPUT=false \
+            --dart-define=ENABLE_VOICE_RESPONSE=false \
+            --dart-define=ENABLE_CALENDAR=false \
+            --dart-define=ENABLE_PDF_EXPORT=false \
+            --dart-define=ENABLE_SHARE_FILES=false \
+            --dart-define=ENABLE_SMART_NOTIFICATIONS=false \
+            --dart-define=ENABLE_ENCRYPTED_BACKUP=false
+
       - name: Build debug APK
         run: flutter build apk --debug --dart-define=ENABLE_CALENDAR=false --dart-define=ENABLE_PDF_EXPORT=false --dart-define=ENABLE_SHARE_FILES=false --dart-define=ENABLE_SMART_NOTIFICATIONS=false
 

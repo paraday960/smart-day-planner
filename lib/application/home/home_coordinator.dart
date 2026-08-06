@@ -12,7 +12,6 @@ import '../../models/money_allocation.dart';
 import '../../models/planned_expense_goal.dart';
 import '../../models/task.dart';
 import '../../models/work_time_settings.dart';
-import '../../presentation/dialogs/goal_dialogs.dart';
 import '../../presentation/dialogs/planning_dialogs.dart';
 import '../../domain/services/notification_service_port.dart';
 import '../../services/security_service.dart';

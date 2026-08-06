@@ -16,6 +16,7 @@ class FinanceRepository extends ChangeNotifier implements FinanceRepositoryPort 
   final List<FinanceTransaction> _transactions = [];
   bool _loaded = false;
 
+  @override
   List<FinanceTransaction> get transactions => List.unmodifiable(_transactions);
   bool get loaded => _loaded;
 
@@ -28,6 +29,7 @@ class FinanceRepository extends ChangeNotifier implements FinanceRepositoryPort 
     notifyListeners();
   }
 
+  @override
   Future<void> add(FinanceTransaction transaction) async {
     final db = await DatabaseService.instance.database;
     await db.insert(
@@ -38,12 +40,14 @@ class FinanceRepository extends ChangeNotifier implements FinanceRepositoryPort 
     await _refreshAndNotify(db);
   }
 
+  @override
   Future<void> delete(String id) async {
     final db = await DatabaseService.instance.database;
     await db.delete('finance_transactions', where: 'id = ?', whereArgs: [id]);
     await _refreshAndNotify(db);
   }
 
+  @override
   Future<void> replaceAll(List<FinanceTransaction> transactions) async {
     final db = await DatabaseService.instance.database;
     final batch = db.batch();

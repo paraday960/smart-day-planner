@@ -58,7 +58,7 @@ class RealPdfReportService {
           pw.Text('کارهای انجام‌شده: ${PersianFormat.digits(done)}'),
           pw.SizedBox(height: 16),
           pw.Text('هزینه‌ها بر اساس دسته‌بندی'),
-          pw.Table.fromTextArray(
+          pw.TableHelper.fromTextArray(
             headers: ['دسته‌بندی', 'مبلغ'],
             data: expenseCategories.entries
                 .map((e) => [e.key, PersianFormat.money(e.value)])
