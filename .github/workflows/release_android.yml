@@ -36,6 +36,48 @@ jobs:
       - name: Ensure platform folders exist
         run: flutter create --platforms=android .
 
+      - name: Enable Android desugaring (full version)
+        run: |
+          echo "=== Patching desugaring for FULL build ==="
+          python3 <<'PY'
+          from pathlib import Path
+          import re
+          groovy = Path("android/app/build.gradle")
+          kotlin = Path("android/app/build.gradle.kts")
+          if groovy.exists():
+              t = groovy.read_text()
+              print("Found groovy")
+              if "coreLibraryDesugaringEnabled" not in t:
+                  t = re.sub(r'compileOptions\s*\{', 'compileOptions {\n        coreLibraryDesugaringEnabled true', t, count=1)
+              elif "coreLibraryDesugaringEnabled false" in t:
+                  t = t.replace("coreLibraryDesugaringEnabled false", "coreLibraryDesugaringEnabled true")
+              if "desugar_jdk_libs" not in t:
+                  if "dependencies {" in t:
+                      t = t.replace("dependencies {", "dependencies {\n    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.1.4'", 1)
+                  else:
+                      t += "\ndependencies {\n    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.1.4'\n}\n"
+              groovy.write_text(t)
+              print("Groovy patched")
+          if kotlin.exists():
+              t = kotlin.read_text()
+              print("Found kotlin build.gradle.kts")
+              if "isCoreLibraryDesugaringEnabled" not in t:
+                  t = re.sub(r'compileOptions\s*\{', 'compileOptions {\n        isCoreLibraryDesugaringEnabled = true', t, count=1)
+              elif "isCoreLibraryDesugaringEnabled = false" in t:
+                  t = t.replace("isCoreLibraryDesugaringEnabled = false", "isCoreLibraryDesugaringEnabled = true")
+              if "desugar_jdk_libs" not in t:
+                  if "dependencies {" in t:
+                      t = t.replace("dependencies {", 'dependencies {\n    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")', 1)
+                  else:
+                      t += '\ndependencies {\n    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")\n}\n'
+              kotlin.write_text(t)
+              print("Kotlin patched")
+              print(t[:2000])
+          PY
+          echo "=== After patch ==="
+          cat android/app/build.gradle.kts 2>&1 | head -n 300 || true
+          cat android/app/build.gradle 2>&1 | head -n 200 || true
+
       - name: Get dependencies
         run: flutter pub get
 
@@ -45,11 +87,11 @@ jobs:
       - name: Tests
         run: flutter test
 
-      - name: Build release APK
+      - name: Build release APK (FULL - all features enabled)
         if: ${{ inputs.build_type == 'apk' }}
         run: flutter build apk --release
 
-      - name: Build release App Bundle
+      - name: Build release App Bundle (FULL)
         if: ${{ inputs.build_type == 'appbundle' }}
         run: flutter build appbundle --release
 
