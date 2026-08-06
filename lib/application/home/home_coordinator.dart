@@ -19,11 +19,11 @@ import '../../services/security_service.dart';
 import '../actions/allocation_actions_controller.dart';
 import '../actions/backup_actions_controller.dart';
 import '../actions/debt_actions_controller.dart';
-import '../actions/finance_actions_controller.dart';
+import '../finance/finance_actions_controller.dart';
 import '../actions/goal_actions_controller.dart';
 import '../actions/report_actions_controller.dart';
 import '../actions/security_actions_controller.dart';
-import '../actions/task_actions_controller.dart';
+import '../tasks/task_actions_controller.dart';
 
 class HomeCoordinator {
   const HomeCoordinator({
