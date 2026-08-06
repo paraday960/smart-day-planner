@@ -1,4 +1,5 @@
 import '../../models/scheduled_item.dart';
+import '../../services/ai_brain_service.dart';
 
 class DashboardState {
   const DashboardState({
@@ -11,6 +12,7 @@ class DashboardState {
     required this.plannedExpenseMessages,
     required this.debtMessages,
     required this.todayPlan,
+    this.brainProfile,
   });
 
   final int openCount;
@@ -22,6 +24,7 @@ class DashboardState {
   final List<String> plannedExpenseMessages;
   final List<String> debtMessages;
   final List<ScheduledItem> todayPlan;
+  final AIBrainProfile? brainProfile;
 
   bool get hasUrgentMoneyMessage => plannedExpenseMessages.isNotEmpty || debtMessages.isNotEmpty;
 }

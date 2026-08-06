@@ -49,6 +49,31 @@ class DashboardTab extends ConsumerWidget {
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
       children: [
+        if (state.brainProfile != null) Card.filled(
+          color: Theme.of(context).colorScheme.primaryContainer,
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.psychology, size: 20),
+                    const SizedBox(width: 8),
+                    Text('مغز هوشمند یکپارچه 🧠', style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
+                    const Spacer(),
+                    Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)), child: Text('\${PersianFormat.digits(state.brainProfile!.brainScore)}/۱۰۰', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(state.brainProfile!.nextAction, style: Theme.of(context).textTheme.bodyMedium),
+                const SizedBox(height: 8),
+                ...state.brainProfile!.personalizedInsights.take(2).map((e) => Padding(padding: const EdgeInsets.only(bottom: 4), child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [const Text('• '), Expanded(child: Text(e, style: Theme.of(context).textTheme.bodySmall))]))),
+              ],
+            ),
+          ),
+        ),
+        if (state.brainProfile != null) const SizedBox(height: 12),
         Card.filled(
           child: ListTile(
             leading: const Icon(Icons.today),

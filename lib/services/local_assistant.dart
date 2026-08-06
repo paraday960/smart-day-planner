@@ -4,6 +4,7 @@ import '../models/task.dart';
 import '../models/work_time_settings.dart';
 import '../utils/persian_format.dart';
 import 'advanced_habit_learning_service.dart';
+import 'ai_brain_service.dart';
 import 'debt_repayment_planner.dart';
 import 'finance_insights_service.dart';
 import 'finance_repository.dart';
@@ -391,6 +392,33 @@ class RuleBasedLocalAssistant implements LocalLlmAdapter {
       ],
     ),
     NluIntent(
+      id: 'brain_status',
+      priority: 70,
+      patterns: [
+        'وضعیت کلی',
+        'وضعیتم چطوره',
+        'حال کلی',
+        'مغز',
+        'امتیاز من',
+        'تحلیل جامع',
+        'همه چیز چطوره',
+        'خلاصه وضعیت',
+        'داشبورد هوشمند',
+        'brain',
+      ],
+    ),
+    NluIntent(
+      id: 'morning_briefing',
+      priority: 65,
+      patterns: [
+        'صبح بخیر',
+        'برنامه امروز چیه',
+        'امروز چیکار کنم',
+        'briefing',
+        'خلاصه امروز',
+      ],
+    ),
+    NluIntent(
       id: 'small_talk',
       priority: 20,
       patterns: ['حالت چطوره', 'چه خبر', 'خوبی', 'چطوری', 'حال و احوالت'],
@@ -448,6 +476,10 @@ class RuleBasedLocalAssistant implements LocalLlmAdapter {
         return _prediction();
       case 'habit_suggestion':
         return _habitSuggestion(tasks);
+      case 'brain_status':
+        return _brainStatus(tasks);
+      case 'morning_briefing':
+        return _morningBriefing(tasks);
       case 'small_talk':
         return 'من که همیشه سرحالم؛ چون وظیفه‌ام کمک به توئه. 😊 از کجا شروع کنیم؟';
       default:
@@ -486,7 +518,9 @@ class RuleBasedLocalAssistant implements LocalLlmAdapter {
         '• «جبران» — برنامهٔ جبران عقب‌ماندگی\n'
         '• «عادت‌هام چطوره؟» — تحلیل عادت و استریک\n'
         '• «ماه بعد چقدر خرج می‌کنم؟» — پیش‌بینی مالی هوشمند\n'
-        '• «پیشنهاد بده» — پیشنهاد خودکار بر اساس رفتارت';
+        '• «پیشنهاد بده» — پیشنهاد خودکار بر اساس رفتارت\n'
+        '• «وضعیت کلی» — مغز یکپارچه: امتیاز، حال مالی و توصیه شخصی\n'
+        '• «صبح بخیر» — بریفینگ شخصی صبح'
   }
 
   String _nextTask(List<Task> tasks) {
@@ -844,6 +878,43 @@ class RuleBasedLocalAssistant implements LocalLlmAdapter {
       case DateTime.friday: return 'جمعه';
       default: return '';
     }
+  }
+
+  String _brainStatus(List<Task> tasks) {
+    final finance = _context.finance;
+    if (finance == null) return 'برای تحلیل مغز باید به داده متصل باشم.';
+    final brain = const AIBrainService().analyze(
+      tasks: tasks,
+      transactions: finance.transactions,
+      finance: finance,
+      debts: _context.debts ?? [],
+    );
+    final buf = StringBuffer()
+      ..writeln('🧠 مغز هوشمند یکپارچه:')
+      ..writeln('• امتیاز کلی: ${PersianFormat.digits(brain.brainScore)}/۱۰۰ — ${brain.mood == 'excellent' ? 'عالی 🌟' : brain.mood == 'good' ? 'خوب ☀️' : brain.mood == 'warning' ? 'هشدار ⚠️' : 'بحرانی 🚨'}')
+      ..writeln('• حال مالی: ${brain.financeHealth.healthLabel} (${PersianFormat.money(brain.financeHealth.net)} تراز)')
+      ..writeln('• عادت: تکمیل ${PersianFormat.digits((brain.habitProfile.completionRate * 100).round())}٪، استریک ${PersianFormat.digits(brain.habitProfile.streakDays)} روز')
+      ..writeln('• اقدام بعدی: ${brain.nextAction}')
+      ..writeln('💡 توصیه‌ها:');
+    for (final ins in brain.personalizedInsights.take(3)) {
+      buf.writeln('  • $ins');
+    }
+    if (brain.debtPlan != null && brain.debtPlan!.totalRemaining > 0) {
+      buf.writeln('💳 بدهی: ${PersianFormat.money(brain.debtPlan!.totalRemaining)}');
+    }
+    return buf.toString();
+  }
+
+  String _morningBriefing(List<Task> tasks) {
+    final finance = _context.finance;
+    if (finance == null) return 'برای بریفینگ باید به داده متصل باشم.';
+    final brain = const AIBrainService().analyze(
+      tasks: tasks,
+      transactions: finance.transactions,
+      finance: finance,
+      debts: _context.debts ?? [],
+    );
+    return const AIBrainService().morningBriefing(brain, tasks);
   }
 
   String _dailyBrief(List<Task> tasks) {

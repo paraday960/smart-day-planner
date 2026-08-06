@@ -4,6 +4,7 @@ import '../../services/debt_repository.dart';
 import '../../services/finance_repository.dart';
 import '../../services/goal_planning_service.dart';
 import '../../services/goal_repository.dart';
+import '../../services/ai_brain_service.dart';
 import '../../services/habit_insight_service.dart';
 import '../../services/planned_expense_repository.dart';
 import '../../services/smart_insights_service.dart';
@@ -17,17 +18,20 @@ class DashboardController {
     GoalPlanningService goalPlanning = const GoalPlanningService(),
     DebtPlanningService debtPlanning = const DebtPlanningService(),
     HabitInsightService habitInsight = const HabitInsightService(),
+    AIBrainService aiBrain = const AIBrainService(),
   })  : _planner = planner,
         _insights = insights,
         _goalPlanning = goalPlanning,
         _debtPlanning = debtPlanning,
         _habitInsight = habitInsight;
+        _aiBrain = aiBrain;
 
   final SmartPlanner _planner;
   final SmartInsightsService _insights;
   final GoalPlanningService _goalPlanning;
   final DebtPlanningService _debtPlanning;
   final HabitInsightService _habitInsight;
+  final AIBrainService _aiBrain;
 
   DashboardState build({
     required List<Task> tasks,
@@ -66,6 +70,7 @@ class DashboardController {
         financeRepository,
       ),
       todayPlan: _planner.buildTodayPlan(tasks),
+      brainProfile: _aiBrain.analyze(tasks: tasks, transactions: financeRepository.transactions, finance: financeRepository, debts: debtRepository.activeItems),
     );
   }
 }
