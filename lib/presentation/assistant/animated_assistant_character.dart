@@ -23,6 +23,7 @@ class _AnimatedAssistantCharacterState extends State<AnimatedAssistantCharacter>
   late AnimationController _blinkController;
   late AnimationController _notebookController;
   late AnimationController _penController;
+  late AnimationController _swayController;
 
   @override
   void initState() {
@@ -41,6 +42,7 @@ class _AnimatedAssistantCharacterState extends State<AnimatedAssistantCharacter>
     });
     _notebookController = AnimationController(vsync: this, duration: const Duration(milliseconds: 600));
     _penController = AnimationController(vsync: this, duration: const Duration(milliseconds: 400))..repeat(reverse: true);
+    _swayController = AnimationController(vsync: this, duration: const Duration(milliseconds: 3000))..repeat(reverse: true);
   }
 
   @override
@@ -66,16 +68,23 @@ class _AnimatedAssistantCharacterState extends State<AnimatedAssistantCharacter>
     _blinkController.dispose();
     _notebookController.dispose();
     _penController.dispose();
+    _swayController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final size = widget.size;
-    return SizedBox(
-      width: size,
-      height: size + 40,
-      child: Stack(
+    return AnimatedBuilder(
+      animation: _swayController,
+      builder: (_, child) {
+        final sway = math.sin(_swayController.value * math.pi * 2) * 1.5;
+        return Transform.translate(offset: Offset(sway, 0), child: child);
+      },
+      child: SizedBox(
+        width: size,
+        height: size + 40,
+        child: Stack(
         alignment: Alignment.topCenter,
         children: [
           // سایه
@@ -324,6 +333,7 @@ class _AnimatedAssistantCharacterState extends State<AnimatedAssistantCharacter>
               ),
             ),
         ],
+        ),
       ),
     );
   }
