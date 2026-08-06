@@ -7,6 +7,7 @@ import 'debt_repayment_planner.dart';
 import 'finance_insights_service.dart';
 import 'finance_repository.dart';
 import 'smart_insights_service.dart';
+import 'brain_memory_service.dart';
 import 'work_learning_service.dart';
 
 /// 🧠 مغز هوشمند یکپارچه — همه هوش‌ها در یک جا
@@ -23,6 +24,7 @@ class AIBrainProfile {
     required this.brainScore,
     required this.mood,
     required this.nextAction,
+    this.memory,
   });
 
   final WorkProfile workProfile;
@@ -37,6 +39,8 @@ class AIBrainProfile {
   final String mood;
   /// بهترین اقدام بعدی پیشنهادی مغز
   final String nextAction;
+  /// حافظه بلندمدت
+  final BrainLongTermMemory? memory;
 }
 
 class FinanceHealth {
