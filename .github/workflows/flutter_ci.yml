@@ -1,45 +1,45 @@
 name: Flutter CI
 
 on:
- push:
- branches: [ main ]
- workflow_dispatch:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
 
 jobs:
- build-debug-apk:
- name: Build Debug APK
- runs-on: ubuntu-latest
+  build-debug-apk:
+    name: Build Debug APK
+    runs-on: ubuntu-latest
 
- steps:
- - name: Checkout
- uses: actions/checkout@v4
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
- - name: Setup Java
- uses: actions/setup-java@v4
- with:
- distribution: temurin
- java-version: '17'
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
 
- - name: Setup Flutter
- uses: subosito/flutter-action@v2
- with:
- channel: stable
- cache: true
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
 
- - name: Flutter doctor
- run: flutter doctor -v
+      - name: Flutter doctor
+        run: flutter doctor -v
 
- - name: Create Android platform
- run: flutter create --platforms=android .
+      - name: Create Android platform
+        run: flutter create --platforms=android .
 
- - name: Get dependencies
- run: flutter pub get
+      - name: Get dependencies
+        run: flutter pub get
 
- - name: Build debug APK
- run: flutter build apk --debug --dart-define=ENABLE_CALENDAR=false --dart-define=ENABLE_PDF_EXPORT=false --dart-define=ENABLE_SHARE_FILES=false --dart-define=ENABLE_SMART_NOTIFICATIONS=false
+      - name: Build debug APK
+        run: flutter build apk --debug --dart-define=ENABLE_CALENDAR=false --dart-define=ENABLE_PDF_EXPORT=false --dart-define=ENABLE_SHARE_FILES=false --dart-define=ENABLE_SMART_NOTIFICATIONS=false
 
- - name: Upload debug APK
- uses: actions/upload-artifact@v4
- with:
- name: smart-day-planner-debug-apk
- path: build/app/outputs/flutter-apk/app-debug.apk
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: smart-day-planner-debug-apk
+          path: build/app/outputs/flutter-apk/app-debug.apk
