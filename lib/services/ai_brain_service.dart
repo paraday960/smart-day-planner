@@ -226,13 +226,22 @@ class AIBrainService {
 
   List<String> _applyFeedbackWeights(List<String> insights, Map<String, double> weights) {
     if (weights.isEmpty) return insights;
-    // ساده: اگر وزن habit کم است، پیشنهادهای habit را کم‌رنگ کن (حذف یا انتها)
-    final habitWeight = weights['general'] ?? weights['habit'] ?? 1.0;
-    if (habitWeight < 0.7 && insights.length > 2) {
-      // اگر بازخورد منفی زیاد، یک توصیه را حذف کن
-      return insights.sublist(0, insights.length - 1);
+    // وزن واقعی: هر دسته وزن جدا دارد، پیشنهادهای کم‌وزن آخر می‌روند
+    final scored = <MapEntry<String, double>>[];
+    for (final ins in insights) {
+      double w = 1.0;
+      if (ins.contains('ساعت') || ins.contains('استریک') || ins.contains('عادت')) w = weights['habit'] ?? weights['general'] ?? 1.0;
+      else if (ins.contains('💸') || ins.contains('💰') || ins.contains('تراز')) w = weights['finance'] ?? weights['general'] ?? 1.0;
+      else if (ins.contains('بدهی')) w = weights['debt'] ?? weights['general'] ?? 1.0;
+      else w = weights['general'] ?? 1.0;
+      scored.add(MapEntry(ins, w));
     }
-    return insights;
+    // مرتب‌سازی نزولی بر اساس وزن (وزن بالا اول)
+    scored.sort((a, b) => b.value.compareTo(a.value));
+    // اگر وزن <0.6، آن دسته را حذف کن (کاربر نخواسته)
+    final filtered = scored.where((e) => e.value >= 0.6).map((e) => e.key).toList();
+    // اگر همه حذف شدند، حداقل یکی را نگه دار
+    return filtered.isEmpty ? [scored.first.key] : filtered;
   }
 
   /// خلاصه یک خطی برای داشبورد
@@ -310,18 +319,32 @@ class AIBrainService {
   }) {
     final result = <String>[];
 
-    // از habitLearning
-    result.addAll(habitLearning.suggestions(habitProfile).take(2));
+    // از habitLearning — با توضیح چرایی
+    for (final s in habitLearning.suggestions(habitProfile).take(2)) {
+      // توضیح‌پذیری: دلیل را از روی داده اضافه کن
+      String explain = '';
+      if (s.contains('ساعت') && habitProfile.bestHours.isNotEmpty) {
+        final hour = habitProfile.bestHours.first;
+        final count = tasks.where((t) => t.isDone && t.completedAt?.hour == hour).length;
+        explain = ' (چون ${PersianFormat.digits(count)} کار رو همین ساعت تموم کردی)';
+      } else if (s.contains('استریک')) {
+        explain = ' (تداوم = بهره‌وری بیشتر)';
+      }
+      result.add(s + explain);
+    }
 
-    // مالی شخصی
+    // مالی شخصی — با توضیح
     if (health.healthLabel == 'کسری') {
-      result.add('💸 این ماه ${PersianFormat.money(health.net.abs())} کسری داری — یک دسته هزینه رو کم کن');
+      final ratio = health.monthIncome == 0 ? 0 : (health.monthExpense / health.monthIncome * 100).round();
+      result.add('💸 این ماه ${PersianFormat.money(health.net.abs())} کسری داری — هزینه‌ها ${PersianFormat.digits(ratio)}٪ درآمدت شده، یک دسته رو کم کن (چون تراز منفیه)');
     } else if (health.healthLabel == 'سالم' && health.net > 0) {
-      result.add('💰 تراز ماهت ${PersianFormat.money(health.net)} مثبت — ${PersianFormat.money((health.net * 0.3).round())} رو پس‌انداز کن');
+      result.add('💰 تراز ماهت ${PersianFormat.money(health.net)} مثبت — چون ${PersianFormat.digits(((health.net / (health.monthIncome == 0 ? 1 : health.monthIncome))*100).round())}٪ درآمدت مونده، ${PersianFormat.money((health.net * 0.3).round())} رو پس‌انداز کن');
     }
 
     if (health.anomaly != null) {
-      result.add('⚠️ هزینه «${health.anomaly!.category}» جهش کرده — چک کن');
+      final inc = health.anomaly!.increasePercent;
+      final pct = inc.isInfinite ? 'چند برابر' : '${PersianFormat.digits(((inc - 1)*100).round())}٪';
+      result.add('⚠️ هزینه «${health.anomaly!.category}» جهش کرده — ${pct} بیشتر از ماه قبل (چون ${PersianFormat.money(health.anomaly!.currentAmount)} vs ${PersianFormat.money(health.anomaly!.previousAmount)})');
     }
 
     // بدهی شخصی

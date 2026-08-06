@@ -45,7 +45,10 @@ import '../services/smart_planner.dart';
 import '../services/task_repository.dart';
 import '../services/voice_command_processor.dart';
 import '../services/autonomous_agent_service.dart';
+import '../application/home/assistant_coordinator.dart';
+import '../application/home/task_flow_coordinator.dart';
 import '../services/voice_input.dart';
+// Refactor 2026-08-06: منطق دستیار به AssistantCoordinator و جریان کار به TaskFlowCoordinator منتقل شد
 import '../services/voice_response_service.dart';
 import '../utils/persian_format.dart';
 import '../widgets/task_form_sheet.dart';
@@ -70,6 +73,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   late final LocalLlmAdapter _assistant;
   String _assistantStatusLabel = 'هوش قانونی (بدون LLM)';
   late final VoiceCommandProcessor _voiceProcessor;
+  late final AssistantCoordinator _assistantCoordinator;
+  late final TaskFlowCoordinator _taskFlowCoordinator;
 
   /// ورودی صدا — اگر فرمان صوتی غیرفعال باشد، مقدار پیش‌فرض امن می‌ماند.
   late VoiceInput _voiceInput = OnlineVoiceInput();
@@ -124,6 +129,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         assistant is HybridLocalAssistant ? assistant.statusLabel : 'هوش قانونی (بدون LLM)';
     _smartNotificationScheduler =
         SmartNotificationScheduler(notificationService: _notificationService);
+    _assistantCoordinator = AssistantCoordinator(
+      voiceResponseService: _voiceResponseService,
+      autonomousAgent: ref.read(autonomousAgentServiceProvider),
+    );
+    _taskFlowCoordinator = TaskFlowCoordinator(
+      homeCoordinator: _homeCoordinator,
+      taskRepository: _repository,
+      financeRepository: _financeRepository,
+    );
     _voiceProcessor = VoiceCommandProcessor(
       taskRepository: _repository,
       financeRepository: _financeRepository,
