@@ -20,27 +20,27 @@ class NotificationService implements NotificationServicePort {
 
     const android = AndroidInitializationSettings('@mipmap/ic_launcher');
     const ios = DarwinInitializationSettings(
-      requestAlertدسترسی: false,
-      requestBadgeدسترسی: false,
-      requestSoundدسترسی: false,
+      requestAlertPermission: false,
+      requestBadgePermission: false,
+      requestSoundPermission: false,
     );
 
     await _plugin.initialize(
       const InitializationSettings(android: android, iOS: ios),
     );
 
-    await _requestدسترسیs();
+    await _requestPermissions();
     _initialized = true;
   }
 
-  Future<void> _requestدسترسیs() async {
+  Future<void> _requestPermissions() async {
     await _plugin
         .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
-        ?.requestNotificationsدسترسی();
+        ?.requestNotificationsPermission();
 
     await _plugin
         .resolvePlatformSpecificImplementation<IOSFlutterLocalNotificationsPlugin>()
-        ?.requestدسترسیs(alert: true, badge: true, sound: true);
+        ?.requestPermissions(alert: true, badge: true, sound: true);
   }
 
   Future<void> scheduleTaskReminder(Task task) async {
