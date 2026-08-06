@@ -42,6 +42,16 @@ class WorkProfile {
   bool get hasEnoughData => sampleCount >= 3 && avgDailyWorkMinutes > 0;
 }
 
+/// یک بازهٔ ساعتیِ یادگرفته‌شده برای کار مولد.
+class ProductiveHourRange {
+  const ProductiveHourRange({required this.startHour, required this.endHour});
+
+  final int startHour;
+  final int endHour;
+
+  String get label => '$startHour تا $endHour';
+}
+
 /// سرویس یادگیری عادت کاری کاربر — کاملاً pure و تست‌پذیر.
 class WorkLearningService {
   const WorkLearningService();
@@ -104,5 +114,45 @@ class WorkLearningService {
       historyDays: dayCount,
       sampleCount: rateSamples + workDays.length,
     );
+  }
+
+  /// یادگیری «ساعات مفید» از زمانِ تکمیل کارها.
+  ///
+  /// بازه‌های ۲ساعته‌ای که کاربر بیشترین کار را در آن‌ها تمام کرده
+  /// برمی‌گردد (حداکثر ۲ بازه، مرتب‌شده از پرکارترین). اگر نمونهٔ
+  /// کافی نباشد (کمتر از [minSamples]) خالی می‌ماند.
+  List<ProductiveHourRange> bestProductiveHours({
+    required List<Task> tasks,
+    DateTime? now,
+    int minSamples = 3,
+  }) {
+    final current = now ?? DateTime.now();
+    final windowStart = current.subtract(const Duration(days: 30));
+
+    final hourCounts = <int, int>{};
+    for (final task in tasks) {
+      final completed = task.completedAt;
+      if (completed == null || !task.isDone) continue;
+      if (completed.isBefore(windowStart)) continue;
+      hourCounts[completed.hour] = (hourCounts[completed.hour] ?? 0) + 1;
+    }
+
+    final total = hourCounts.values.fold<int>(0, (a, b) => a + b);
+    if (total < minSamples) return const [];
+
+    final ranges = <(int, int, int)>[]; // (start, count, end)
+    for (var start = 0; start < 24; start += 2) {
+      var count = 0;
+      for (var h = start; h < start + 2 && h < 24; h++) {
+        count += hourCounts[h] ?? 0;
+      }
+      if (count > 0) ranges.add((start, count, start + 2));
+    }
+    ranges.sort((a, b) => b.$2.compareTo(a.$2));
+
+    return ranges
+        .take(2)
+        .map((r) => ProductiveHourRange(startHour: r.$1, endHour: r.$3))
+        .toList();
   }
 }

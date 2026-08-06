@@ -80,7 +80,9 @@ void main() {
       ];
       final profile = service.profile(tasks: tasks, transactions: txs);
       // ۲ ساعت کار در روز × ۳۰۰ هزار = ۶۰۰ هزار توان روزانه
-      expect(profile.dailyEarningCapacity, closeTo(600000, 1));
+      // مجموع زمان ۱ روز = ۱۲۰ (کار) + ۶۰ (تراکنش) = ۱۸۰ دقیقه
+      // توان روزانه = (180/60) × 300000 = 900 هزار
+      expect(profile.dailyEarningCapacity, closeTo(900000, 1));
     });
 
     test('کارهای قدیمی‌تر از ۳۰ روز نادیده گرفته می‌شوند', () {
