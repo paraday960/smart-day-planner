@@ -33,6 +33,11 @@ class FeatureFlags {
   static const enableOfflineSpeech =
       bool.fromEnvironment('ENABLE_OFFLINE_SPEECH', defaultValue: false);
 
+  /// دستیار خودکار هیبرید — وقتی روشن باشد تمام کارها توسط دستیار انجام می‌شود
+  /// و فقط موارد حساس تایید می‌خواهد. پیش‌فرض روشن است.
+  static const enableAutonomousAgent =
+      bool.fromEnvironment('ENABLE_AUTONOMOUS_AGENT', defaultValue: true);
+
   static Map<String, bool> asMap() => {
         'voiceInput': enableVoiceInput,
         'voiceResponse': enableVoiceResponse,
@@ -43,6 +48,7 @@ class FeatureFlags {
         'encryptedBackup': enableEncryptedBackup,
         'localLlm': enableLocalLlm,
         'offlineSpeech': enableOfflineSpeech,
+        'autonomousAgent': enableAutonomousAgent,
       };
 
   static bool get hasRiskyPlatformFeatureEnabled =>

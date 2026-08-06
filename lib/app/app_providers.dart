@@ -35,6 +35,7 @@ import '../services/finance_insights_service.dart';
 import '../services/goal_planning_service.dart';
 import '../services/goal_repository.dart';
 import '../services/advanced_habit_learning_service.dart';
+import '../services/autonomous_agent_service.dart';
 import '../services/habit_insight_service.dart';
 import '../services/hybrid_local_assistant.dart';
 import '../services/llama_backend.dart';
@@ -95,6 +96,9 @@ final debtPlanningServiceProvider =
     Provider<DebtPlanningService>((ref) => const DebtPlanningService());
 final forecastServiceProvider =
     Provider<ForecastService>((ref) => const ForecastService());
+final autonomousAgentServiceProvider =
+    Provider<AutonomousAgentService>((ref) => const AutonomousAgentService(mode: AutonomousMode.hybrid));
+
 final advancedHabitLearningServiceProvider =
     Provider<AdvancedHabitLearningService>((ref) => const AdvancedHabitLearningService());
 final habitInsightServiceProvider =

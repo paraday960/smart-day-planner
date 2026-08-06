@@ -44,6 +44,7 @@ import '../services/smart_notification_scheduler.dart';
 import '../services/smart_planner.dart';
 import '../services/task_repository.dart';
 import '../services/voice_command_processor.dart';
+import '../services/autonomous_agent_service.dart';
 import '../services/voice_input.dart';
 import '../services/voice_response_service.dart';
 import '../utils/persian_format.dart';
@@ -241,13 +242,39 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     });
 
     final spokenText = _lastVoiceText.trim();
-    final answer = await _voiceProcessor.handle(spokenText);
-    if (!mounted) return;
-    setState(() {
-      _assistantAnswer = answer;
-      _voiceStatus =
-          spokenText.isEmpty ? 'متنی تشخیص داده نشد.' : 'فرمان اجرا شد.';
-    });
+    // 🤖 حالت خودکار هیبرید: تمام کارها توسط دستیار
+    String answer;
+    if (FeatureFlags.enableAutonomousAgent) {
+      final agent = ref.read(autonomousAgentServiceProvider);
+      final result = await agent.handleAutonomously(
+        rawText: spokenText,
+        taskRepository: _repository,
+        financeRepository: _financeRepository,
+        debtRepository: _debtRepository,
+        plannedExpenseRepository: _plannedExpenseRepository,
+        allocationRepository: _allocationRepository,
+        conversationMemory: _conversationMemoryService,
+      );
+      answer = result.message;
+      // اگر نیاز به تایید دارد، وضعیت را متفاوت نشان بده
+      if (!mounted) return;
+      setState(() {
+        _assistantAnswer = answer;
+        _voiceStatus = result.needsConfirmation
+            ? '⏳ منتظر تایید شما...'
+            : spokenText.isEmpty
+                ? 'متنی تشخیص داده نشد.'
+                : '🤖 خودکار اجرا شد.';
+      });
+    } else {
+      answer = await _voiceProcessor.handle(spokenText);
+      if (!mounted) return;
+      setState(() {
+        _assistantAnswer = answer;
+        _voiceStatus =
+            spokenText.isEmpty ? 'متنی تشخیص داده نشد.' : 'فرمان اجرا شد.';
+      });
+    }
     if (FeatureFlags.enableVoiceResponse) {
       await _voiceResponseService.speak(answer);
     }
@@ -749,12 +776,34 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Future<void> _askAssistant() async {
-    final prompt = _assistantController.text;
-    final answer =
-        await _assistant.generate(prompt: prompt, tasks: _repository.tasks);
+    final prompt = _assistantController.text.trim();
+    if (prompt.isEmpty) return;
+    String answer;
+    // 🤖 اگر فرمان اجرایی است (کار/مالی)، اول دستیار خودکار هیبرید امتحان کن
+    if (FeatureFlags.enableAutonomousAgent && _isAutonomousCommand(prompt)) {
+      final agent = ref.read(autonomousAgentServiceProvider);
+      final result = await agent.handleAutonomously(
+        rawText: prompt,
+        taskRepository: _repository,
+        financeRepository: _financeRepository,
+        debtRepository: _debtRepository,
+        plannedExpenseRepository: _plannedExpenseRepository,
+        allocationRepository: _allocationRepository,
+        conversationMemory: _conversationMemoryService,
+      );
+      answer = result.message;
+    } else {
+      answer = await _assistant.generate(prompt: prompt, tasks: _repository.tasks);
+    }
     if (mounted) setState(() => _assistantAnswer = answer);
     if (FeatureFlags.enableVoiceResponse) {
       await _voiceResponseService.speak(answer);
     }
+  }
+
+  bool _isAutonomousCommand(String text) {
+    final lower = text.toLowerCase();
+    const keywords = ['بدهکار', 'بدهی', 'کنار بذار', 'کنار بگذار', 'پرداخت', 'هزینه', 'کار جدید', 'وظیفه', 'خرج', 'تومان', 'هزار', 'میلیون', 'تایید', 'لغو'];
+    return keywords.any(lower.contains);
   }
 }

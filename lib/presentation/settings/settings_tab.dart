@@ -152,6 +152,34 @@ class SettingsTab extends ConsumerWidget {
             ),
           ),
         ),
+        Card.outlined(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(Icons.smart_toy_outlined),
+                  title: Text('حالت دستیار خودکار هیبرید 🤖'),
+                  subtitle: Text('تمام کارها توسط دستیار انجام می‌شود — فقط موارد حساس تایید می‌خواهد. کافیست بگویی، دستیار خودش ثبت، برنامه‌ریزی و تخصیص می‌کند.'),
+                ),
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.green.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Text(
+                    '✅ فعال: هیبرید هوشمند\n• فرمان‌های ساده → اجرای فوری بدون تایید\n• مبالغ بالا یا مبهم → دستیار می‌پرسد "تایید می‌کنی؟" بگو "تایید" یا "لغو"\n• مثال: "به علی ۲ میلیون بدهکارم" → خودکار ثبت + برنامه پرداخت',
+                    style: TextStyle(fontSize: 12),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
         const Card.outlined(
           child: Padding(
             padding: EdgeInsets.all(16),
