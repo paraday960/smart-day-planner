@@ -3,6 +3,7 @@ import '../models/finance_transaction.dart';
 import '../models/task.dart';
 import '../models/work_time_settings.dart';
 import '../utils/persian_format.dart';
+import 'advanced_habit_learning_service.dart';
 import 'debt_repayment_planner.dart';
 import 'finance_insights_service.dart';
 import 'finance_repository.dart';
@@ -340,6 +341,56 @@ class RuleBasedLocalAssistant implements LocalLlmAdapter {
       ],
     ),
     NluIntent(
+      id: 'habit_analysis',
+      priority: 62,
+      patterns: [
+        'عادت هام',
+        'عادتام',
+        'عادتهام',
+        'تحلیل عادت',
+        'عادتم چطوره',
+        'رفتارم چطوره',
+        'الگوهام',
+        'الگوي کارم',
+        'چقدر منظمم',
+        'یادگیری عادت',
+        'عادت کاری',
+        'کارام چطور پیش میره',
+      ],
+    ),
+    NluIntent(
+      id: 'prediction',
+      priority: 60,
+      patterns: [
+        'پیش بینی',
+        'پیش‌بینی',
+        'پیشبینی',
+        'ماه بعد',
+        'ماه آینده',
+        'ماه اينده چقدر',
+        'هزینه ماه بعد',
+        'درآمد ماه بعد',
+        'پیش بینی هزینه',
+        'پیش بینی درآمد',
+        'ماه بعد چقدر خرج',
+        'ماه بعد چقدر در میارم',
+      ],
+    ),
+    NluIntent(
+      id: 'habit_suggestion',
+      priority: 58,
+      patterns: [
+        'پیشنهاد بده',
+        'چی پیشنهاد میدی',
+        'چه پیشنهادی داری',
+        'چیکار کنم بهتر شم',
+        'چطور بهتر شم',
+        'توصیه برام',
+        'نصیحت',
+        'راهکار بده',
+      ],
+    ),
+    NluIntent(
       id: 'small_talk',
       priority: 20,
       patterns: ['حالت چطوره', 'چه خبر', 'خوبی', 'چطوری', 'حال و احوالت'],
@@ -391,6 +442,12 @@ class RuleBasedLocalAssistant implements LocalLlmAdapter {
         return _motivation(tasks);
       case 'repayment_plan':
         return _repaymentPlan();
+      case 'habit_analysis':
+        return _habitAnalysis(tasks);
+      case 'prediction':
+        return _prediction();
+      case 'habit_suggestion':
+        return _habitSuggestion(tasks);
       case 'small_talk':
         return 'من که همیشه سرحالم؛ چون وظیفه‌ام کمک به توئه. 😊 از کجا شروع کنیم؟';
       default:
@@ -426,7 +483,10 @@ class RuleBasedLocalAssistant implements LocalLlmAdapter {
         '• «چقدر درآمد دارم؟» — پیش‌بینی درآمد\n'
         '• «وضعیت مالیم چطوره؟» — تحلیل مالی\n'
         '• «کی کار کنم؟» — بهترین زمان تمرکز\n'
-        '• «جبران» — برنامهٔ جبران عقب‌ماندگی';
+        '• «جبران» — برنامهٔ جبران عقب‌ماندگی\n'
+        '• «عادت‌هام چطوره؟» — تحلیل عادت و استریک\n'
+        '• «ماه بعد چقدر خرج می‌کنم؟» — پیش‌بینی مالی هوشمند\n'
+        '• «پیشنهاد بده» — پیشنهاد خودکار بر اساس رفتارت';
   }
 
   String _nextTask(List<Task> tasks) {
@@ -712,6 +772,78 @@ class RuleBasedLocalAssistant implements LocalLlmAdapter {
     }
 
     return buffer.toString();
+  }
+
+  String _habitAnalysis(List<Task> tasks) {
+    final finance = _context.finance;
+    if (finance == null) return 'برای تحلیل عادت باید به دادهٔ مالی وصل باشم.';
+    final svc = const AdvancedHabitLearningService();
+    final profile = svc.analyze(tasks: tasks, transactions: finance.transactions);
+    if (!profile.hasEnoughData) {
+      return 'هنوز داده کافی ندارم — حداقل ۳ کار تکمیل کن تا الگوهات رو یاد بگیرم. فعلا: ${svc.dashboardSummary(profile)}';
+    }
+    final buf = StringBuffer()
+      ..writeln('📊 تحلیل عادت‌های تو:')
+      ..writeln('• نرخ تکمیل: ${PersianFormat.digits((profile.completionRate * 100).round())}٪ (${PersianFormat.digits(profile.totalCompleted)} از ${PersianFormat.digits(profile.totalCompleted + profile.totalOpen)})')
+      ..writeln('• استریک فعلی: ${PersianFormat.digits(profile.streakDays)} روز متوالی')
+      ..writeln('• میانگین: ${PersianFormat.digits(profile.avgTasksPerDay.toStringAsFixed(1))} کار در روز')
+      ..writeln('• روند: ${profile.productivityTrend > 0 ? '📈 صعودی (+${PersianFormat.digits((profile.productivityTrend * 100).round())}٪ نسبت به هفته قبل)' : profile.productivityTrend < 0 ? '📉 نزولی (${PersianFormat.digits((profile.productivityTrend * 100).round())}٪)' : '➡️ ثابت'}');
+    if (profile.bestHours.isNotEmpty) {
+      buf.writeln('• بهترین ساعت کاریت: ${profile.bestHours.take(2).map((h) => '${PersianFormat.digits(h)}:۰۰').join(' و ')}');
+    }
+    if (profile.bestWeekday != null) {
+      buf.writeln('• بهترین روز هفته: ${_weekdayFa(profile.bestWeekday!)}');
+    }
+    for (final ch in profile.categoryHabits.take(2)) {
+      buf.writeln('• ${ch.insight}');
+    }
+    if (profile.weeklyTrend.isNotEmpty) {
+      buf.writeln('• روند ۴ هفته اخیر: ${profile.weeklyTrend.map((e) => PersianFormat.digits(e)).join(' → ')} کار');
+    }
+    return buf.toString();
+  }
+
+  String _prediction() {
+    final finance = _context.finance;
+    if (finance == null) return 'برای پیش‌بینی باید به دادهٔ مالی وصل باشم.';
+    final svc = const AdvancedHabitLearningService();
+    // نیاز به tasks هم داریم ولی برای پیش‌بینی مالی فقط transactions کافیه
+    final profile = svc.analyze(tasks: const [], transactions: finance.transactions);
+    if (profile.predictedMonthlyExpense == 0 && profile.predictedMonthlyIncome == 0) {
+      return 'هنوز تراکنش کافی برای پیش‌بینی ندارم — چند هزینه و درآمد ثبت کن.';
+    }
+    final buf = StringBuffer()..writeln('🔮 پیش‌بینی ماه آینده (بر اساس میانگین وزنی ۳ ماه):');
+    buf.writeln('• هزینه: حدود ${PersianFormat.money(profile.predictedMonthlyExpense)}');
+    buf.writeln('• درآمد: حدود ${PersianFormat.money(profile.predictedMonthlyIncome)}');
+    final net = profile.predictedMonthlyIncome - profile.predictedMonthlyExpense;
+    if (net > 0) {
+      buf.writeln('• تراز: ${PersianFormat.money(net)} مثبت ✅');
+    } else if (net < 0) {
+      buf.writeln('• تراز: ${PersianFormat.money(net.abs())} کسری ⚠️ — باید هزینه رو کم یا درآمد رو زیاد کنی');
+    }
+    return buf.toString();
+  }
+
+  String _habitSuggestion(List<Task> tasks) {
+    final finance = _context.finance;
+    if (finance == null) return 'برای پیشنهاد باید به دادهٔ مالی وصل باشم.';
+    final svc = const AdvancedHabitLearningService();
+    final profile = svc.analyze(tasks: tasks, transactions: finance.transactions);
+    final sug = svc.suggestions(profile);
+    return '💡 پیشنهادهای هوشمند بر اساس عادت‌هات:\n${sug.map((s) => '• $s').join('\n')}';
+  }
+
+  String _weekdayFa(int w) {
+    switch (w) {
+      case DateTime.saturday: return 'شنبه';
+      case DateTime.sunday: return 'یکشنبه';
+      case DateTime.monday: return 'دوشنبه';
+      case DateTime.tuesday: return 'سه‌شنبه';
+      case DateTime.wednesday: return 'چهارشنبه';
+      case DateTime.thursday: return 'پنجشنبه';
+      case DateTime.friday: return 'جمعه';
+      default: return '';
+    }
   }
 
   String _dailyBrief(List<Task> tasks) {
