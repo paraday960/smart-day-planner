@@ -12,6 +12,7 @@ ios/Pods/
 
 # مدل‌های سنگین LLM — نباید در گیت باشند؛ با scripts/download_llm_model.sh دانلود می‌شوند
 assets/models/
+!assets/models/assistant.glb
 
 # کتابخانه‌های بومی LLM اندروید — با scripts/build_android_llm.sh ساخته می‌شوند
 android/app/src/main/jniLibs/**/*.so
