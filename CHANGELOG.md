@@ -1,5 +1,37 @@
 # Changelog
 
+## 2026-08-07 — رفع شکاف‌های KNOWN_GAPS (به مدار برگشتن) 🚀
+
+**Refactor (شکاف ۶):**
+- `VoiceCommandProcessor` (1081 → 707 خط): ابزارهای NLU خالص به `VoiceNlu` در
+  `lib/services/voice_nlu.dart` منتقل شدند (نرمال‌سازی، مبلغ، نام، مهلت، ...).
+- `RuleBasedLocalAssistant` (1109 → 692 خط): لیست intent ها (۴۲۰ خط) به
+  `lib/services/local_assistant_intents.dart` منتقل شد.
+
+**تست (شکاف ۵):**
+- `test/voice_command_all_repos_test.dart`: با همهٔ repositoryها هیچ پیام
+  «هنوز به فرمان صوتی وصل نشده» برنمی‌گردد (پاکت پول، بدهی/پرداخت/چندبدهی،
+  هزینهٔ آینده، هدف، سناریوهای پیش‌بینی) + تست قرارداد پیام دفاعی.
+
+**وب (شکاف ۴):**
+- `web/index.html` + `web/manifest.json` + `web/flutter_bootstrap.js`
+  (قالب استاندارد Flutter 3.22+ با آیکن‌های موجود).
+
+**iOS (شکاف ۳):**
+- پوشهٔ کامل `ios/` (قالب استاندارد Flutter): Runner.xcodeproj با UUID های
+  سازگار، AppDelegate.swift، Info.plist با دسترسی‌های میکروفون/گفتار/تقویم،
+  Podfile، storyboard ها و asset catalog.
+
+**قابلیت‌های آفلاین (شکاف‌های ۱ و ۲):**
+- `VoskAssetInstaller` جدید: مدل باندل‌شده را به مسیر جستجوی `VoskModelLocator`
+  نصب می‌کند (قبلاً locator اصلاً asset را چک نمی‌کرد).
+- رفع باگ `LlamaAssetInstaller`: مسیر نصب با `LlamaModelLocator` هماهنگ شد
+  (مدل باندل‌شده حالا واقعاً پیدا می‌شود).
+- `main.dart`: نصب خودکار مدل Vosk هنگام `ENABLE_OFFLINE_SPEECH=true`.
+- Workflow جدید `.github/workflows/offline_capabilities.yml`: دانلود مدل Vosk
+  (~۴۰MB) و LLM اختیاری (~۴۷۰MB) روی runner، باندل در APK و آپلود artifact —
+  بدون سنگین کردن ریپو.
+
 ## 2026-08-07 — تعمیر کامل CI (۱۳ رفع) 🔧
 
 کامیت `dc4fed6` — نتیجه: ۱۳۰ تست پاس + ۵ تست gating + بیلد APK سبز.

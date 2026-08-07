@@ -2,9 +2,11 @@
 
 > ## 🟢 وضعیت فعلی (۲۰۲۶-08-07)
 > - **CI کاملاً سبز است**: ۱۳۰ تست واحد + ۵ تست feature-gating + بیلد APK دیباگ ✅
-> - تاریخچهٔ گیت تمیز شد؛ همهٔ رفع‌ها در کامیت `dc4fed6` جمع شده‌اند.
+> - **شکاف‌های KNOWN_GAPS رفع شدند**: refactor فایل‌های بزرگ (VoiceNlu)، تست «همهٔ
+>   repoها»، اسکلت وب و iOS، و workflow جدید ساخت APK آفلاین (Vosk + LLM محلی) 🚀
 > - 📖 **برای ورود سریع (مخصوص AI ها و همکاران جدید): [`docs/PROJECT_STATE.md`](docs/PROJECT_STATE.md)**
 > - 📦 **دانلود آخرین APK:** تب Actions → آخرین ران سبز → Artifacts → `smart-day-planner-debug-apk`
+> - 🧠 **APK با فرمان صوتی آفلاین و LLM محلی:** تب Actions → `Offline Capabilities Build` → Run workflow
 
 # دستیار روزانه هوشمند ایرانی — برنامه‌ریزی، حسابداری و فرمان صوتی فارسی
 

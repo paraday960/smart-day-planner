@@ -1,0 +1,8 @@
+**/xcuserdata/
+**/Pods/
+**/Flutter/Generated.xcconfig
+**/Flutter/flutter_export_environment.sh
+**/ServiceDefinitions.json
+**/Runner/GeneratedPluginRegistrant.*
+**/.symlinks/
+*.iml

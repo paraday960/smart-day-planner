@@ -2,7 +2,7 @@
 
 > این سند «نقطهٔ ورود» پروژه است. هر کسی (یا هر AI) که به این ریپو وصل میشود
 > اول این فایل را بخواند تا بداند کار تا کجا پیش رفته، چه چیزهایی درست شده و
-> چه چیزهایی هنوز مانده است. آخرین بهروزرسانی: **2026-08-07** (آخرین کامیت: `6bd1bee`).
+> چه چیزهایی هنوز مانده است. آخرین بهروزرسانی: **2026-08-07** (رفع شکاف‌های KNOWN_GAPS).
 
 ---
 
@@ -14,8 +14,9 @@
 | **تستهای واحد** | ✅ ۱۳۰ تست پاس، ۵ اسکیپ (نیازمند دستگاه واقعی) |
 | **تستهای feature gating** | ✅ ۵ تست پاس (با dart-define های امن) |
 | **بیلد APK دیباگ** | ✅ موفق + آپلود بهعنوان artifact |
-| **تاریخچهٔ گیت** | تمیز — ۵۶ کامیت، بدون کامیت تشخیصی موقت |
-| **آخرین کامیت** | `6bd1bee` — مستندات (CI سبز) |
+| **تاریخچهٔ گیت** | تمیز — بدون کامیت تشخیصی موقت |
+| **شکافهای KNOWN_GAPS** | 🚀 ۴/۵/۶ بسته شد، ۱/۲ قابل ساخت (workflow آفلاین)، ۳ اسکلت iOS |
+| **Workflow آفلاین** | ✅ `Offline Capabilities Build` — APK با Vosk و LLM محلی |
 
 ### ⚠️ قبل از هر تغییری حتماً این را بدانید
 - **Workflow ها را تغییر ندهید** مگر اینکه حتماً لازم باشد؛ CI روی هر `push` به `main`
@@ -27,6 +28,18 @@
 ---
 
 ## ۲. تاریخچهٔ اخیر — چه اتفاقی افتاده (اوت ۲۰۲۶)
+
+### ۷ آگوست — رفع شکاف‌های KNOWN_GAPS (شاخهٔ arena)
+- **Refactor**: `voice_command_processor.dart` (1081→707) و `local_assistant.dart`
+  (1109→692) کوچک شدند — ابزارهای NLU به `voice_nlu.dart` و intent ها به
+  `local_assistant_intents.dart` منتقل شدند.
+- **تست جدید** `voice_command_all_repos_test.dart`: با همهٔ repoها هیچ پیام
+  «هنوز به فرمان صوتی وصل نشده» برنمی‌گردد.
+- **وب**: اسکلت کامل `web/` (index.html، manifest، flutter_bootstrap.js).
+- **iOS**: اسکلت استاندارد `ios/` اضافه شد.
+- **آفلاین**: `VoskAssetInstaller` + هماهنگ‌سازی مسیر `LlamaAssetInstaller` با
+  locator ها + workflow `offline_capabilities.yml` (دانلود مدل Vosk/LLM روی runner
+  و باندل در APK بدون سنگین کردن ریپو).
 
 ### ۶ آگوست
 - `f0ee591` (**PR #1**): ارتقای امنیت بکاپ — **AES-GCM + PBKDF2** (۲۰۰٬۰۰۰ تکرار)،
@@ -148,11 +161,14 @@ CI دقیقاً همین دستورها را اجرا میکند (`.github/workf
 
 جزئیات کامل: **`docs/KNOWN_GAPS.md`**. خلاصه:
 
-1. 🔴 **LLM محلی (llama.cpp)**: زیرساخت کامل است ولی `libllama.so` و مدل GGUF
-   باندل نشدهاند؛ فلگ `ENABLE_LOCAL_LLM` خاموش است.
-2. 🔴 **تشخیص گفتار آفلاین (Vosk)**: کد آماده است ولی مدل فارسی باندل نشده؛
-   `ENABLE_OFFLINE_SPEECH` خاموش است.
-3. 🔴 **iOS**: پوشهٔ `ios/` در ریپو وجود ندارد (فقط اندروید).
+1. 🟡 **LLM محلی (llama.cpp)**: کد کامل و workflow ساخت (دانلود مدل ~۴۷۰MB روی
+   runner و باندل در APK) آماده است؛ مدل داخل ریپو نیست (سقف 100MB گیت‌هاب).
+   → تب Actions → `Offline Capabilities Build` → تیک `include_llm`.
+2. 🟡 **تشخیص گفتار آفلاین (Vosk)**: `VoskAssetInstaller` + workflow آماده است؛
+   مدل فارسی ~۴۰MB موقع build دانلود و باندل میشود.
+   → تب Actions → `Offline Capabilities Build` → Run workflow.
+3. 🟡 **iOS**: اسکلت استاندارد `ios/` اضافه شد؛ تأیید نهایی با
+   `flutter build ios --simulator` در محیط Xcode لازم است.
 4. 🟡 **تستهای widget گیتشده**: ۵ تست `feature_gating` فقط با
    `--dart-define=ENABLE_VOICE_INPUT=false` اجرا میشوند (پیشفرض true → skip).
 5. 🟡 **پکیجهای قدیمی**: `vosk_flutter 0.3.48` و چند پکیج دیگر API های قدیمی
