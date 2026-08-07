@@ -47,6 +47,38 @@ void main() {
     expect(tasks.any((t) => t.title.contains('دوست')), isTrue);
   });
 
+  test('سناریوی هدف مالی: قرار + موجودی + هدف کاری روزانه همه ساخته می‌شود', () async {
+    final agent = SmartPlannerAgent(onlineBackend: null);
+    final result = await agent.handle(
+      rawText: 'من امروز یک میلیون پول دارم و هفته دیگه باید با دوست دخترم برم بیرون',
+      taskRepository: repos.task,
+      financeRepository: repos.finance,
+      workProfile: WorkProfile.empty,
+    );
+    // پیام باید هر سه اقدام را توضیح دهد.
+    expect(result.message, contains('دوست دختر'));
+    expect(result.message, contains('روزی'));
+    // قرار ساخته شد و تاریخ آن ~۷ روز بعد است.
+    final task = repos.task.tasks
+        .firstWhere((t) => t.title.contains('دوست'));
+    expect(task.dueAt, isNotNull);
+    final days = task.dueAt!.difference(DateTime.now()).inDays;
+    expect(days, greaterThanOrEqualTo(6));
+    expect(days, lessThanOrEqualTo(8));
+  });
+
+  test('قرار بدون مبلغ هم زمان‌بندی می‌شود (مثلا «هفته دیگه با دوستم برم بیرون»)', () async {
+    final agent = SmartPlannerAgent(onlineBackend: null);
+    final result = await agent.handle(
+      rawText: 'یک قرار با دوستم برای هفته دیگه ست کن',
+      taskRepository: repos.task,
+      financeRepository: repos.finance,
+      workProfile: WorkProfile.empty,
+    );
+    expect(result.message, contains('دوست'));
+    expect(repos.task.tasks.any((t) => t.title.contains('دوست')), isTrue);
+  });
+
   test('یادگیری: سناریوی مشابه دوم بدون هوش آنلاین با reused=true اجرا می‌شود', () async {
     final agent = SmartPlannerAgent(onlineBackend: null);
     final first = await agent.handle(

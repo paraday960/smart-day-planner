@@ -171,18 +171,21 @@ class SmartPlannerAgent {
       );
     }
 
-    // 3) هوش آنلاین فکر می‌کند (اختیاری، وقتی کلید باشد) — برنامهٔ ساختارمند تولید کند
-    List<SmartAction> plan = const [];
+    // 3) همیشه برنامهٔ محلی را می‌سازیم (منبع معتبر و قابل‌اتکا).
+    final localPlan = _localPlan(normalized, workProfile);
+
+    // 4) هوش آنلاین (اختیاری، وقتی کلید باشد) می‌تواند برنامه را تکمیل کند.
+    List<SmartAction> onlinePlan = const [];
     if (FeatureFlags.enableOnlineAi && onlineBackend != null) {
-      plan = await _askOnlineForPlan(normalized);
+      onlinePlan = await _askOnlineForPlan(normalized);
     }
 
-    // 4) اگر هوش آنلاین برنامهٔ معتبر نداد، دستیار محلی خودش برنامه می‌سازد
-    if (plan.isEmpty) {
-      plan = _localPlan(normalized, workProfile);
-    }
+    // 5) ادغام: اقدامات اصلی (قرار/موجودی/هدف کاری) همیشه از برنامهٔ محلی می‌آیند
+    //    تا صرف‌نظر از خروجی هوش آنلاین، به‌درستی اجرا شوند. هوش آنلاین فقط
+    //    می‌تواند عنوان‌ها یا رویدادهای اضافه ارائه دهد.
+    final plan = _mergePlans(localPlan, onlinePlan);
 
-    // 5) اجرای محلی اقدامات
+    // 6) اجرای محلی اقدامات
     final executed = await _execute(plan, taskRepository, financeRepository,
         amount: _extractTarget(normalized));
 
@@ -203,9 +206,14 @@ class SmartPlannerAgent {
     final hasTarget = _extractTarget(text) > 0;
     final hasDateWord =
         text.contains('هفته') || text.contains('فردا') || text.contains('ماه');
-    final hasEvent =
-        text.contains('برم') || text.contains('قرار') || text.contains('بیرون');
-    return (hasTarget && (hasDateWord || hasEvent)) || (hasTarget && hasEvent);
+    final hasEvent = text.contains('برم') ||
+        text.contains('قرار') ||
+        text.contains('بیرون') ||
+        text.contains('دوست') ||
+        text.contains('مهمونی') ||
+        text.contains('مهمانی');
+    // سناریو هم با هدف مالی و هم با یک قرارِ زمان‌دار (بدون مبلغ) صادق است.
+    return (hasTarget && (hasDateWord || hasEvent)) || (hasEvent && hasDateWord);
   }
 
   String _fingerprint(String text) {
@@ -273,8 +281,32 @@ class SmartPlannerAgent {
     return actions;
   }
 
+  /// ادغام برنامهٔ محلی (معتبر) با برنامهٔ آنلاین (تکمیلی).
+  ///
+  /// اقدامات اصلی (قرار، موجودی، هدف کاری) از برنامهٔ محلی می‌آیند تا هرگز
+  /// از بین نروند. رویدادها/توصیه‌های اضافه از هوش آنلاین هم اضافه می‌شوند.
+  List<SmartAction> _mergePlans(
+      List<SmartAction> local, List<SmartAction> online) {
+    if (online.isEmpty) return local;
+
+    final merged = <SmartAction>[...local];
+    final localTitles = local.map((a) => a.title).toSet();
+
+    for (final a in online) {
+      // اگر از نوع اصلی است (topup/work_target) نادیده بگیر — محلی معتبرتر است.
+      if (a.type == 'topup' || a.type == 'work_target') continue;
+      // رویداد/توصیهٔ تکراری اضافه نکن.
+      if (a.type == 'event' && localTitles.contains(a.title)) continue;
+      merged.add(a);
+    }
+    return merged;
+  }
+
   String? _detectEventTitle(String text) {
-    if (text.contains('دوست') || text.contains('دوست دختر')) {
+    if (text.contains('دوست دختر')) {
+      return 'قرار با دوست دختر';
+    }
+    if (text.contains('دوست')) {
       return 'قرار با دوست';
     }
     if (text.contains('قرار')) return 'قرار';
@@ -286,7 +318,8 @@ class SmartPlannerAgent {
 
   String _workTargetMessage(int target, DateTime dueAt, WorkProfile profile) {
     final now = DateTime.now();
-    var days = dueAt.difference(now).inDays;
+    // تعداد روزهای واقعیِ باقی‌مانده (به‌سطح کامل روز گرد شود).
+    var days = (dueAt.difference(now).inMinutes / (24 * 60)).ceil();
     if (days < 1) days = 1;
 
     final hourlyRate = profile.avgHourlyRate > 0 ? profile.avgHourlyRate : 100000.0;
@@ -411,7 +444,7 @@ class SmartPlannerAgent {
             done.add(SmartAction(
               type: 'advice',
               title: a.title,
-              message: 'موجودی فعلی (${PersianFormat.money(balance)}) از هدف ($target) کمتر نیست؛ نیازی به افزایش نیست.',
+              message: 'موجودی فعلی (${PersianFormat.money(balance)}) از هدف (${PersianFormat.money(target)}) کمتر نیست؛ نیازی به افزایش نیست.',
             ));
           }
           break;

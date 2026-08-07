@@ -169,14 +169,17 @@ class VoiceNlu {
 
     var baseDate = DateTime(now.year, now.month, now.day);
     var hasDate = false;
+    // اولویت با تاریخ‌های آیندهٔ صریح است: «هفته دیگه» و «فردا» باید بر «امروز»
+    // غلبه کنند (مثل: «امروز یک میلیون دارم و هفته دیگه قرار دارم» → قرار هفته بعد).
+    if (text.contains('هفته دیگه') || text.contains('هفته بعد') || text.contains('این هفته')) {
+      return now.add(const Duration(days: 7));
+    }
     if (text.contains('فردا')) {
       final tomorrow = now.add(const Duration(days: 1));
       baseDate = DateTime(tomorrow.year, tomorrow.month, tomorrow.day);
       hasDate = true;
     } else if (text.contains('امروز')) {
       hasDate = true;
-    } else if (text.contains('هفته دیگه') || text.contains('هفته بعد') || text.contains('این هفته')) {
-      return now.add(const Duration(days: 7));
     }
 
     final hour = extractHour(text);
