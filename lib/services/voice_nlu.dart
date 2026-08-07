@@ -9,7 +9,7 @@ class VoiceNlu {
 
   /// استخراج چند نام از «به علی و محمد و حسن بدهکارم».
   /// اگر فقط یک نام باشد (یا الگو پیدا نشود) لیست خالی برمی‌گردد.
-  List<String> extractMultiDebtPersons(String text) {
+  static List<String> extractMultiDebtPersons(String text) {
     final normalized = normalize(text);
     final match = RegExp(r'به\s+(.+?)\s+بدهکارم').firstMatch(normalized);
     if (match == null) return const [];
@@ -32,7 +32,7 @@ class VoiceNlu {
   }
 
   /// پیدا کردن مبلغ اختصاصی یک شخص: «به <نام> <مبلغ>».
-  int? extractAmountForPerson(String text, String person) {
+  static int? extractAmountForPerson(String text, String person) {
     final normalized = normalize(text);
     final match = RegExp('به\\s*$person\\s*(.+?)(?=به\\s|\\،|،|\.|\$)')
         .firstMatch(normalized);
@@ -42,7 +42,7 @@ class VoiceNlu {
     return amount > 0 ? amount : null;
   }
 
-  String extractPersonNameForDebt(String text, DebtType type) {
+  static String extractPersonNameForDebt(String text, DebtType type) {
     final normalized = normalize(text);
 
     if (type == DebtType.debt) {
@@ -58,7 +58,7 @@ class VoiceNlu {
     return '';
   }
 
-  String cleanPlannedExpenseTitle(String rawText) {
+  static String cleanPlannedExpenseTitle(String rawText) {
     var title = normalize(rawText);
     final patterns = [
       r'هفته دیگه',
@@ -82,7 +82,7 @@ class VoiceNlu {
     return title.replaceAll(RegExp(r'\s+'), ' ').trim();
   }
 
-  String cleanTaskTitle(String rawText) {
+  static String cleanTaskTitle(String rawText) {
     var title = normalize(rawText);
     final patterns = [
       r'کار جدید',
@@ -110,7 +110,7 @@ class VoiceNlu {
     return title;
   }
 
-  DateTime? guessDueAt(String text) {
+  static DateTime? guessDueAt(String text) {
     final now = DateTime.now();
 
     // ── مهلت‌های «ماه» ──
@@ -195,7 +195,7 @@ class VoiceNlu {
     return null;
   }
 
-  int? extractHour(String text) {
+  static int? extractHour(String text) {
     final normalized = convertPersianDigits(text);
     final digitAfter = RegExp(r'ساعت\s+(\d{1,2})').firstMatch(normalized);
     if (digitAfter != null) return int.parse(digitAfter.group(1)!);
@@ -205,14 +205,14 @@ class VoiceNlu {
     return null;
   }
 
-  int? parseSmallNumber(String value) {
+  static int? parseSmallNumber(String value) {
     final normalized = convertPersianDigits(value);
     final digit = int.tryParse(normalized);
     if (digit != null) return digit;
     return _numberWords[normalized];
   }
 
-  int guessMinutes(String text, {int fallback = 30}) {
+  static int guessMinutes(String text, {int fallback = 30}) {
     final normalized = convertPersianDigits(text);
     final minuteMatch = RegExp(r'(\d+)\s*(دقیقه|مین|minute)').firstMatch(normalized);
     if (minuteMatch != null) return int.parse(minuteMatch.group(1)!).clamp(5, 24 * 60).toInt();
@@ -225,7 +225,7 @@ class VoiceNlu {
     return fallback;
   }
 
-  int? parseAmbiguousSpokenAmount(String text) {
+  static int? parseAmbiguousSpokenAmount(String text) {
     final normalized = normalize(text);
     // در فارسی محاوره‌ای «پونصد» معمولاً یعنی ۵۰۰ هزار تومان؛ چون مبهم است با تأیید اجرا می‌کنیم.
     if (containsAny(normalized, ['پونصد', 'پانصد']) && !containsAny(normalized, ['هزار', 'میلیون', 'تومان', 'تومن', 'ریال'])) {
@@ -237,7 +237,7 @@ class VoiceNlu {
     return null;
   }
 
-  int parseAmount(String text) {
+  static int parseAmount(String text) {
     final normalized = normalize(text).replaceAll(',', '').replaceAll('٬', '');
 
     final digitMatches = RegExp(r'(\d+)\s*(میلیون|هزار|تومان|تومن|ریال)?').allMatches(normalized).toList();
@@ -301,13 +301,13 @@ class VoiceNlu {
     return 0;
   }
 
-  int wordOverlap(String a, String b) {
+  static int wordOverlap(String a, String b) {
     final aw = a.split(' ').where((w) => w.length > 2).toSet();
     final bw = b.split(' ').where((w) => w.length > 2).toSet();
     return aw.intersection(bw).length;
   }
 
-  bool looksLikeWork(String text) {
+  static bool looksLikeWork(String text) {
     return containsAny(text, [
       'کار',
       'درآمد',
@@ -322,9 +322,9 @@ class VoiceNlu {
     ]);
   }
 
-  bool containsAny(String text, List<String> words) => words.any(text.contains);
+  static bool containsAny(String text, List<String> words) => words.any(text.contains);
 
-  String normalize(String value) {
+  static String normalize(String value) {
     return convertPersianDigits(value)
         .replaceAll('ي', 'ی')
         .replaceAll('ك', 'ک')
@@ -334,7 +334,7 @@ class VoiceNlu {
         .toLowerCase();
   }
 
-  String convertPersianDigits(String value) {
+  static String convertPersianDigits(String value) {
     const fa = '۰۱۲۳۴۵۶۷۸۹';
     const ar = '٠١٢٣٤٥٦٧٨٩';
     var result = value;
