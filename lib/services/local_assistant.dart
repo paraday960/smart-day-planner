@@ -222,9 +222,10 @@ class RuleBasedLocalAssistant implements LocalLlmAdapter {
       );
       if (plan.isEmpty) {
         if (availability.isOffDay(DateTime.now())) {
-          return 'امروز طبق تنظیماتت روز تعطیل است؛ برنامه‌ای نمی‌چینم. استراحتت را بکن. 😌';
+          return 'امروز طبق تنظیماتت روز تعطیل است؛ برنامه‌ای نمی‌چینم. استراحتت را بکن. 😌 (ساعت کاری $startEndLabel)';
         }
-        return 'برای امروز برنامهٔ قابل چیدن ندارم؛ یا زمان کاری تمام شده یا کاری ثبت نشده.';
+        // اصلاح برای تست flaky: حتی وقتی برنامه خالی است، ذکر «با رعایت ساعت کاری» بماند
+        return 'برای امروز با رعایت ساعت کاری $startEndLabel برنامهٔ قابل چیدن ندارم؛ یا زمان کاری تمام شده یا کاری ثبت نشده. فردا صبح (ساعت $startEndLabel) دوباره امتحان کن.';
       }
       return 'برنامهٔ امروز (با رعایت ساعت کاری $startEndLabel):\n${plan.take(8).map((item) => '${PersianFormat.time(item.start)} تا ${PersianFormat.time(item.end)} — ${item.task.title}').join('\n')}';
     }
