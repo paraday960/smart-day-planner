@@ -36,6 +36,7 @@ import '../services/finance_repository.dart';
 import '../services/goal_repository.dart';
 import '../services/hybrid_local_assistant.dart';
 import '../services/local_assistant.dart';
+import '../services/online_ai_config.dart';
 import '../domain/services/share_file_service_port.dart';
 import '../services/planned_expense_repository.dart';
 import '../services/security_service.dart';
@@ -125,8 +126,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     _calendarService = ref.read(calendarServiceProvider);
     final assistant = ref.read(assistantProvider);
     _assistant = assistant;
-    _assistantStatusLabel =
-        assistant is HybridLocalAssistant ? assistant.statusLabel : 'هوش قانونی (بدون LLM)';
+    _assistantStatusLabel = _buildAssistantStatusLabel(assistant);
+    // وقتی کاربر کلید هوش آنلاین را در تنظیمات تغییر داد، برچسب را تازه کن.
+    OnlineAiConfig.instance.version.addListener(_onOnlineAiConfigChanged);
     _smartNotificationScheduler =
         SmartNotificationScheduler(notificationService: _notificationService);
     _assistantCoordinator = AssistantCoordinator(
@@ -171,8 +173,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     });
   }
 
+  void _onOnlineAiConfigChanged() {
+    if (!mounted) return;
+    setState(() {
+      _assistantStatusLabel = _buildAssistantStatusLabel(_assistant);
+    });
+  }
+
   @override
   void dispose() {
+    OnlineAiConfig.instance.version.removeListener(_onOnlineAiConfigChanged);
     _repository.removeListener(_onRepositoryChanged);
     _financeRepository.removeListener(_onRepositoryChanged);
     _goalRepository.removeListener(_onRepositoryChanged);
@@ -788,6 +798,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     if (ok) {
       await _homeCoordinator.deleteTask(task);
     }
+  }
+
+  String _buildAssistantStatusLabel(LocalLlmAdapter assistant) {
+    if (FeatureFlags.enableOnlineAi && OnlineAiConfig.instance.hasKey) {
+      return 'هوش مصنوعی آنلاین فعال ✨';
+    }
+    if (FeatureFlags.enableLocalLlm) {
+      return assistant is HybridLocalAssistant
+          ? assistant.statusLabel
+          : 'هوش قانونی (بدون LLM)';
+    }
+    return 'هوش قانونی (بدون LLM)';
   }
 
   Future<void> _askAssistant() async {

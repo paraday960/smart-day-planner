@@ -15,6 +15,7 @@ import 'services/finance_repository.dart';
 import 'services/goal_repository.dart';
 import 'services/llama_asset_installer.dart';
 import 'services/notification_service.dart';
+import 'services/online_ai_config.dart';
 import 'services/planned_expense_repository.dart';
 import 'services/security_service.dart';
 import 'services/task_repository.dart';
@@ -36,6 +37,9 @@ Future<void> main() async {
   final notificationService = NotificationService.instance;
   final voiceResponseService = VoiceResponseService.instance;
   final securityService = SecurityService.instance;
+
+  // بارگذاری تنظیمات هوش مصنوعی آنلاین (کلید رایگان کاربر)
+  await OnlineAiConfig.instance.load();
 
   // بارگذاری موازی برای استارت سریع‌تر (قبلاً سریال 10+ await بود)
   // Repository ها مستقل هستند و می‌توانند همزمان load شوند

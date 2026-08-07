@@ -26,6 +26,12 @@ class FeatureFlags {
   static const enableLocalLlm =
       bool.fromEnvironment('ENABLE_LOCAL_LLM', defaultValue: false);
 
+  /// هوش مصنوعی آنلاین رایگان — پیش‌فرض روشن است. وقتی کلیدی از تنظیمات یا
+  /// `ONLINE_AI_API_KEY` وجود داشته باشد، دستیار اول از هوش آنلاین استفاده
+  /// می‌کند و در صورت عدم دسترسی به موتور قانون‌محور برمی‌گردد.
+  static const enableOnlineAi =
+      bool.fromEnvironment('ENABLE_ONLINE_AI', defaultValue: true);
+
   /// تشخیص گفتار آفلاین با Vosk — پیش‌فرض خاموش است چون مدل فارسی
   /// (~۴۰MB) باید جداگانه دانلود شود. وقتی روشن باشد و مدل موجود باشد،
   /// فرمان صوتی بدون اینترنت کار می‌کند؛ در غیر این صورت به سرویس
@@ -49,5 +55,6 @@ class FeatureFlags {
         'localLlm': enableLocalLlm,
         'offlineSpeech': enableOfflineSpeech,
         'autonomousAgent': enableAutonomousAgent,
+        'onlineAi': enableOnlineAi,
       };
 }

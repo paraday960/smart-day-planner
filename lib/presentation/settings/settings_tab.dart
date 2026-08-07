@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/app_providers.dart';
 import '../../app_config.dart';
+import 'online_ai_settings_card.dart';
 
 class SettingsTab extends ConsumerWidget {
   const SettingsTab({super.key,
@@ -46,6 +47,8 @@ class SettingsTab extends ConsumerWidget {
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
       children: [
         Text('تنظیمات حرفه‌ای', style: Theme.of(context).textTheme.titleLarge),
+        const SizedBox(height: 12),
+        const OnlineAiSettingsCard(),
         const SizedBox(height: 12),
         Card.outlined(
           child: Padding(

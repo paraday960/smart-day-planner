@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../application/actions/allocation_actions_controller.dart';
+import 'feature_flags.dart';
 import '../application/actions/backup_actions_controller.dart';
 import '../application/actions/debt_actions_controller.dart';
 import '../application/actions/goal_actions_controller.dart';
@@ -42,6 +43,7 @@ import '../services/habit_insight_service.dart';
 import '../services/hybrid_local_assistant.dart';
 import '../services/llama_backend.dart';
 import '../services/local_assistant.dart';
+import '../services/online_llm_backend.dart';
 import '../services/work_learning_service.dart';
 import '../services/notification_service.dart';
 import '../services/planned_expense_repository.dart';
@@ -59,14 +61,22 @@ final financeInsightsServiceProvider =
 final workLearningServiceProvider =
     Provider<WorkLearningService>((ref) => const WorkLearningService());
 
-/// دستیار گفتگوی اصلی: هیبرید (LLM محلی واقعی + موتور قانون‌محور).
+/// دستیار گفتگوی اصلی: هیبرید.
 ///
-/// وقتی `ENABLE_LOCAL_LLM=true` و مدل GGUF در دسترس باشد از llama.cpp
-/// استفاده می‌کند؛ در غیر این صورت (پیش‌فرض) خودکار به موتور قانون‌محور
-/// ارتقایافته برمی‌گردد که با دادهٔ مالی کاربر هم کار می‌کند.
+/// ترتیب هوش:
+/// 1. هوش مصنوعی آنلاین رایگان (Gemini/Groq) — وقتی کلید تنظیم شده باشد
+/// 2. LLM محلی (llama.cpp) — وقتی `ENABLE_LOCAL_LLM=true` و مدل GGUF موجود باشد
+/// 3. موتور قانون‌محور — همیشه به‌عنوان پشتیبان
+///
+/// بدون کلید آنلاین و بدون مدل محلی، خودکار به موتور قانون‌محور برمی‌گردد.
 final assistantProvider = Provider<LocalLlmAdapter>((ref) {
   return HybridLocalAssistant(
-    llm: LlamaCppBackend(),
+    llm: PriorityLlmBackend([
+      OnlineLlmBackend(),
+      LlamaCppBackend(),
+    ]),
+    enabled: FeatureFlags.enableOnlineAi,
+    timeout: const Duration(seconds: 45),
     fallback: RuleBasedLocalAssistant(
       planner: ref.watch(smartPlannerProvider),
       context: AssistantContext(
