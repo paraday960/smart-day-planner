@@ -157,7 +157,7 @@ class OfflineVoskVoiceInput implements VoiceInput {
       final modelDir = await _resolveModelDirectory(modelPath);
       final model = await vosk.createModel(modelDir);
       _recognizer = await vosk.createRecognizer(model: model, sampleRate: 16000);
-      _speechService = await vosk.initSpeechService(recognizer: _recognizer!);
+      _speechService = await vosk.initSpeechService(_recognizer!);
       _vosk = vosk;
       _ready = true;
       return true;

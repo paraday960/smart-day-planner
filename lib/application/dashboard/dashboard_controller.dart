@@ -23,7 +23,7 @@ class DashboardController {
         _insights = insights,
         _goalPlanning = goalPlanning,
         _debtPlanning = debtPlanning,
-        _habitInsight = habitInsight;
+        _habitInsight = habitInsight,
         _aiBrain = aiBrain;
 
   final SmartPlanner _planner;

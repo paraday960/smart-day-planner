@@ -86,7 +86,7 @@ class FinanceTab extends ConsumerWidget {
     final expenseShares = chartInsightService.monthlyExpenseCategoryShares(repository);
     final suggestions = assistant.suggestions(repository);
 
-    final hasData = financeRepository.transactions.isNotEmpty;
+    final hasData = repository.transactions.isNotEmpty;
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
       children: [

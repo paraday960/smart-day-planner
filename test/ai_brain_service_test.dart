@@ -16,7 +16,7 @@ Task _task({required String id, bool isDone = true, DateTime? dueAt, bool overdu
     dueAt: dueAt ?? (overdue ? now.subtract(const Duration(days: 1)) : now.add(const Duration(days: 2))),
     createdAt: DateTime(2026, 8, 1),
     completedAt: isDone ? now : null,
-    status: isDone ? TaskStatus.done : TaskStatus.open,
+    status: isDone ? TaskStatus.done : TaskStatus.todo,
     energy: EnergyLevel.medium,
   );
 }
@@ -41,7 +41,7 @@ void main() {
     const brain = AIBrainService();
     final finance = FinanceRepository();
     final txs = [
-      FinanceTransaction(id: '1', type: FinanceTransactionType.income, amount: 5000000, category: 'کاری', createdAt: DateTime(2026, 8, 5), note: '', minutesWorked: 60, hourlyRate: 5000000),
+      FinanceTransaction(id: '1', type: FinanceTransactionType.income, amount: 5000000, category: 'کاری', createdAt: DateTime(2026, 8, 5), note: '', minutesWorked: 60),
       FinanceTransaction(id: '2', type: FinanceTransactionType.expense, amount: 2000000, category: 'خرید', createdAt: DateTime(2026, 8, 5), note: ''),
     ];
     final tasks = [_task(id: '1'), _task(id: '2', isDone: false)];

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
@@ -25,6 +26,8 @@ class _AnimatedAssistantCharacterState extends State<AnimatedAssistantCharacter>
   late AnimationController _penController;
   late AnimationController _swayController;
   late AnimationController _3dController;
+  Timer? _blinkTimer;
+  Timer? _startTimer;
 
   @override
   void initState() {
@@ -32,13 +35,14 @@ class _AnimatedAssistantCharacterState extends State<AnimatedAssistantCharacter>
     _breathController = AnimationController(vsync: this, duration: const Duration(milliseconds: 2000))..repeat(reverse: true);
     _blinkController = AnimationController(vsync: this, duration: const Duration(milliseconds: 200))..addStatusListener((status) {
       if (status == AnimationStatus.completed) {
-        Future.delayed(Duration(milliseconds: 2500 + math.Random().nextInt(2000)), () {
+        _blinkTimer?.cancel();
+        _blinkTimer = Timer(Duration(milliseconds: 2500 + math.Random().nextInt(2000)), () {
           if (mounted) _blinkController.forward(from: 0);
         });
       }
     });
     // start blink loop
-    Future.delayed(const Duration(seconds: 2), () {
+    _startTimer = Timer(const Duration(seconds: 2), () {
       if (mounted) _blinkController.forward(from: 0);
     });
     _notebookController = AnimationController(vsync: this, duration: const Duration(milliseconds: 600));
@@ -66,6 +70,8 @@ class _AnimatedAssistantCharacterState extends State<AnimatedAssistantCharacter>
 
   @override
   void dispose() {
+    _blinkTimer?.cancel();
+    _startTimer?.cancel();
     _breathController.dispose();
     _blinkController.dispose();
     _notebookController.dispose();

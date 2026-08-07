@@ -449,12 +449,18 @@ class VoiceCommandProcessor {
     if (match == null) return const [];
 
     final rawNames = match.group(1)!;
-    // جدا کردن با «و» — ولی «و» داخل مبالغ (مثل «بیست و پنج») نیست چون
-    // این بخش قبل از «بدهکارم» فقط نام‌ها را دارد.
+    // جدا کردن فقط با «و»ی که بین دو فاصله است تا «و» داخل کلماتی مثل
+    // «میلیون» یا «بیست و پنج» نام را اشتباهی چندتکه نکند.
     final names = rawNames
-        .split('و')
+        .split(RegExp(r'\s+و\s+'))
         .map((n) => n.trim())
-        .where((n) => n.isNotEmpty && n.length <= 20)
+        .where((n) => n.isNotEmpty && n.length <= 20 && !_containsAny(n, [
+              'میلیون',
+              'هزار',
+              'تومان',
+              'تومن',
+              'میلیارد',
+            ]))
         .toList();
     return names.length >= 2 ? names : const [];
   }
@@ -527,7 +533,7 @@ class VoiceCommandProcessor {
   /// پیدا کردن مبلغ اختصاصی یک شخص: «به <نام> <مبلغ>».
   int? _extractAmountForPerson(String text, String person) {
     final normalized = _normalize(text);
-    final match = RegExp('به\\s*$person\\s*(.+?)(?=به\\s|\\،|،|\\.|$)')
+    final match = RegExp('به\\s*$person\\s*(.+?)(?=به\\s|\\،|،|\.|\$)')
         .firstMatch(normalized);
     if (match == null) return null;
     final segment = match.group(1)!;

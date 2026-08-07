@@ -53,7 +53,7 @@ void main() {
     );
 
     expect(find.text('کارهای باز'), findsOneWidget);
-    expect(find.text('کاری باز نیست.'), findsOneWidget);
+    expect(find.text('هنوز کاری نساختی'), findsOneWidget);
   });
 }
 

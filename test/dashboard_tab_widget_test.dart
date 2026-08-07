@@ -49,6 +49,12 @@ void main() {
     );
 
     expect(find.text('امروز به تقویم ایران'), findsOneWidget);
+    // کارت‌های متریک در لیستِ lazy پایین‌تر از دید هستند؛ اسکرول می‌کنیم.
+    await tester.scrollUntilVisible(
+      find.text('کارهای باز'),
+      100,
+      scrollable: find.byType(Scrollable).first,
+    );
     expect(find.text('کارهای باز'), findsOneWidget);
   });
 }

@@ -39,6 +39,12 @@ dependencies:
   # مدل سه‌بعدی تعاملی دستیار (.glb) — با انگشت بچرخان
   model_viewer_plus: ^1.9.1
 
+# پکیج‌های قدیمی از v1 embedding فلتر استفاده می‌کنند که در Flutter 3.44+ حذف شده؛
+# ارتقای permission_handler به نسخهٔ جدید (بدون API حذف‌شده).
+dependency_overrides:
+  permission_handler: ^13.0.0
+  permission_handler_android: ^13.0.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

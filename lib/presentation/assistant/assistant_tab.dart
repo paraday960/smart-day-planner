@@ -132,12 +132,12 @@ class _AssistantTabState extends ConsumerState<AssistantTab> {
           minLines: 1,
           maxLines: 3,
           textInputAction: TextInputAction.send,
-          onSubmitted: (_) => onAsk(),
+          onSubmitted: (_) => widget.onAsk(),
           decoration: InputDecoration(
             hintText: 'از دستیار بپرس...',
             border: const OutlineInputBorder(),
             suffixIcon: IconButton(
-              onPressed: onAsk,
+              onPressed: widget.onAsk,
               icon: const Icon(Icons.send),
             ),
           ),
@@ -146,7 +146,7 @@ class _AssistantTabState extends ConsumerState<AssistantTab> {
         Card(
           child: Padding(
             padding: const EdgeInsets.all(16),
-            child: SelectableText(answer.isEmpty ? 'در حال آماده‌سازی...' : answer),
+            child: SelectableText(widget.answer.isEmpty ? 'در حال آماده‌سازی...' : widget.answer),
           ),
         ),
         const SizedBox(height: 12),

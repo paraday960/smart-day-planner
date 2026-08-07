@@ -63,7 +63,7 @@ class DashboardTab extends ConsumerWidget {
                     const SizedBox(width: 8),
                     Text('مغز هوشمند یکپارچه 🧠', style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
                     const Spacer(),
-                    Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)), child: Text('\${PersianFormat.digits(state.brainProfile!.brainScore)}/۱۰۰', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                    Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)), child: Text('${PersianFormat.digits(state.brainProfile!.brainScore)}/۱۰۰', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
                   ],
                 ),
                 const SizedBox(height: 8),

@@ -39,7 +39,7 @@ class WorkProfile {
   final int sampleCount;
 
   /// آیا دادهٔ کافی برای پیش‌بینی داریم؟
-  bool get hasEnoughData => sampleCount >= 3 && avgDailyWorkMinutes > 0;
+  bool get hasEnoughData => sampleCount >= 3 && (avgDailyWorkMinutes > 0 || avgHourlyRate > 0);
 }
 
 /// سرویس یادگیری عادت کاری کاربر — کاملاً pure و تست‌پذیر.
@@ -71,13 +71,15 @@ class WorkLearningService {
       workDays.add(DateTime(completed.year, completed.month, completed.day));
     }
 
-    // تراکنش‌های درآمدی با زمان کارکرد
+    // تراکنش‌های درآمدی روزهای کاری را مشخص می‌کنند (برای تعداد روزها)،
+    // ولی دقیقه‌هایشان دوباره به totalMinutes اضافه نمی‌شود تا کار دو بار شمرده نشود.
+
+    // تراکنش‌های درآمدی با زمان کارکرد: فقط برای شمارش روزهای کاری
     for (final tx in transactions) {
       if (tx.type != FinanceTransactionType.income) continue;
       final minutes = tx.minutesWorked;
       if (minutes == null || minutes <= 0) continue;
       if (tx.createdAt.isBefore(windowStart)) continue;
-      totalMinutes += minutes;
       workDays.add(DateTime(tx.createdAt.year, tx.createdAt.month, tx.createdAt.day));
     }
 

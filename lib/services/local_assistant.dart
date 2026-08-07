@@ -8,6 +8,7 @@ import 'ai_brain_service.dart';
 import 'feedback_learning_service.dart';
 import 'predictive_scheduler_service.dart';
 import 'debt_repayment_planner.dart';
+import 'debt_repository.dart';
 import 'finance_insights_service.dart';
 import 'finance_repository.dart';
 import 'category_budget_repository.dart';
@@ -605,24 +606,7 @@ class RuleBasedLocalAssistant implements LocalLlmAdapter {
   }
 
   String _help() {
-    return 'از من می‌توانی این‌ها را بپرسی:\n'
-        '• «الان چی کار کنم؟» — بهترین کار بعدی\n'
-        '• «برنامه امروزمو بچین» — برنامهٔ زمانی امروز\n'
-        '• «این هفته چی کار کنم؟» — برنامهٔ هفته\n'
-        '• «چی عقب مونده؟» — کارهای عقب‌افتاده\n'
-        '• «ریسک دارم؟» — ریسک‌های کاری و مالی\n'
-        '• «امروز چیکار کردم؟» — خلاصهٔ انجام‌ها\n'
-        '• «چقدر درآمد دارم؟» — پیش‌بینی درآمد\n'
-        '• «وضعیت مالیم چطوره؟» — تحلیل مالی\n'
-        '• «کی کار کنم؟» — بهترین زمان تمرکز\n'
-        '• «جبران» — برنامهٔ جبران عقب‌ماندگی\n'
-        '• «عادت‌هام چطوره؟» — تحلیل عادت و استریک\n'
-        '• «ماه بعد چقدر خرج می‌کنم؟» — پیش‌بینی مالی هوشمند\n'
-        '• «پیشنهاد بده» — پیشنهاد خودکار بر اساس رفتارت\n'
-        '• «وضعیت کلی» — مغز یکپارچه: امتیاز، حال مالی و توصیه شخصی\n'
-        '• «صبح بخیر» — بریفینگ شخصی صبح\n'
-        '• «هفته آینده چطوره؟» — پیش‌بینی ۷ روز + زمان‌بندی خودکار\n'
-        '• «همه اطلاعات رو نشون بده» — مدیریت و نمایش همه داده‌ها توسط دستیار'
+    return 'از من می‌توانی این‌ها را بپرسی:\n• «الان چی کار کنم؟» — بهترین کار بعدی\n• «برنامه امروزمو بچین» — برنامهٔ زمانی امروز\n• «این هفته چی کار کنم؟» — برنامهٔ هفته\n• «چی عقب مونده؟» — کارهای عقب‌افتاده\n• «ریسک دارم؟» — ریسک‌های کاری و مالی\n• «امروز چیکار کردم؟» — خلاصهٔ انجام‌ها\n• «چقدر درآمد دارم؟» — پیش‌بینی درآمد\n• «وضعیت مالیم چطوره؟» — تحلیل مالی\n• «کی کار کنم؟» — بهترین زمان تمرکز\n• «جبران» — برنامهٔ جبران عقب‌ماندگی\n• «عادت‌هام چطوره؟» — تحلیل عادت و استریک\n• «ماه بعد چقدر خرج می‌کنم؟» — پیش‌بینی مالی هوشمند\n• «پیشنهاد بده» — پیشنهاد خودکار بر اساس رفتارت\n• «وضعیت کلی» — مغز یکپارچه: امتیاز، حال مالی و توصیه شخصی\n• «صبح بخیر» — بریفینگ شخصی صبح\n• «هفته آینده چطوره؟» — پیش‌بینی ۷ روز + زمان‌بندی خودکار\n• «همه اطلاعات رو نشون بده» — مدیریت و نمایش همه داده‌ها توسط دستیار';
   }
 
   String _nextTask(List<Task> tasks) {
@@ -1024,7 +1008,7 @@ class RuleBasedLocalAssistant implements LocalLlmAdapter {
     for (final w in warnings) buf.writeln('• $w');
     if (schedule.isNotEmpty) {
       buf.writeln('⏰ زمان‌بندی پیشنهادی:');
-      for (final s in schedule.take(3)) buf.writeln('• «\${s.task.title}» → \${PersianFormat.jalaliDate(s.suggestedStart)} ساعت \${PersianFormat.time(s.suggestedStart)} (${s.reason})');
+      for (final s in schedule.take(3)) buf.writeln('• «${s.task.title}» → ${PersianFormat.jalaliDate(s.suggestedStart)} ساعت ${PersianFormat.time(s.suggestedStart)} (${s.reason})');
     }
     return buf.toString();
   }
@@ -1047,40 +1031,40 @@ class RuleBasedLocalAssistant implements LocalLlmAdapter {
     // کارها
     final open = tasks.where((t) => !t.isDone).length;
     final done = tasks.where((t) => t.isDone).length;
-    buf.writeln('📋 کارها: \${PersianFormat.digits(open)} باز، \${PersianFormat.digits(done)} انجام‌شده');
+    buf.writeln('📋 کارها: ${PersianFormat.digits(open)} باز، ${PersianFormat.digits(done)} انجام‌شده');
     for (final t in tasks.where((t) => !t.isDone).take(3)) {
-      buf.writeln('  • \${t.title} (اهمیت \${PersianFormat.digits(t.importance)}، \${t.category})');
+      buf.writeln('  • ${t.title} (اهمیت ${PersianFormat.digits(t.importance)}، ${t.category})');
     }
-    if (open > 3) buf.writeln('  ... و \${PersianFormat.digits(open-3)} کار دیگر');
+    if (open > 3) buf.writeln('  ... و ${PersianFormat.digits(open-3)} کار دیگر');
     // مالی
     if (finance != null) {
       final txs = finance.transactions;
       final income = txs.where((e) => e.type == FinanceTransactionType.income).fold<int>(0, (s,e) => s+e.amount);
       final expense = txs.where((e) => e.type == FinanceTransactionType.expense).fold<int>(0, (s,e) => s+e.amount);
-      buf.writeln('💰 مالی: درآمد \${PersianFormat.money(income)}، هزینه \${PersianFormat.money(expense)}، تراز \${PersianFormat.money(income-expense)}');
+      buf.writeln('💰 مالی: درآمد ${PersianFormat.money(income)}، هزینه ${PersianFormat.money(expense)}، تراز ${PersianFormat.money(income-expense)}');
       for (final tx in txs.take(3)) {
-        buf.writeln('  • \${tx.type == FinanceTransactionType.income ? '💵' : '💸'} \${tx.category}: \${PersianFormat.money(tx.amount)}');
+        buf.writeln('  • ${tx.type == FinanceTransactionType.income ? '💵' : '💸'} ${tx.category}: ${PersianFormat.money(tx.amount)}');
       }
     }
     // بدهی
     final debts = _context.debts ?? [];
     if (debts.isNotEmpty) {
-      buf.writeln('💳 بدهی‌ها: \${PersianFormat.digits(debts.length)} مورد');
-      for (final d in debts.take(3)) buf.writeln('  • \${d.personName}: \${PersianFormat.money(d.remainingAmount)} تا \${PersianFormat.jalaliDate(d.dueAt)}');
+      buf.writeln('💳 بدهی‌ها: ${PersianFormat.digits(debts.length)} مورد');
+      for (final d in debts.take(3)) buf.writeln('  • ${d.personName}: ${PersianFormat.money(d.remainingAmount)} تا ${PersianFormat.jalaliDate(d.dueAt)}');
     } else {
       buf.writeln('💳 بدهی: نداری ✅');
     }
     // اهداف
     final goals = _context.goalRepo;
     if (goals != null) {
-      if (goals.dailyIncomeGoal > 0) buf.writeln('🎯 هدف روزانه: \${PersianFormat.money(goals.dailyIncomeGoal)}');
-      if (goals.monthlyIncomeGoal > 0) buf.writeln('🎯 هدف ماهانه: \${PersianFormat.money(goals.monthlyIncomeGoal)}');
+      if (goals.dailyIncomeGoal > 0) buf.writeln('🎯 هدف روزانه: ${PersianFormat.money(goals.dailyIncomeGoal)}');
+      if (goals.monthlyIncomeGoal > 0) buf.writeln('🎯 هدف ماهانه: ${PersianFormat.money(goals.monthlyIncomeGoal)}');
     }
     // بودجه
     final budgets = _context.budgetRepo;
-    if (budgets != null && budgets.budgets.isNotEmpty) {
-      buf.writeln('📊 بودجه: \${PersianFormat.digits(budgets.budgets.length)} دسته');
-      for (final b in budgets.budgets.take(3)) buf.writeln('  • \${b.category}: \${PersianFormat.money(b.limit)}');
+    if (budgets != null && budgets.items.isNotEmpty) {
+      buf.writeln('📊 بودجه: ${PersianFormat.digits(budgets.items.length)} دسته');
+      for (final b in budgets.items.take(3)) buf.writeln('  • ${b.category}: ${PersianFormat.money(b.monthlyLimit)}');
     }
     buf.writeln('---');
     buf.writeln('برای مدیریت بگو: «کار جدید بساز»، «هزینه ثبت کن»، یا «بدهی اضافه کن» — همه توسط من انجام می‌شه 🤖');
@@ -1090,11 +1074,11 @@ class RuleBasedLocalAssistant implements LocalLlmAdapter {
   String _manageTasks(List<Task> tasks) {
     final open = tasks.where((t) => !t.isDone).toList();
     if (open.isEmpty) return 'کاری نداری. بگو «کار جدید: تماس با مشتری فردا ساعت ۱۰» تا بسازم.';
-    final buf = StringBuffer()..writeln('📋 کارهای باز (\${PersianFormat.digits(open.length)}):');
+    final buf = StringBuffer()..writeln('📋 کارهای باز (${PersianFormat.digits(open.length)}):');
     for (final t in open.take(5)) {
-      buf.writeln('• \${t.title} — \${t.category} — اهمیت \${PersianFormat.digits(t.importance)} \${t.dueAt != null ? 'تا \${PersianFormat.jalaliDate(t.dueAt!)}' : ''}');
+      buf.writeln('• ${t.title} — ${t.category} — اهمیت ${PersianFormat.digits(t.importance)} ${t.dueAt != null ? 'تا ${PersianFormat.jalaliDate(t.dueAt!)}' : ''}');
     }
-    if (open.length > 5) buf.writeln('و \${PersianFormat.digits(open.length-5)} کار دیگر');
+    if (open.length > 5) buf.writeln('و ${PersianFormat.digits(open.length-5)} کار دیگر');
     buf.writeln('برای مدیریت: «کار جدید ...» یا «کار X رو حذف کن»');
     return buf.toString();
   }
@@ -1103,12 +1087,12 @@ class RuleBasedLocalAssistant implements LocalLlmAdapter {
     final finance = _context.finance;
     if (finance == null || finance.transactions.isEmpty) return 'تراکنشی نداری. بگو «درآمد ۲ میلیون ثبت کن» یا «هزینه ۳۰۰ هزار».';
     final txs = finance.transactions;
-    final buf = StringBuffer()..writeln('💰 تراکنش‌ها (\${PersianFormat.digits(txs.length)}):');
+    final buf = StringBuffer()..writeln('💰 تراکنش‌ها (${PersianFormat.digits(txs.length)}):');
     for (final tx in txs.take(5)) {
-      buf.writeln('• \${tx.type == FinanceTransactionType.income ? 'درآمد' : 'هزینه'} \${PersianFormat.money(tx.amount)} — \${tx.category} — \${PersianFormat.jalaliDate(tx.createdAt)}');
+      buf.writeln('• ${tx.type == FinanceTransactionType.income ? 'درآمد' : 'هزینه'} ${PersianFormat.money(tx.amount)} — ${tx.category} — ${PersianFormat.jalaliDate(tx.createdAt)}');
     }
-    if (txs.length > 5) buf.writeln('و \${PersianFormat.digits(txs.length-5)} مورد دیگر');
-    buf.writeln('تراز ماه: \${PersianFormat.money(finance.netThisMonth())}');
+    if (txs.length > 5) buf.writeln('و ${PersianFormat.digits(txs.length-5)} مورد دیگر');
+    buf.writeln('تراز ماه: ${PersianFormat.money(finance.netThisMonth())}');
     return buf.toString();
   }
 

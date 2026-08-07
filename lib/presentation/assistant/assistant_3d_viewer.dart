@@ -1,3 +1,7 @@
+import 'dart:async';
+import 'dart:io';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:model_viewer_plus/model_viewer_plus.dart';
 import 'animated_assistant_character.dart';
@@ -22,12 +26,17 @@ class _Assistant3DViewerState extends State<Assistant3DViewer> {
   bool _failed = false;
   bool _show3D = true;
   bool _lazyLoaded = false; // برای Lazy Load — تا تب دستیار باز نشه WebView نساز
+  Timer? _lazyTimer;
+
+  /// مدل سه‌بعدی فقط روی اندروید/iOS پشتیبانی می‌شود؛
+  /// در بقیهٔ پلتفرم‌ها (و تست‌ها) کاراکتر دوبعدی نشان داده می‌شود.
+  bool get _supports3D => !kIsWeb && (Platform.isAndroid || Platform.isIOS);
 
   @override
   void initState() {
     super.initState();
     // Lazy: 600ms بعد از اینکه ویجت ساخته شد (یعنی تب دستیار باز شد) تازه WebView بساز
-    Future.delayed(const Duration(milliseconds: 600), () {
+    _lazyTimer = Timer(const Duration(milliseconds: 600), () {
       if (mounted && _show3D) setState(() => _lazyLoaded = true);
     });
   }
@@ -39,8 +48,14 @@ class _Assistant3DViewerState extends State<Assistant3DViewer> {
   }
 
   @override
+  void dispose() {
+    _lazyTimer?.cancel();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    if (!_show3D || _failed) {
+    if (!_supports3D || !_show3D || _failed) {
       return AnimatedAssistantCharacter(mood: widget.mood, size: 150);
     }
     if (!_lazyLoaded) {

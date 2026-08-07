@@ -27,8 +27,8 @@ void main() {
   test('autoSchedule returns prioritized', () {
     final now = DateTime(2026, 8, 6, 10);
     final tasks = [
-      Task(id: '1', title: 'عقب افتاده', category: 'کاری', importance: 5, estimatedMinutes: 30, actualMinutes: null, createdAt: DateTime(2026, 8, 1), dueAt: now.subtract(const Duration(days: 1)), status: TaskStatus.open, energy: EnergyLevel.high),
-      Task(id: '2', title: 'عادی', category: 'خرید', importance: 2, estimatedMinutes: 15, actualMinutes: null, createdAt: DateTime(2026, 8, 1), dueAt: now.add(const Duration(days: 5)), status: TaskStatus.open, energy: EnergyLevel.low),
+      Task(id: '1', title: 'عقب افتاده', category: 'کاری', importance: 5, estimatedMinutes: 30, actualMinutes: null, createdAt: DateTime(2026, 8, 1), dueAt: now.subtract(const Duration(days: 1)), status: TaskStatus.todo, energy: EnergyLevel.high),
+      Task(id: '2', title: 'عادی', category: 'خرید', importance: 2, estimatedMinutes: 15, actualMinutes: null, createdAt: DateTime(2026, 8, 1), dueAt: now.add(const Duration(days: 5)), status: TaskStatus.todo, energy: EnergyLevel.low),
     ];
     final habit = const AdvancedHabitLearningService().analyze(tasks: tasks, transactions: [], now: now);
     final scheduled = svc.autoSchedule(tasks: tasks, habitProfile: habit, now: now);
@@ -41,7 +41,7 @@ void main() {
       FinanceTransaction(id: '1', type: FinanceTransactionType.expense, amount: 2000000, category: 'خرید', createdAt: DateTime(2026, 8, 5), note: ''),
     ];
     final tasks = [
-      Task(id: '1', title: 'کار', category: 'کاری', importance: 3, estimatedMinutes: 30, actualMinutes: null, createdAt: DateTime(2026, 8, 1), dueAt: DateTime(2026, 8, 7), status: TaskStatus.open, energy: EnergyLevel.medium),
+      Task(id: '1', title: 'کار', category: 'کاری', importance: 3, estimatedMinutes: 30, actualMinutes: null, createdAt: DateTime(2026, 8, 1), dueAt: DateTime(2026, 8, 7), status: TaskStatus.todo, energy: EnergyLevel.medium),
     ];
     final warnings = svc.next7DaysWarnings(transactions: txs, tasks: tasks, now: DateTime(2026, 8, 6));
     expect(warnings.isNotEmpty, isTrue);
