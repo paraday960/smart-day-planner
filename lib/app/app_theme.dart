@@ -110,14 +110,52 @@ class AppTheme {
       ),
       textTheme: const TextTheme(
         headlineSmall: TextStyle(
-            fontFamily: 'Vazirmatn', fontWeight: FontWeight.bold, fontSize: 22),
+            fontFamily: 'Vazirmatn',
+            fontWeight: FontWeight.bold,
+            fontSize: 22,
+            color: Color(0xFF1C1B1F)),
         titleLarge: TextStyle(
-            fontFamily: 'Vazirmatn', fontWeight: FontWeight.bold, fontSize: 19),
+            fontFamily: 'Vazirmatn',
+            fontWeight: FontWeight.bold,
+            fontSize: 19,
+            color: Color(0xFF1C1B1F)),
         titleMedium: TextStyle(
-            fontFamily: 'Vazirmatn', fontWeight: FontWeight.w600, fontSize: 16),
-        bodyLarge: TextStyle(fontFamily: 'Vazirmatn', fontSize: 14, height: 1.5),
-        bodyMedium: TextStyle(fontFamily: 'Vazirmatn', fontSize: 13, height: 1.5),
-        bodySmall: TextStyle(fontFamily: 'Vazirmatn', fontSize: 12, color: Colors.black54),
+            fontFamily: 'Vazirmatn',
+            fontWeight: FontWeight.w600,
+            fontSize: 16,
+            color: Color(0xFF1C1B1F)),
+        bodyLarge: TextStyle(
+            fontFamily: 'Vazirmatn',
+            fontSize: 14,
+            height: 1.5,
+            color: Color(0xFF1C1B1F)),
+        bodyMedium: TextStyle(
+            fontFamily: 'Vazirmatn',
+            fontSize: 13,
+            height: 1.5,
+            color: Color(0xFF1C1B1F)),
+        bodySmall: TextStyle(
+            fontFamily: 'Vazirmatn', fontSize: 12, color: Color(0xFF6B6B6B)),
+        titleSmall: TextStyle(
+            fontFamily: 'Vazirmatn',
+            fontWeight: FontWeight.w600,
+            fontSize: 14,
+            color: Color(0xFF1C1B1F)),
+        headlineMedium: TextStyle(
+            fontFamily: 'Vazirmatn',
+            fontWeight: FontWeight.bold,
+            fontSize: 26,
+            color: Color(0xFF1C1B1F)),
+        labelLarge: TextStyle(
+            fontFamily: 'Vazirmatn',
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: Color(0xFF1C1B1F)),
+        labelMedium: TextStyle(
+            fontFamily: 'Vazirmatn',
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: Color(0xFF1C1B1F)),
       ),
       dialogTheme: DialogThemeData(
         backgroundColor: surface,
