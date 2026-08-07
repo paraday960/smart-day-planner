@@ -37,18 +37,25 @@ Future<void> main() async {
   final voiceResponseService = VoiceResponseService.instance;
   final securityService = SecurityService.instance;
 
-  await repository.load();
-  await financeRepository.load();
-  await goalRepository.load();
-  await plannedExpenseRepository.load();
-  await debtRepository.load();
-  await allocationRepository.load();
-  await categoryBudgetRepository.load();
-  await availabilityRepository.load();
-  await conversationMemoryService.load();
-  await securityService.load();
-  await notificationService.initialize();
-  await voiceResponseService.initialize();
+  // لودهای استارتاپ به‌صورت موازی اجرا می‌شوند (به‌جای سریال) تا باز شدن اپ
+  // سریع‌تر شود. همهٔ این سرویس‌ها مستقل‌اند و فقط از ذخیره‌سازهای خود
+  // (sqflite / SharedPreferences / سرویس‌های پلتفرمی) استفاده می‌کنند.
+  // `DatabaseService.database` هم‌زمانی-امن است؛ بنابراین چند repository که
+  // هم‌زمان دیتابیس مشترک را باز می‌کنند فقط یک‌بار آن را باز می‌کنند.
+  await Future.wait([
+    repository.load(),
+    financeRepository.load(),
+    goalRepository.load(),
+    plannedExpenseRepository.load(),
+    debtRepository.load(),
+    allocationRepository.load(),
+    categoryBudgetRepository.load(),
+    availabilityRepository.load(),
+    conversationMemoryService.load(),
+    securityService.load(),
+    notificationService.initialize(),
+    voiceResponseService.initialize(),
+  ]);
 
   // اگر LLM محلی فعال باشد و مدل به‌عنوان asset باندل شده باشد،
   // یک‌بار آن را به دایرکتوری اسناد کپی می‌کنیم.
