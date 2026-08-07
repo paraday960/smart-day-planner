@@ -42,7 +42,14 @@ class VoiceResponseService implements VoiceResponsePort {
       orElse: () => AssistantVoiceGender.feminine,
     );
 
-    await _ttsInstance.setLanguage('fa-IR');
+    try {
+      await _ttsInstance.setLanguage('fa-IR');
+    } catch (_) {
+      // بعضی موتورهای گفتار فارسی را با کد fa_IR می‌پذیرند.
+      try {
+        await _ttsInstance.setLanguage('fa_IR');
+      } catch (_) {}
+    }
     await _ttsInstance.setSpeechRate(0.46);
     await _ttsInstance.setPitch(1.0);
     await _ttsInstance.setVolume(1.0);
@@ -78,8 +85,18 @@ class VoiceResponseService implements VoiceResponsePort {
     final cleanText = _prepareForSpeech(text);
     if (cleanText.trim().isEmpty) return;
 
-    await _ttsInstance.stop();
-    await _ttsInstance.speak(cleanText);
+    try {
+      await _ttsInstance.stop();
+    } catch (_) {}
+    try {
+      await _ttsInstance.speak(cleanText);
+    } catch (_) {
+      // اگر زبان fa-IR تنظیم نشده بود، یک بار بدون تنظیم زبان تلاش می‌کنیم.
+      try {
+        await _ttsInstance.setLanguage('fa-IR');
+        await _ttsInstance.speak(cleanText);
+      } catch (_) {}
+    }
   }
 
   @override
