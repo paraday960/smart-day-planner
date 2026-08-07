@@ -18,6 +18,7 @@ import 'services/notification_service.dart';
 import 'services/online_ai_config.dart';
 import 'services/planned_expense_repository.dart';
 import 'services/security_service.dart';
+import 'services/smart_planner_agent.dart';
 import 'services/task_repository.dart';
 import 'services/voice_response_service.dart';
 import 'services/vosk_asset_installer.dart';
@@ -40,6 +41,9 @@ Future<void> main() async {
 
   // بارگذاری تنظیمات هوش مصنوعی آنلاین (کلید رایگان کاربر)
   await OnlineAiConfig.instance.load();
+
+  // بارگذاری حافظهٔ یادگیری سناریوهای دستیار (برای اجرای محلی بدون هوش آنلاین)
+  await SmartScenarioMemory.instance.load();
 
   // بارگذاری موازی برای استارت سریع‌تر (قبلاً سریال 10+ await بود)
   // Repository ها مستقل هستند و می‌توانند همزمان load شوند

@@ -44,6 +44,7 @@ import '../services/hybrid_local_assistant.dart';
 import '../services/llama_backend.dart';
 import '../services/local_assistant.dart';
 import '../services/online_llm_backend.dart';
+import '../services/smart_planner_agent.dart';
 import '../services/work_learning_service.dart';
 import '../services/notification_service.dart';
 import '../services/planned_expense_repository.dart';
@@ -97,6 +98,13 @@ final assistantProvider = Provider<LocalLlmAdapter>((ref) {
         budgetRepo: ref.watch(categoryBudgetRepositoryProvider),
       ),
     ),
+  );
+});
+
+/// دستیار هوشمند سناریو — هوش آنلاین فکر می‌کند، محلی اجرا می‌کند و یاد می‌گیرد.
+final smartPlannerAgentProvider = Provider<SmartPlannerAgent>((ref) {
+  return SmartPlannerAgent(
+    onlineBackend: FeatureFlags.enableOnlineAi ? OnlineLlmBackend() : null,
   );
 });
 

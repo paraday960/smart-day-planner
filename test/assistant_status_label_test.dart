@@ -22,7 +22,8 @@ Widget _tab({String statusLabel = 'هوش قانونی (بدون LLM)'}) {
   return _wrap(
     AssistantTab(
       controller: TextEditingController(),
-      answer: 'پاسخ',
+      messages: const [],
+      isTyping: false,
       speechReady: false,
       isListening: false,
       lastVoiceText: '',

@@ -13,6 +13,7 @@ import '../models/task.dart';
 import '../application/actions/report_actions_controller.dart';
 import '../application/home/home_coordinator.dart';
 import '../presentation/assistant/assistant_tab.dart';
+import '../presentation/assistant/chat_message.dart';
 import '../presentation/dashboard/dashboard_tab.dart';
 import '../presentation/dialogs/backup_dialogs.dart';
 import '../presentation/dialogs/common_dialogs.dart';
@@ -30,8 +31,6 @@ import '../domain/services/calendar_service_port.dart';
 import '../services/category_budget_repository.dart';
 import '../services/conversation_memory_service.dart';
 import '../services/debt_repository.dart';
-import '../services/finance_assistant.dart';
-import '../services/forecast_service.dart';
 import '../services/finance_repository.dart';
 import '../services/goal_repository.dart';
 import '../services/hybrid_local_assistant.dart';
@@ -42,10 +41,7 @@ import '../services/planned_expense_repository.dart';
 import '../services/security_service.dart';
 import '../services/smart_notification_advisor.dart';
 import '../services/smart_notification_scheduler.dart';
-import '../services/smart_planner.dart';
 import '../services/task_repository.dart';
-import '../services/voice_command_processor.dart';
-import '../services/autonomous_agent_service.dart';
 import '../application/home/assistant_coordinator.dart';
 import '../application/home/task_flow_coordinator.dart';
 import '../services/voice_input.dart';
@@ -62,25 +58,25 @@ class HomeScreen extends ConsumerStatefulWidget {
 }
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
-  late final SmartPlanner _planner;
-  final _financeAssistant = const FinanceAssistant();
   late final ReportActionsController _reportActions;
   late final HomeCoordinator _homeCoordinator;
-  late final ForecastService _forecastService;
   final _notificationAdvisor = const SmartNotificationAdvisor();
   late final ShareFileServicePort _shareFileService;
   late final CalendarServicePort _calendarService;
   late final SmartNotificationScheduler _smartNotificationScheduler;
   late final LocalLlmAdapter _assistant;
   String _assistantStatusLabel = 'هوش قانونی (بدون LLM)';
-  late final VoiceCommandProcessor _voiceProcessor;
   late final AssistantCoordinator _assistantCoordinator;
   late final TaskFlowCoordinator _taskFlowCoordinator;
 
   /// ورودی صدا — اگر فرمان صوتی غیرفعال باشد، مقدار پیش‌فرض امن می‌ماند.
   late VoiceInput _voiceInput = OnlineVoiceInput();
   final _assistantController = TextEditingController();
-  String _assistantAnswer = '';
+
+  /// گفتگوی چت دستیار.
+  final List<ChatMessage> _chatMessages = [];
+  bool _isTyping = false;
+
   String _lastVoiceText = '';
   String _voiceStatus =
       'برای فرمان صوتی، دکمه میکروفون را نگه دار و فارسی صحبت کن. تشخیص صدا می‌تواند از سرویس رایگان گوشی و اینترنت استفاده کند.';
@@ -118,10 +114,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     _notificationService = ref.read(notificationServiceProvider);
     _voiceResponseService = ref.read(voiceResponseServiceProvider);
     _securityService = ref.read(securityServiceProvider);
-    _planner = ref.read(smartPlannerProvider);
     _reportActions = ref.read(reportActionsControllerProvider);
     _homeCoordinator = ref.read(homeCoordinatorProvider);
-    _forecastService = ref.read(forecastServiceProvider);
     _shareFileService = ref.read(shareFileServiceProvider);
     _calendarService = ref.read(calendarServiceProvider);
     final assistant = ref.read(assistantProvider);
@@ -140,19 +134,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       taskRepository: _repository,
       financeRepository: _financeRepository,
     );
-    _voiceProcessor = VoiceCommandProcessor(
-      taskRepository: _repository,
-      financeRepository: _financeRepository,
-      goalRepository: _goalRepository,
-      plannedExpenseRepository: _plannedExpenseRepository,
-      debtRepository: _debtRepository,
-      allocationRepository: _allocationRepository,
-      conversationMemory: _conversationMemoryService,
-      forecastService: _forecastService,
-      notificationService: _notificationService,
-      planner: _planner,
-      financeAssistant: _financeAssistant,
-    );
     _voiceResponseEnabled =
         FeatureFlags.enableVoiceResponse && _voiceResponseService.enabled;
     _assistantVoiceGender = _voiceResponseService.gender;
@@ -169,7 +150,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     _availabilityRepository.addListener(_onRepositoryChanged);
     _securityService.addListener(_onRepositoryChanged);
     _assistant.generate(prompt: '', tasks: _repository.tasks).then((value) {
-      if (mounted) setState(() => _assistantAnswer = value);
+      if (!mounted) return;
+      setState(() {
+        _chatMessages.add(ChatMessage(text: value, isUser: false));
+      });
     });
   }
 
@@ -266,43 +250,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     });
 
     final spokenText = _lastVoiceText.trim();
-    // 🤖 حالت خودکار هیبرید: تمام کارها توسط دستیار
-    String answer;
-    if (FeatureFlags.enableAutonomousAgent) {
-      final agent = ref.read(autonomousAgentServiceProvider);
-      final result = await agent.handleAutonomously(
-        rawText: spokenText,
-        taskRepository: _repository,
-        financeRepository: _financeRepository,
-        goalRepository: _goalRepository,
-        debtRepository: _debtRepository,
-        plannedExpenseRepository: _plannedExpenseRepository,
-        allocationRepository: _allocationRepository,
-        conversationMemory: _conversationMemoryService,
-      );
-      answer = result.message;
-      // اگر نیاز به تایید دارد، وضعیت را متفاوت نشان بده
-      if (!mounted) return;
-      setState(() {
-        _assistantAnswer = answer;
-        _voiceStatus = result.needsConfirmation
-            ? '⏳ منتظر تایید شما...'
-            : spokenText.isEmpty
-                ? 'متنی تشخیص داده نشد.'
-                : '🤖 خودکار اجرا شد.';
-      });
-    } else {
-      answer = await _voiceProcessor.handle(spokenText);
-      if (!mounted) return;
-      setState(() {
-        _assistantAnswer = answer;
-        _voiceStatus =
-            spokenText.isEmpty ? 'متنی تشخیص داده نشد.' : 'فرمان اجرا شد.';
-      });
-    }
-    if (FeatureFlags.enableVoiceResponse) {
-      await _voiceResponseService.speak(answer);
-    }
+    if (!mounted) return;
+    setState(() {
+      _voiceStatus =
+          spokenText.isEmpty ? 'متنی تشخیص داده نشد.' : '🤖 در حال پردازش...';
+    });
+    if (spokenText.isEmpty) return;
+    await _processUserRequest(spokenText);
+    if (!mounted) return;
+    setState(() {
+      _voiceStatus = '🤖 انجام شد.';
+    });
   }
 
   Future<void> _setVoiceResponseEnabled(bool value) async {
@@ -330,7 +288,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }
     final sample = await _voiceResponseService.testVoice();
     if (!mounted) return;
-    setState(() => _assistantAnswer = sample);
+    setState(() {
+      _chatMessages.add(ChatMessage(text: '🔊 تست صدا: $sample', isUser: false));
+    });
   }
 
   @override
@@ -342,12 +302,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           title: const Text('دستیار روزانه ایرانی'),
           bottom: const TabBar(
             tabs: [
+              Tab(icon: Icon(Icons.chat_bubble_outline), text: 'دستیار'),
               Tab(icon: Icon(Icons.auto_awesome), text: 'امروز'),
               Tab(icon: Icon(Icons.checklist), text: 'کارها'),
               Tab(
                   icon: Icon(Icons.account_balance_wallet_outlined),
                   text: 'حسابدار'),
-              Tab(icon: Icon(Icons.chat_bubble_outline), text: 'دستیار'),
               Tab(icon: Icon(Icons.settings_outlined), text: 'تنظیمات'),
             ],
           ),
@@ -359,6 +319,25 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ),
         body: TabBarView(
           children: [
+            AssistantTab(
+              controller: _assistantController,
+              messages: _chatMessages,
+              isTyping: _isTyping,
+              assistantStatusLabel: _assistantStatusLabel,
+              speechReady: _speechReady,
+              isListening: _isListening,
+              lastVoiceText: _lastVoiceText,
+              voiceStatus: _voiceStatus,
+              soundLevel: _soundLevel,
+              voiceResponseEnabled: _voiceResponseEnabled,
+              assistantVoiceGender: _assistantVoiceGender,
+              onAsk: _askAssistant,
+              onVoiceDown: _startVoiceCommand,
+              onVoiceUp: _stopVoiceCommand,
+              onVoiceResponseEnabledChanged: _setVoiceResponseEnabled,
+              onVoiceGenderChanged: _setAssistantVoiceGender,
+              onTestVoice: _testAssistantVoice,
+            ),
             DashboardTab(
               onEdit: _openTaskForm,
               onComplete: _completeTask,
@@ -384,24 +363,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               onSetCategoryBudget: _openCategoryBudgetDialog,
               onDelete: (transaction) =>
                   _financeRepository.delete(transaction.id),
-            ),
-            AssistantTab(
-              controller: _assistantController,
-              answer: _assistantAnswer,
-              assistantStatusLabel: _assistantStatusLabel,
-              speechReady: _speechReady,
-              isListening: _isListening,
-              lastVoiceText: _lastVoiceText,
-              voiceStatus: _voiceStatus,
-              soundLevel: _soundLevel,
-              voiceResponseEnabled: _voiceResponseEnabled,
-              assistantVoiceGender: _assistantVoiceGender,
-              onAsk: _askAssistant,
-              onVoiceDown: _startVoiceCommand,
-              onVoiceUp: _stopVoiceCommand,
-              onVoiceResponseEnabledChanged: _setVoiceResponseEnabled,
-              onVoiceGenderChanged: _setAssistantVoiceGender,
-              onTestVoice: _testAssistantVoice,
             ),
             SettingsTab(
               onSetPin: _openSetPinDialog,
@@ -815,12 +776,41 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Future<void> _askAssistant() async {
     final prompt = _assistantController.text.trim();
     if (prompt.isEmpty) return;
+    _assistantController.clear();
+    await _processUserRequest(prompt);
+  }
+
+  /// پردازش یک درخواست (متن یا صدا) و ساخت پاسخ چت.
+  Future<void> _processUserRequest(String text) async {
+    final t = text.trim();
+    if (t.isEmpty) return;
+    if (mounted) {
+      setState(() {
+        _chatMessages.add(ChatMessage(text: t, isUser: true));
+        _isTyping = true;
+      });
+    }
+
     String answer;
-    // 🤖 اگر فرمان اجرایی است (کار/مالی)، اول دستیار خودکار هیبرید امتحان کن
-    if (FeatureFlags.enableAutonomousAgent && _isAutonomousCommand(prompt)) {
+
+    // ۱) سناریوی برنامه‌ریزی هوشمند — هوش آنلاین فکر می‌کند، محلی اجرا می‌کند و یاد می‌گیرد
+    final planner = ref.read(smartPlannerAgentProvider);
+    final workProfile = ref
+        .read(workLearningServiceProvider)
+        .profile(tasks: _repository.tasks, transactions: _financeRepository.transactions);
+    final scenario = await planner.handle(
+      rawText: t,
+      taskRepository: _repository,
+      financeRepository: _financeRepository,
+      workProfile: workProfile,
+    );
+    if (scenario.message.isNotEmpty) {
+      answer = scenario.message;
+    } else if (FeatureFlags.enableAutonomousAgent && _isAutonomousCommand(t)) {
+      // ۲) فرمان اجرایی (کار/مالی) — دستیار خودکار هیبرید
       final agent = ref.read(autonomousAgentServiceProvider);
       final result = await agent.handleAutonomously(
-        rawText: prompt,
+        rawText: t,
         taskRepository: _repository,
         financeRepository: _financeRepository,
         goalRepository: _goalRepository,
@@ -831,9 +821,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       );
       answer = result.message;
     } else {
-      answer = await _assistant.generate(prompt: prompt, tasks: _repository.tasks);
+      // ۳) سؤال عادی — دستیار (آنلاین / محلی / قانون‌محور)
+      answer = await _assistant.generate(prompt: t, tasks: _repository.tasks);
     }
-    if (mounted) setState(() => _assistantAnswer = answer);
+
+    if (mounted) {
+      setState(() {
+        _isTyping = false;
+        _chatMessages.add(ChatMessage(text: answer, isUser: false));
+      });
+    }
     if (FeatureFlags.enableVoiceResponse) {
       await _voiceResponseService.speak(answer);
     }
