@@ -21,6 +21,7 @@ class OnlineAiConfig {
   static const String providerGroq = 'groq';
   static const String providerDeepseek = 'deepseek';
   static const String providerGapgpt = 'gapgpt';
+  static const String providerMistral = 'mistral';
 
   String _apiKey = '';
   String _provider = providerGemini;

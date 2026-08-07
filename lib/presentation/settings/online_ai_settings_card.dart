@@ -107,6 +107,10 @@ class _OnlineAiSettingsCardState extends State<OnlineAiSettingsCard> {
                   value: OnlineAiConfig.providerGapgpt,
                   child: Text('GapGPT (ایرانی - بدون VPN)'),
                 ),
+                DropdownMenuItem(
+                  value: OnlineAiConfig.providerMistral,
+                  child: Text('Mistral (رایگان - ریت‌لایمیت)'),
+                ),
               ],
               onChanged: _loaded
                   ? (v) => setState(() => _provider = v ?? _provider)
@@ -195,6 +199,16 @@ class _ProviderHelp extends StatelessWidget {
             '۳. کلید (شبیه gsk_...) را در بالا کپی کن.',
           ],
           'https://console.groq.com/'
+        );
+      case OnlineAiConfig.providerMistral:
+        return (
+          [
+            '۱. به console.mistral.ai برو و با ایمیل ثبت‌نام کن (رایگان).',
+            '۲. پلن رایگان «Free Experiment» را انتخاب کن.',
+            '۳. در بخش API Keys یک کلید بساز (بدون کارت اعتباری).',
+            '۴. کلید (شبیه ...) را در بالا کپی کن.',
+          ],
+          'https://console.mistral.ai/'
         );
       case OnlineAiConfig.providerDeepseek:
         return (

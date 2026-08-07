@@ -147,6 +147,11 @@ class OnlineLlmBackend implements LlmBackend {
           url: 'https://gapgpt.app/api/v1/chat/completions',
           model: 'gpt-4',
         );
+      case OnlineAiConfig.providerMistral:
+        return const _Endpoint(
+          url: 'https://api.mistral.ai/v1/chat/completions',
+          model: 'mistral-small-latest',
+        );
       case OnlineAiConfig.providerGemini:
       default:
         return const _Endpoint(
