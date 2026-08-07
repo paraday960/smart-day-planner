@@ -2,9 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/app_providers.dart';
+import '../../app_config.dart';
 
 class SettingsTab extends ConsumerWidget {
-  const SettingsTab({super.key, 
+  const SettingsTab({super.key,
     required this.onSetPin,
     required this.onDisablePin,
     required this.onLockNow,
@@ -56,7 +57,9 @@ class SettingsTab extends ConsumerWidget {
                   contentPadding: EdgeInsets.zero,
                   leading: const Icon(Icons.security_outlined),
                   title: const Text('امنیت و قفل برنامه'),
-                  subtitle: Text(securityService.pinEnabled ? 'قفل با رمز فعال است.' : 'قفل برنامه فعال نیست.'),
+                  subtitle: Text(securityService.pinEnabled
+                      ? 'قفل با رمز فعال است. (PBKDF2 امن - ارتقا یافته)'
+                      : 'قفل برنامه فعال نیست. پیشنهاد: فعال کنید.'),
                 ),
                 const SizedBox(height: 8),
                 Wrap(
@@ -84,7 +87,7 @@ class SettingsTab extends ConsumerWidget {
                   contentPadding: EdgeInsets.zero,
                   leading: Icon(Icons.enhanced_encryption_outlined),
                   title: Text('بکاپ رمزنگاری‌شده'),
-                  subtitle: Text('برای حفظ حریم خصوصی، بکاپ با رمز دلخواه کاربر رمزنگاری می‌شود.'),
+                  subtitle: Text('بکاپ با AES-GCM + PBKDF2 (200k تکرار) رمزنگاری می‌شود - امن و احرازشده.'),
                 ),
                 Wrap(
                   spacing: 8,
@@ -162,7 +165,7 @@ class SettingsTab extends ConsumerWidget {
                   contentPadding: EdgeInsets.zero,
                   leading: Icon(Icons.smart_toy_outlined),
                   title: Text('حالت دستیار خودکار هیبرید 🤖'),
-                  subtitle: Text('تمام کارها توسط دستیار انجام می‌شود — فقط موارد حساس تایید می‌خواهد. کافیست بگویی، دستیار خودش ثبت، برنامه‌ریزی و تخصیص می‌کند.'),
+                  subtitle: Text('تمام کارها توسط دستیار انجام می‌شود — فقط موارد حساس تایید می‌خواهد.'),
                 ),
                 const SizedBox(height: 8),
                 Container(
@@ -172,7 +175,7 @@ class SettingsTab extends ConsumerWidget {
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: const Text(
-                    '✅ فعال: هیبرید هوشمند\n• فرمان‌های ساده → اجرای فوری بدون تایید\n• مبالغ بالا یا مبهم → دستیار می‌پرسد "تایید می‌کنی؟" بگو "تایید" یا "لغو"\n• مثال: "به علی ۲ میلیون بدهکارم" → خودکار ثبت + برنامه پرداخت',
+                    '✅ فعال: هیبرید هوشمند\n• فرمان‌های ساده → اجرای فوری بدون تایید\n• مبالغ بالا یا مبهم → دستیار می‌پرسد "تایید می‌کنی؟"\n• استارت سریع: بارگذاری موازی repoها (اصلاح 2026-08-07)',
                     style: TextStyle(fontSize: 12),
                   ),
                 ),
@@ -180,14 +183,42 @@ class SettingsTab extends ConsumerWidget {
             ),
           ),
         ),
-        const Card.outlined(
+        Card.outlined(
           child: Padding(
-            padding: EdgeInsets.all(16),
-            child: Text('امنیت و قفل، بکاپ رمزنگاری‌شده، خروجی و گزارش، تحلیل مالی، بودجه‌بندی و هشدارهای آینده‌نگر همگی روی همین گوشی و بدون سرور انجام می‌شوند.'),
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(Icons.privacy_tip_outlined),
+                  title: Text('حریم خصوصی و پشتیبانی'),
+                ),
+                Text(AppConfig.privacyMode),
+                const SizedBox(height: 8),
+                Text('نسخه: ${AppConfig.versionName} (${AppConfig.versionCode}) - ${AppConfig.packageName}'),
+                const SizedBox(height: 4),
+                if (AppConfig.supportEmail.isNotEmpty)
+                  SelectableText('پشتیبانی: ${AppConfig.supportEmail}'),
+                const SizedBox(height: 8),
+                const Text('امنیت و قفل، بکاپ رمزنگاری‌شده (AES-GCM + PBKDF2)، خروجی و گزارش، تحلیل مالی، بودجه‌بندی و هشدارهای آینده‌نگر همگی روی همین گوشی و بدون سرور انجام می‌شوند.'),
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Text(
+                    '🔒 اصلاحات امنیتی 2026-08-07:\n• PIN: SHA256 خام → PBKDF2 (100k) + salt + constant-time\n• بکاپ: AES-CBC بدون MAC → AES-GCM + PBKDF2 200k\n• استارت: سریال → موازی Future.wait\n• فرمان صوتی: nullable → required non-nullable',
+                    style: TextStyle(fontSize: 11),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ],
     );
   }
 }
-

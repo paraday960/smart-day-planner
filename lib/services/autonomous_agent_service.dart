@@ -8,6 +8,7 @@ import 'command_confidence_service.dart';
 import 'conversation_memory_service.dart';
 import 'debt_repository.dart';
 import 'finance_repository.dart';
+import 'goal_repository.dart';
 import 'planned_expense_repository.dart';
 import 'task_repository.dart';
 import 'voice_command_processor.dart';
@@ -68,13 +69,17 @@ class AutonomousAgentService {
 
   /// اجرای خودکار یک دستور از روی متن — بدون نیاز به UI دستی کاربر
   /// این متد تمام repositoryها را مستقیم صدا می‌زند
+  ///
+  /// **اصلاح 2026-08-07:** همهٔ repoها required شدند تا پیام «هنوز وصل نشده»
+  /// حذف شود و از crash با `!` جلوگیری شود.
   Future<AutonomousResult> handleAutonomously({
     required String rawText,
     required TaskRepository taskRepository,
     required FinanceRepository financeRepository,
-    DebtRepository? debtRepository,
-    PlannedExpenseRepository? plannedExpenseRepository,
-    AllocationRepository? allocationRepository,
+    required GoalRepository goalRepository,
+    required DebtRepository debtRepository,
+    required PlannedExpenseRepository plannedExpenseRepository,
+    required AllocationRepository allocationRepository,
     ConversationMemoryService? conversationMemory,
   }) async {
     if (!isEnabled) {
@@ -88,6 +93,7 @@ class AutonomousAgentService {
     final processor = VoiceCommandProcessor(
       taskRepository: taskRepository,
       financeRepository: financeRepository,
+      goalRepository: goalRepository,
       debtRepository: debtRepository,
       plannedExpenseRepository: plannedExpenseRepository,
       allocationRepository: allocationRepository,

@@ -37,38 +37,45 @@ Future<void> main() async {
   final voiceResponseService = VoiceResponseService.instance;
   final securityService = SecurityService.instance;
 
-  await repository.load();
-  await financeRepository.load();
-  await goalRepository.load();
-  await plannedExpenseRepository.load();
-  await debtRepository.load();
-  await allocationRepository.load();
-  await categoryBudgetRepository.load();
-  await availabilityRepository.load();
-  await conversationMemoryService.load();
-  await securityService.load();
-  await notificationService.initialize();
-  await voiceResponseService.initialize();
+  // بارگذاری موازی برای استارت سریع‌تر (قبلاً سریال 10+ await بود)
+  // Repository ها مستقل هستند و می‌توانند همزمان load شوند
+  await Future.wait([
+    repository.load(),
+    financeRepository.load(),
+    goalRepository.load(),
+    plannedExpenseRepository.load(),
+    debtRepository.load(),
+    allocationRepository.load(),
+    categoryBudgetRepository.load(),
+    availabilityRepository.load(),
+    conversationMemoryService.load(),
+    securityService.load(),
+  ]);
 
-  // اگر LLM محلی فعال باشد و مدل به‌عنوان asset باندل شده باشد،
-  // یک‌بار آن را به دایرکتوری اسناد کپی می‌کنیم.
+  // سرویس‌های پلتفرمی هم می‌توانند موازی initialize شوند
+  await Future.wait([
+    notificationService.initialize(),
+    voiceResponseService.initialize(),
+  ]);
+
+  // نصب مدل‌های آفلاین (در صورت فعال بودن) به‌صورت موازی و با مدیریت خطا
+  final List<Future<void>> assetInstallers = [];
   if (FeatureFlags.enableLocalLlm) {
-    try {
-      await const LlamaAssetInstaller().installIfNeeded();
-    } catch (_) {
-      // نبود مدل مشکلی نیست؛ دستیار به موتور قانون‌محور برمی‌گردد.
-    }
+    assetInstallers.add(
+      const LlamaAssetInstaller().installIfNeeded().catchError((_) {
+        // نبود مدل مشکلی نیست؛ دستیار به موتور قانون‌محور برمی‌گردد.
+      }),
+    );
   }
-
-  // اگر تشخیص گفتار آفلاین (Vosk) فعال باشد و مدل فارسی به‌عنوان asset
-  // باندل شده باشد، یک‌بار آن را به دایرکتوری اسناد کپی می‌کنیم تا
-  // VoskModelLocator پیدایش کند و فرمان صوتی واقعاً بدون اینترنت کار کند.
   if (FeatureFlags.enableOfflineSpeech) {
-    try {
-      await const VoskAssetInstaller().installIfNeeded();
-    } catch (_) {
-      // نبود مدل مشکلی نیست؛ لایهٔ صوتی به سرویس آنلاین گوشی برمی‌گردد.
-    }
+    assetInstallers.add(
+      const VoskAssetInstaller().installIfNeeded().catchError((_) {
+        // نبود مدل مشکلی نیست؛ لایهٔ صوتی به سرویس آنلاین گوشی برمی‌گردد.
+      }),
+    );
+  }
+  if (assetInstallers.isNotEmpty) {
+    await Future.wait(assetInstallers);
   }
 
   runApp(

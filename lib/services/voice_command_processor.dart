@@ -21,14 +21,22 @@ import 'smart_planner.dart';
 import 'task_repository.dart';
 import 'voice_nlu.dart';
 
+/// پردازشگر فرمان صوتی فارسی
+///
+/// **اصلاحات 2026-08-07:**
+/// - تمام repositoryها حالا required و non-nullable هستند (قبلاً nullable بودند و
+///   پیام «هنوز به فرمان صوتی وصل نشده است» برمی‌گرداندند). حالا تضمین شده همه
+///   repoها در دسترس هستند.
+/// - حذف استفاده از `!` و fallback های ناامن.
+/// - پیام‌های کاربرمحورتر به جای پیام فنی «وصل نشده».
 class VoiceCommandProcessor {
   VoiceCommandProcessor({
     required this.taskRepository,
     required this.financeRepository,
-    this.goalRepository,
-    this.plannedExpenseRepository,
-    this.debtRepository,
-    this.allocationRepository,
+    required this.goalRepository,
+    required this.plannedExpenseRepository,
+    required this.debtRepository,
+    required this.allocationRepository,
     this.conversationMemory,
     ForecastService forecastService = const ForecastService(),
     CommandConfidenceService confidenceService = const CommandConfidenceService(),
@@ -44,10 +52,10 @@ class VoiceCommandProcessor {
 
   final TaskRepository taskRepository;
   final FinanceRepository financeRepository;
-  final GoalRepository? goalRepository;
-  final PlannedExpenseRepository? plannedExpenseRepository;
-  final DebtRepository? debtRepository;
-  final AllocationRepository? allocationRepository;
+  final GoalRepository goalRepository;
+  final PlannedExpenseRepository plannedExpenseRepository;
+  final DebtRepository debtRepository;
+  final AllocationRepository allocationRepository;
   final ConversationMemoryService? conversationMemory;
   final NotificationServicePort? notificationService;
   final SmartPlanner _planner;
@@ -66,9 +74,9 @@ class VoiceCommandProcessor {
 
     if (VoiceNlu.containsAny(text, ['اگه فردا کار نکنم', 'اگر فردا کار نکنم', 'فردا کار نکنم چی میشه'])) {
       return _forecastService.noWorkTomorrowImpact(
-        debts: debtRepository!,
-        plannedExpenses: plannedExpenseRepository!,
-        allocations: allocationRepository!,
+        debts: debtRepository,
+        plannedExpenses: plannedExpenseRepository,
+        allocations: allocationRepository,
       );
     }
 
@@ -77,17 +85,17 @@ class VoiceCommandProcessor {
       return _forecastService.workHoursImpact(
         hours: hours,
         finance: financeRepository,
-        debts: debtRepository!,
-        plannedExpenses: plannedExpenseRepository!,
-        allocations: allocationRepository!,
+        debts: debtRepository,
+        plannedExpenses: plannedExpenseRepository,
+        allocations: allocationRepository,
       );
     }
 
     if (VoiceNlu.containsAny(text, ['ریسک', 'خطر', 'عقب میفتم', 'عقب می‌افتم'])) {
       return _forecastService.riskSummary(
-        debts: debtRepository!,
-        plannedExpenses: plannedExpenseRepository!,
-        allocations: allocationRepository!,
+        debts: debtRepository,
+        plannedExpenses: plannedExpenseRepository,
+        allocations: allocationRepository,
       );
     }
 
@@ -104,8 +112,6 @@ class VoiceCommandProcessor {
     }
 
     if (VoiceNlu.containsAny(text, ['بدهکارم', 'بدهکار هستم', 'بدهی دارم', 'طلب دارم', 'ازم طلب داره', 'ازش طلب دارم'])) {
-      // اگر چند نفر با مبالغ جدا در یک جمله باشند («به علی و محمد بدهکارم،
-      // به علی ۲۰ میل...») → ثبت دسته‌ای + محاسبهٔ برنامهٔ پرداخت
       final multiNames = VoiceNlu.extractMultiDebtPersons(text);
       if (multiNames.length >= 2) {
         return _handleMultiDebtCommand(rawText, text, multiNames);
@@ -173,7 +179,7 @@ class VoiceCommandProcessor {
       return 'هزینه ${PersianFormat.money(amount)} ثبت شد.';
     }
 
-    if (VoiceNlu.containsAny(text, ['کار جدید', 'کار جدید', 'وظیفه جدید', 'اضافه کن', 'ثبت کن', 'یادم بنداز'])) {
+    if (VoiceNlu.containsAny(text, ['کار جدید', 'وظیفه جدید', 'اضافه کن', 'ثبت کن', 'یادم بنداز'])) {
       return _addTaskByVoice(rawText, text);
     }
 
@@ -203,9 +209,7 @@ class VoiceCommandProcessor {
     if (pending.type == 'confirm_allocation') {
       if (VoiceNlu.containsAny(text, ['آره', 'بله', 'درسته', 'تایید', 'تأیید', 'اوکی'])) {
         final slots = pending.slots;
-        final allocations = allocationRepository;
-        if (allocations == null) return 'بخش پاکت پول در دسترس نیست.';
-        await allocations.add(MoneyAllocation(
+        await allocationRepository.add(MoneyAllocation(
           id: DateTime.now().microsecondsSinceEpoch.toString(),
           targetType: AllocationTargetType.values.firstWhere(
             (t) => t.name == slots['targetType'],
@@ -260,7 +264,7 @@ class VoiceCommandProcessor {
         createdAt: DateTime.now(),
         notes: 'ثبت‌شده با گفت‌وگوی چندمرحله‌ای: $rawText',
       );
-      await debtRepository?.add(item);
+      await debtRepository.add(item);
       await memory.clearPending();
       await memory.rememberEntity(type: 'debt', id: item.id, title: item.personName);
       final status = const DebtPlanningService().statusFor(item, financeRepository);
@@ -310,7 +314,7 @@ class VoiceCommandProcessor {
         createdAt: DateTime.now(),
         notes: slots['rawText'] as String? ?? '',
       );
-      await debtRepository?.add(item);
+      await debtRepository.add(item);
       await conversationMemory?.rememberEntity(type: 'debt', id: item.id, title: item.personName);
       final status = const DebtPlanningService().statusFor(item, financeRepository);
       return 'ثبت شد. ${status.message}';
@@ -325,7 +329,7 @@ class VoiceCommandProcessor {
         createdAt: DateTime.now(),
         notes: slots['rawText'] as String? ?? '',
       );
-      await plannedExpenseRepository?.add(item);
+      await plannedExpenseRepository.add(item);
       final status = const GoalPlanningService().statusFor(item, financeRepository);
       return 'ثبت شد. ${status.message}';
     }
@@ -350,9 +354,6 @@ class VoiceCommandProcessor {
   bool _isNegative(String text) => VoiceNlu.containsAny(text, ['لغو', 'نه', 'نکن', 'بیخیال', 'اشتباهه']);
 
   Future<String> _handleAllocationCommand(String text) async {
-    final allocations = allocationRepository;
-    if (allocations == null) return 'بخش پاکت پول هنوز به فرمان صوتی وصل نشده است.';
-
     var amount = VoiceNlu.parseAmount(text);
     final ambiguousAmount = VoiceNlu.parseAmbiguousSpokenAmount(text);
     if (amount <= 0 && ambiguousAmount != null) {
@@ -374,8 +375,8 @@ class VoiceCommandProcessor {
     }
 
     if (VoiceNlu.containsAny(text, ['بدهی'])) {
-      final debts = debtRepository?.activeItems.where((e) => e.type == DebtType.debt).toList() ?? [];
-      if (debts.isEmpty) return 'بدهی فعالی پیدا نکردم.';
+      final debts = debtRepository.activeItems.where((e) => e.type == DebtType.debt).toList();
+      if (debts.isEmpty) return 'بدهی فعالی پیدا نکردم. اول بگو: به فلانی اینقدر بدهکارم.';
       DebtItem? target;
       for (final debt in debts) {
         if (text.contains(debt.personName)) {
@@ -384,7 +385,7 @@ class VoiceCommandProcessor {
         }
       }
       target ??= debts.first;
-      await allocations.add(MoneyAllocation(
+      await allocationRepository.add(MoneyAllocation(
         id: DateTime.now().microsecondsSinceEpoch.toString(),
         targetType: AllocationTargetType.debt,
         targetId: target.id,
@@ -395,10 +396,10 @@ class VoiceCommandProcessor {
       return '${PersianFormat.money(amount)} برای بدهی ${target.personName} کنار گذاشته شد.';
     }
 
-    final plans = plannedExpenseRepository?.activeItems ?? [];
-    if (plans.isEmpty) return 'هزینه آینده فعالی پیدا نکردم.';
+    final plans = plannedExpenseRepository.activeItems;
+    if (plans.isEmpty) return 'هزینه آینده فعالی پیدا نکردم. اول هزینه آینده‌ات رو ثبت کن.';
     final target = plans.first;
-    await allocations.add(MoneyAllocation(
+    await allocationRepository.add(MoneyAllocation(
       id: DateTime.now().microsecondsSinceEpoch.toString(),
       targetType: AllocationTargetType.plannedExpense,
       targetId: target.id,
@@ -410,10 +411,7 @@ class VoiceCommandProcessor {
   }
 
   Future<String> _handleDebtPaymentCommand(String text) async {
-    final repo = debtRepository;
-    if (repo == null) return 'بخش بدهی هنوز به فرمان صوتی وصل نشده است.';
-
-    final activeDebts = repo.activeItems.where((e) => e.type == DebtType.debt).toList();
+    final activeDebts = debtRepository.activeItems.where((e) => e.type == DebtType.debt).toList();
     if (activeDebts.isEmpty) return 'بدهی فعالی برای پرداخت پیدا نکردم.';
 
     DebtItem? best;
@@ -427,7 +425,7 @@ class VoiceCommandProcessor {
 
     final amount = VoiceNlu.parseAmount(text);
     final payment = amount > 0 ? amount : best.remainingAmount;
-    await repo.addPayment(best.id, payment);
+    await debtRepository.addPayment(best.id, payment);
     await financeRepository.add(
       FinanceTransaction(
         id: DateTime.now().microsecondsSinceEpoch.toString(),
@@ -442,20 +440,14 @@ class VoiceCommandProcessor {
     return 'پرداخت ${PersianFormat.money(payment)} برای بدهی ${best.personName} ثبت شد.';
   }
 
-
-
   /// ثبت دسته‌ای چند بدهی + محاسبهٔ فوری برنامهٔ پرداخت.
   Future<String> _handleMultiDebtCommand(
       String rawText, String text, List<String> persons) async {
-    final repo = debtRepository;
-    if (repo == null) return 'بخش بدهی و طلب هنوز به فرمان صوتی وصل نشده است.';
-
     final dueAt = VoiceNlu.guessDueAt(text) ?? DateTime.now().add(const Duration(days: 30));
     final type = VoiceNlu.containsAny(text, ['طلب دارم', 'ازش طلب دارم'])
         ? DebtType.receivable
         : DebtType.debt;
 
-    // برای هر نام، مبلغ مخصوصش را پیدا کن («به علی ۲۰ میل، به محمد پنج میل»)
     final registered = <String, int>{};
     for (final person in persons) {
       final amount = VoiceNlu.extractAmountForPerson(text, person);
@@ -470,7 +462,7 @@ class VoiceCommandProcessor {
         createdAt: DateTime.now(),
         notes: rawText.trim(),
       );
-      await repo.add(item);
+      await debtRepository.add(item);
       registered[person] = amount;
     }
 
@@ -478,13 +470,12 @@ class VoiceCommandProcessor {
       return 'چند نفر را شنیدم ولی مبلغ‌ها را کامل نفهمیدم. مثال: «به علی و محمد بدهکارم، به علی ۲۰ میلیون، به محمد پنج میلیون، تا ماه آینده».';
     }
 
-    // ── محاسبهٔ برنامهٔ پرداخت ──
     final total = registered.values.fold<int>(0, (a, b) => a + b);
     final now = DateTime.now();
     final horizonDays = DateTime(dueAt.year, dueAt.month, dueAt.day)
-            .difference(DateTime(now.year, now.month, now.day))
-            .inDays >
-        0
+                .difference(DateTime(now.year, now.month, now.day))
+                .inDays >
+            0
         ? DateTime(dueAt.year, dueAt.month, dueAt.day)
             .difference(DateTime(now.year, now.month, now.day))
             .inDays
@@ -509,12 +500,7 @@ class VoiceCommandProcessor {
     return buffer.toString();
   }
 
-
-
   Future<String> _handleDebtCommand(String rawText, String text) async {
-    final repo = debtRepository;
-    if (repo == null) return 'بخش بدهی و طلب هنوز به فرمان صوتی وصل نشده است.';
-
     final amount = VoiceNlu.parseAmount(text);
     if (amount <= 0) {
       return 'مبلغ بدهی یا طلب را نفهمیدم. مثلاً بگو: به ممد یک میلیون بدهکارم تا دو روز دیگه باید پس بدم.';
@@ -551,7 +537,7 @@ class VoiceCommandProcessor {
       createdAt: DateTime.now(),
       notes: rawText.trim(),
     );
-    await repo.add(item);
+    await debtRepository.add(item);
     await conversationMemory?.rememberEntity(type: 'debt', id: item.id, title: item.personName);
 
     final status = const DebtPlanningService().statusFor(item, financeRepository);
@@ -559,9 +545,6 @@ class VoiceCommandProcessor {
   }
 
   Future<String> _handlePlannedExpenseCommand(String rawText, String text) async {
-    final repo = plannedExpenseRepository;
-    if (repo == null) return 'بخش هزینه‌های آینده هنوز به فرمان صوتی وصل نشده است.';
-
     final amount = VoiceNlu.parseAmount(text);
     if (amount <= 0) {
       return 'مبلغ هزینه را نفهمیدم. مثلاً بگو: هفته دیگه می‌خوام برم بیرون و یک میلیون تومان خرج داره.';
@@ -594,37 +577,33 @@ class VoiceCommandProcessor {
       createdAt: DateTime.now(),
       notes: rawText.trim(),
     );
-    await repo.add(item);
+    await plannedExpenseRepository.add(item);
 
     final status = const GoalPlanningService().statusFor(item, financeRepository);
     return 'برنامه هزینه «${item.title}» با مبلغ ${PersianFormat.money(amount)} برای ${PersianFormat.jalaliLong(dueAt)} ثبت شد. ${status.message} اگر یک روز کمتر درآمد داشته باشی، روزهای بعدی خودکار با باقی‌مانده جدید محاسبه می‌شود.';
   }
 
   Future<String> _handleGoalCommand(String text) async {
-    final goals = goalRepository;
-    if (goals == null) return 'بخش هدف‌ها هنوز به فرمان صوتی وصل نشده است.';
-
     final amount = VoiceNlu.parseAmount(text);
     if (amount <= 0) {
       return 'مبلغ هدف را نفهمیدم. مثلاً بگو: هدف درآمد روزانه یک میلیون تومان.';
     }
 
     if (VoiceNlu.containsAny(text, ['ماهانه', 'ماه شمسی', 'این ماه'])) {
-      await goals.setMonthlyIncomeGoal(amount);
+      await goalRepository.setMonthlyIncomeGoal(amount);
       return 'هدف درآمد ماه شمسی روی ${PersianFormat.money(amount)} تنظیم شد.';
     }
 
-    await goals.setDailyIncomeGoal(amount);
+    await goalRepository.setDailyIncomeGoal(amount);
     return 'هدف درآمد روزانه روی ${PersianFormat.money(amount)} تنظیم شد.';
   }
 
   String _incomeGapAnswer() {
-    final goals = goalRepository;
-    if (goals == null || goals.dailyIncomeGoal <= 0) {
+    if (goalRepository.dailyIncomeGoal <= 0) {
       return 'برای محاسبه زمان لازم، اول هدف درآمد روزانه را تنظیم کن. مثلاً بگو: هدف درآمد روزانه یک میلیون تومان.';
     }
 
-    final gap = goals.dailyIncomeGoal - financeRepository.incomeToday();
+    final gap = goalRepository.dailyIncomeGoal - financeRepository.incomeToday();
     if (gap <= 0) return 'هدف درآمد امروزت کامل شده است.';
 
     final hourly = financeRepository.averageHourlyRate();
@@ -703,5 +682,4 @@ class VoiceCommandProcessor {
 
     return 'کار «${best.title}» کامل شد.';
   }
-
 }

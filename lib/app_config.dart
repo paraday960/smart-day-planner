@@ -11,8 +11,8 @@ class AppConfig {
   static const versionName = '1.0.0';
   static const versionCode = 1;
 
-  /// ایمیل پشتیبانی — قبل از انتشار واقعی مقدار واقعی بگذارید.
-  /// خالی یعنی هنوز اعلام نشده (در UI هم نمایش داده نمی‌شود).
-  static const supportEmail = '';
+  /// ایمیل پشتیبانی — قبلاً خالی بود و در UI نمایش داده نمی‌شد.
+  /// الان با ایمیل مالک ریپو پر شده؛ در صورت نیاز تغییر دهید.
+  static const supportEmail = 'am.jk960@gmail.com';
   static const privacyMode = 'Local-first: اطلاعات اصلی روی گوشی کاربر ذخیره می‌شود.';
 }

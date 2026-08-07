@@ -4,6 +4,7 @@ import 'package:smart_day_planner/services/allocation_repository.dart';
 import 'package:smart_day_planner/services/conversation_memory_service.dart';
 import 'package:smart_day_planner/services/debt_repository.dart';
 import 'package:smart_day_planner/services/finance_repository.dart';
+import 'package:smart_day_planner/services/goal_repository.dart';
 import 'package:smart_day_planner/services/planned_expense_repository.dart';
 import 'package:smart_day_planner/services/task_repository.dart';
 import 'package:smart_day_planner/services/voice_command_processor.dart';
@@ -20,6 +21,7 @@ void main() {
     final processor = VoiceCommandProcessor(
       taskRepository: TaskRepository(),
       financeRepository: finance,
+      goalRepository: GoalRepository(),
       debtRepository: DebtRepository(),
       plannedExpenseRepository: PlannedExpenseRepository(),
       allocationRepository: AllocationRepository(),
@@ -42,6 +44,7 @@ void main() {
     final processor = VoiceCommandProcessor(
       taskRepository: TaskRepository(),
       financeRepository: FinanceRepository(),
+      goalRepository: GoalRepository(),
       debtRepository: debts,
       plannedExpenseRepository: PlannedExpenseRepository(),
       allocationRepository: AllocationRepository(),
