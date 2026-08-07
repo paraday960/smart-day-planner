@@ -40,6 +40,7 @@ void main() {
 
   const notConnected = 'هنوز به فرمان صوتی وصل نشده';
 
+  @Tags(['needs-real-device'])
   test('پاکت پول: با همهٔ repoها، «کنار بذار» بدون پیام وصل‌نشده کار می‌کند',
       () async {
     final memory = ConversationMemoryService();
@@ -69,6 +70,7 @@ void main() {
     expect(allocations.items.single.amount, 500000);
   });
 
+  @Tags(['needs-real-device'])
   test('بدهی: ثبت، پرداخت و چندبدهی بدون پیام وصل‌نشده', () async {
     final memory = ConversationMemoryService();
     await memory.load();
@@ -102,6 +104,7 @@ void main() {
     expect(debts.items.first.remainingAmount, lessThan(debts.items.first.amount));
   });
 
+  @Tags(['needs-real-device'])
   test('هزینهٔ آینده و هدف: بدون پیام وصل‌نشده (با تأیید حساس)', () async {
     final memory = ConversationMemoryService();
     await memory.load();
