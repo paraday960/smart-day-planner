@@ -1,12 +1,15 @@
 # دستیار روزانه هوشمند ایرانی — برنامه‌ریزی، حسابداری و فرمان صوتی فارسی
 
+![Flutter CI](https://github.com/paraday960/smart-day-planner/actions/workflows/flutter_ci.yml/badge.svg)
+![Android Release Build](https://github.com/paraday960/smart-day-planner/actions/workflows/release_android.yml/badge.svg)
+
 > ## 🟢 وضعیت فعلی (۲۰۲۶-08-07)
 > - **CI کاملاً سبز است**: ۱۳۰ تست واحد + ۵ تست feature-gating + بیلد APK دیباگ ✅
-> - تاریخچهٔ گیت تمیز شد؛ همهٔ رفع‌ها در کامیت `dc4fed6` جمع شده‌اند.
+> - **شکاف‌های KNOWN_GAPS رفع شدند**: refactor فایل‌های بزرگ (VoiceNlu)، تست «همهٔ
+>   repoها»، اسکلت وب و iOS، و workflow جدید ساخت APK آفلاین (Vosk + LLM محلی) 🚀
 > - 📖 **برای ورود سریع (مخصوص AI ها و همکاران جدید): [`docs/PROJECT_STATE.md`](docs/PROJECT_STATE.md)**
 > - 📦 **دانلود آخرین APK:** تب Actions → آخرین ران سبز → Artifacts → `smart-day-planner-debug-apk`
-
-# دستیار روزانه هوشمند ایرانی — برنامه‌ریزی، حسابداری و فرمان صوتی فارسی
+> - 🧠 **APK با فرمان صوتی آفلاین و LLM محلی:** تب Actions → `Offline Capabilities Build` → Run workflow
 
 این پروژه یک Starter Code رایگان برای ساخت اپ اندروید و iOS با Flutter است. رابط کاربری فارسی و راست‌چین است، تاریخ‌ها شمسی نمایش داده می‌شوند، واحد پول تومان است و فرمان صوتی فارسی پشتیبانی می‌شود. هسته برنامه بدون API پولی کار می‌کند و می‌تواند برای تشخیص گفتار از سرویس رایگان گوشی استفاده کند.
 

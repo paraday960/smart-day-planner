@@ -19,6 +19,7 @@ import 'services/planned_expense_repository.dart';
 import 'services/security_service.dart';
 import 'services/task_repository.dart';
 import 'services/voice_response_service.dart';
+import 'services/vosk_asset_installer.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -56,6 +57,17 @@ Future<void> main() async {
       await const LlamaAssetInstaller().installIfNeeded();
     } catch (_) {
       // نبود مدل مشکلی نیست؛ دستیار به موتور قانون‌محور برمی‌گردد.
+    }
+  }
+
+  // اگر تشخیص گفتار آفلاین (Vosk) فعال باشد و مدل فارسی به‌عنوان asset
+  // باندل شده باشد، یک‌بار آن را به دایرکتوری اسناد کپی می‌کنیم تا
+  // VoskModelLocator پیدایش کند و فرمان صوتی واقعاً بدون اینترنت کار کند.
+  if (FeatureFlags.enableOfflineSpeech) {
+    try {
+      await const VoskAssetInstaller().installIfNeeded();
+    } catch (_) {
+      // نبود مدل مشکلی نیست؛ لایهٔ صوتی به سرویس آنلاین گوشی برمی‌گردد.
     }
   }
 

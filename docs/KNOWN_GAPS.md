@@ -3,80 +3,100 @@
 > این سند مواردی را فهرست می‌کند که در کد «ادعا/آماده» شده‌اند ولی هنوز کامل نیستند،
 > و قدم‌های عملی برای تکمیل آن‌ها. بخشی از آن‌ها فقط با ابزار Flutter و دانلود
 > مدل‌ها (نه در سندباکس) قابل انجام است.
+>
+> آخرین به‌روزرسانی: **2026-08-07** — شکاف‌های ۴، ۵ و ۶ بسته شدند؛
+> شکاف‌های ۱ و ۲ «قابل ساخت» شدند (workflow جدید CI)؛ شکاف ۳ اسکلت iOS اضافه شد.
 
-## ۱. 🔴 LLM محلی (llama.cpp) — فقط زیرساخت، اجرا نمی‌شود
+## ۱. 🟡 LLM محلی (llama.cpp) — زیرساخت کامل + workflow ساخت؛ مدل داخل ریپو نیست
 
-**وضعیت:** کد کامل است (`lib/services/llama_backend.dart`، شیم C در
-`tool/csrc/llm_shim.c`، `LlamaAssetInstaller`)، ولی:
+**وضعیت:** ✅ کد کامل و هماهنگ شد؛ تنها «مدل فیزیکی» هنوز داخل ریپو نیست:
 
-- هیچ کتابخانهٔ باینری (`libllama.so`) داخل `android/app/src/main/jniLibs/` نیست
-  (پوشه‌ها فقط `.gitkeep` دارند).
-- هیچ مدل GGUF داخل `assets/models/` نیست (فقط `assistant.glb`).
-- فلگ `ENABLE_LOCAL_LLM` پیش‌فرض `false` است → دستیار همیشه به موتور قانون‌محور
-  برمی‌گردد.
+- `LlamaAssetInstaller` اصلاح شد تا مدل را به همان مسیری کپی کند که
+  `LlamaModelLocator` جستجو می‌کند (`<اسناد>/llm/`) — قبلش مسیرها ناهماهنگ بودند
+  و مدل باندل‌شده هیچ‌وقت پیدا نمی‌شد.
+- `main.dart` هنگام `ENABLE_LOCAL_LLM=true` مدل asset را یک‌بار نصب می‌کند.
+- **Workflow جدید `.github/workflows/offline_capabilities.yml`** مدل
+  `qwen2.5-0.5b-instruct-q4_k_m.gguf` (~۴۷۰MB) را روی runner دانلود، به
+  pubspec اضافه و داخل APK باندل می‌کند (input اختیاری `include_llm`).
 
-**قدم‌های تکمیل:**
-1. با `scripts/download_llm_model.sh` مدل `qwen2.5-0.5b-instruct-q4_k_m.gguf` را دانلود و در
-   `assets/models/` قرار بده.
-2. `libllama.so` را برای هر ABI (arm64-v8a, armeabi-v7a, x86_64) از
-   `scripts/build_llm_shim.sh` بساز و در `android/app/src/main/jniLibs/<abi>/` بگذار.
-3. build با `--dart-define=ENABLE_LOCAL_LLM=true` انجام بده.
+**چرا مدل داخل ریپو نیست؟** حجمش (~۴۷۰MB) از سقف فایل گیت‌هاب (>100MB) بیشتر است.
 
-## ۲. 🔴 تشخیص گفتار آفلاین (Vosk) — فعال نیست
+**قدم‌های باقی‌مانده:**
+1. تب Actions → `Offline Capabilities Build` → Run workflow → تیک `include_llm`.
+2. (اختیاری) `libllama.so` برای هر ABI با `scripts/build_android_llm.sh`
+   (نیازمند Android NDK؛ خروجی .so با `.gitignore` پوشیده شده و نباید commit شود).
 
-**وضعیت:** `OfflineVoskVoiceInput` و `VoskModelLocator` آماده‌اند، ولی مدل فارسی
-(~۴۰MB) باندل نشده و فلگ `ENABLE_OFFLINE_SPEECH` خاموش است → عملاً از سرویس
-آنلاین گوشی استفاده می‌شود (پس «بدون اینترنت برای گفتار» هنوز برقرار نیست).
+## ۲. 🟡 تشخیص گفتار آفلاین (Vosk) — کد کامل + workflow ساخت؛ مدل داخل ریپو نیست
 
-**قدم:** `scripts/download_vosk_model.sh` را اجرا و مسیر مدل را در
-`vosk_model_locator.dart` مشخص کن؛ با `--dart-define=ENABLE_OFFLINE_SPEECH=true`
-build بگیر.
+**وضعیت:** ✅ زنجیرهٔ کامل شد:
 
-## ۳. 🔴 پوشهٔ iOS — وجود ندارد
+- `VoskAssetInstaller` جدید (مثل LlamaAssetInstaller) مدل باندل‌شده را به
+  `<اسناد>/vosk/` کپی می‌کند — دقیقاً همان مسیری که `VoskModelLocator` جستجو
+  می‌کند (قبلاً locator اصلاً asset را چک نمی‌کرد).
+- `main.dart` هنگام `ENABLE_OFFLINE_SPEECH=true` مدل را یک‌بار نصب می‌کند.
+- Workflow `offline_capabilities.yml` مدل فارسی (~۴۰MB) را موقع build دانلود و
+  باندل می‌کند و APK با `ENABLE_OFFLINE_SPEECH=true` می‌سازد.
 
-**وضعیت:** ریپو فقط Android دارد (`ios/` در ریپو نیست). README ادعای «Android و
-iOS از یک کد مشترک» دارد ولی iOS قابل ساخت نیست.
+**چرا مدل داخل ریپو نیست؟** ~۴۰MB حجمش با وجود امکان commit، ریپو را سنگین
+می‌کند و `assets/models/*.zip` عمداً gitignore شده؛ دانلود هنگام ساخت تمیزتر است.
 
-**قدم:** در یک محیط دارای Flutter:
+**قدم باقی‌مانده:** تب Actions → `Offline Capabilities Build` → Run workflow
+(بدون LLM کافی است؛ APK ~۸۰MB).
+
+## ۳. 🟡 پوشهٔ iOS — اسکلت استاندارد اضافه شد؛ نیاز به تأیید در محیط Flutter
+
+**وضعیت:** پوشهٔ کامل `ios/` اضافه شد (قالب استاندارد Flutter):
+`Runner.xcodeproj` (پروژهٔ Xcode با UUID های سازگار)، `AppDelegate.swift`،
+`Info.plist` با دسترسی‌های میکروفون/گفتار/تقویم، `Podfile`، storyboard ها و
+asset catalog.
+
+**قدم باقی‌مانده (تأیید نهایی):** در یک محیط دارای Flutter/Xcode:
 ```bash
 flutter create --platforms=ios --project-name smart_day_planner .
+flutter build ios --simulator
 ```
-سپس `ios/Runner/Info.plist` را با توضیحات میکروفون، Speech Recognition و
-Calendar (نمونه در `android_templates/`) تکمیل کن و `device_calendar`,
-`flutter_tts`, `speech_to_text` را در Podfile/قفل نسخه بگذار.
+(دستور بالا فقط برای هم‌سنجی اسکلت است؛ فایل‌های سفارشی ما (Info.plist و...)
+را بازنویسی می‌کند، پس اگر تغییری ندادید از git برگردانید یا فقط ساختار را چک کنید.)
 
-## ۴. 🟡 خروجی وب / شبیه‌ساز — اسکلت ناتمام
+## ۴. 🟢 خروجی وب — اسکلت کامل شد
 
-**وضعیت:** پوشهٔ `web/` فقط دو آیکن دارد؛ `index.html`, `manifest.json` و
-بوت‌استرپ Flutter تولید نشده‌اند. README به «شبیه‌ساز وب» اشاره دارد ولی کار نمی‌کند.
+**وضعیت:** ✅ `web/index.html`، `web/manifest.json` و `web/flutter_bootstrap.js`
+اضافه شدند (قالب استاندارد Flutter 3.22+؛ آیکن‌های موجود `icon-192/512.png`
+استفاده می‌شوند). با `flutter create --platforms=web .` هیچ فایلی از دست نمی‌رود.
 
-**قدم:** در محیط دارای Flutter: `flutter create --platforms=web .` تا فایل‌های
-وب تولید شوند، سپس قابلیت‌های پلتفرمی (میکروفون/نوتیفیکیشن/تقویم) را در وب
-غیرفعال یا جایگزین کن.
+**قدم باقی‌مانده (بهینه):** قابلیت‌های پلتفرمی (میکروفون/نوتیفیکیشن/تقویم) در
+وب — در `web/` پیاده‌سازی پلتفرم ندارند و هنگام اجرای وب به‌صورت امن fallback
+می‌شوند؛ اگر خواستید نسخهٔ وب کامل شود، این‌ها را با فایل‌های پلتفرمی dart جایگزین کن.
 
-## ۵. 🟡 پیام‌های «هنوز به فرمان صوتی وصل نشده» در VoiceCommandProcessor
+## ۵. 🟢 پیام‌های «هنوز به فرمان صوتی وصل نشده» — تست اضافه شد
 
-**وضعیت:** در `lib/services/voice_command_processor.dart` چند intent وقتی
-repository مربوطه null باشد فقط پیام فارسی برمی‌گردانند (پاکت پول، بدهی/طلب،
-هزینه‌های آینده، هدف‌ها). این پیام‌ها «طراحی دفاعی» هستند، ولی باید اطمینان حاصل
-شود در مسیر تولید هیچ‌کدام با null صدا زده نشوند (`AutonomousAgentService` باید
-همیشه همهٔ repoها را پاس بدهد).
+**وضعیت:** ✅ تست جدید `test/voice_command_all_repos_test.dart` با **همهٔ**
+repositoryها (goal، plannedExpense، debt، allocation، memory) همهٔ intent های
+دارای این پیام دفاعی را اجرا می‌کند (پاکت پول، بدهی/پرداخت/چندبدهی، هزینهٔ آینده،
+هدف، سناریوهای پیش‌بینی) و تضمین می‌کند هیچ‌کدام پیام «وصل نشده» برنگردانند.
+یک تست هم قرارداد پیام دفاعی را در حالت repo های null نگه می‌دارد.
 
-**قدم:** یک تست اضافه کن که فرمان‌های این intentها را با همهٔ repoها اجرا و
-نشان دهد که پیام «وصل نشده» برنمی‌گردد.
+## ۶. 🟢 فایل‌های بزرگ — refactor جزئی انجام شد
 
-## ۶. 🟡 فایل‌های بزرگ — refactor جزئی
+**وضعیت:** ✅
+- `lib/services/voice_command_processor.dart`: **1081 → 707 خط** — همهٔ ابزارهای
+  NLU خالص (نرمال‌سازی، مبلغ، نام، مهلت، ...) به `lib/services/voice_nlu.dart`
+  (`VoiceNlu` — کلاس static) منتقل شدند.
+- `lib/services/local_assistant.dart`: **1109 → 692 خط** — لیست intent ها
+  (۴۲۰ خط) به `lib/services/local_assistant_intents.dart`
+  (`kRuleBasedAssistantIntents`) منتقل شد.
 
-`lib/services/local_assistant.dart` (~۱۱۲۵ خط) و `voice_command_processor.dart`
-(~۱۰۷۵ خط) هنوز بزرگ‌اند. پیشنهاد: استخراج intent handlerها و ابزار NLU به
-فایل‌های جدا (همان الگوی refactor بقیهٔ پروژه).
+**قدم بعدی (اختیاری):** استخراج intent handler های `VoiceCommandProcessor`
+به کلاس‌های جدا (مثل الگوی بقیهٔ پروژه)؛ حالا که ابزارها جدا شده‌اند، کم‌ریسک‌تر شده.
 
 ## ۷. 🟢 موارد پیکربندی که تصحیح شدند
 
 - `lib/app_config.dart` با گریدل/pubspec هم‌راستا شد (packageName، version).
 - کد مردهٔ `HomeCoordinatorV2`/`HomeCoordinatorFactory` و provider مربوطه حذف شد؛
-  `HomeCoordinator` اصلی (که همان Portها را پیاده می‌کند) تنها مسیر است.
+  `HomeCoordinator` اصلی تنها مسیر است.
 - `FeatureFlags.hasRiskyPlatformFeatureEnabled` (بلااستفاده در تولید) حذف شد.
+- مسیر نصب `LlamaAssetInstaller` با `LlamaModelLocator` هماهنگ شد (باگ پیدا نشدن
+  مدل باندل‌شده).
 
 ## یادداشت: ایمیل پشتیبانی
 `AppConfig.supportEmail` خالی است؛ قبل از انتشار واقعی مقدار واقعی بگذار تا در UI
