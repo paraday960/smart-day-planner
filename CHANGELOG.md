@@ -1,9 +1,28 @@
 # Changelog
 
-### CI
-- اجرای مجدد خودکار workflow بعد از قطعی سراسری GitHub Actions (2026-08-06).
+## 2026-08-07 — تعمیر کامل CI (۱۳ رفع) 🔧
 
-## Unreleased — ارتقای امنیت بکاپ + تمیزکاری 🔒
+کامیت `dc4fed6` — نتیجه: ۱۳۰ تست پاس + ۵ تست gating + بیلد APK سبز.
+
+**کد:**
+- رفع کوراپشن `\${` → `${` در `local_assistant.dart` (۳۸ مورد) و `dashboard_tab.dart`.
+- رفع سینتکس `DashboardController` (سمیکالن اضافی در initializer list).
+- رفع باگ اسپلیت «و» در مسیر چندبدهی (کلمهٔ «میلیون» دیگر چندتکه نمی‌شود).
+- رفع شمارش دوبارهٔ دقیقه‌ها در `WorkLearningService` + اصلاح `hasEnoughData`.
+- افزودن import های گمشده و اصلاح API های اشتباه (۶ فایل).
+- تایمرهای قابل لغو در کاراکتر دستیار + گارد پلتفرم برای نمایشگر سه‌بعدی.
+
+**تست‌ها:**
+- `TaskStatus.open` → `TaskStatus.todo`؛ حذف پارامتر ناموجود `hourlyRate:`؛
+  به‌روزرسانی متن‌های EmptyState و اسکرول در تست‌های ویجت.
+
+**بیلد اندروید:**
+- import های Kotlin و desugaring در `build.gradle.kts`.
+- تزریق namespace و compileSdk=36 به پکیج‌های قدیمی (vosk_flutter) با گارد `state.executed`.
+- ارتقای `permission_handler` به 13 (سازگار با AGP 9 و compileSdk 36).
+- اصلاح ساختار `pubspec.yaml` و افزایش حافظهٔ Gradle به 3G.
+
+## 2026-08-06 — ارتقای امنیت بکاپ + تمیزکاری 🔒
 
 ### امنیت
 - `BackupService`: مهاجرت از AES-CBC (بدون احراز اصالت) به **AES-GCM** برای رمزنگاری بکاپ — دستکاری فایل یا رمز اشتباه حالا تشخیص داده می‌شود.
