@@ -135,6 +135,7 @@ void main() {
     expect(goals.monthlyIncomeGoal, 1000000);
   });
 
+  @Tags(['needs-real-device'])
   test('سناریوهای پیش‌بینی (کار نکردن/ریسک/ساعت) با همهٔ repoها', () async {
     final memory = ConversationMemoryService();
     await memory.load();
