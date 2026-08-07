@@ -76,7 +76,9 @@ void main() {
         ),
       ),
     );
-    await tester.pumpAndSettle();
+    // تب دستیار آواتار متحرک دارد که به‌صورت پیوسته (repeat) انیمیشن می‌سازد؛
+    // پس به‌جای pumpAndSettle که هرگز settle نمی‌شود، با pump پیش می‌رویم.
+    await tester.pump(const Duration(seconds: 1));
 
     // رفتن به تب تنظیمات
     await tester.tap(find.text('تنظیمات'));
