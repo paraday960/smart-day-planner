@@ -27,7 +27,10 @@ Task _task({
 
 void main() {
   const planner = SmartPlanner();
-  final now = DateTime.now();
+  // ساعت را به صبحِ امروز ثابت می‌کنیم تا تست‌های «برنامهٔ امروز/هفته»
+  // مستقل از ساعتی که تست اجرا می‌شود پایدار باشند (رفع flaky در اواخر شب).
+  final now = DateTime(
+      DateTime.now().year, DateTime.now().month, DateTime.now().day, 9);
 
   group('buildWeekPlan', () {
     test('۷ روز برنامه می‌سازد و روز جاری را مشخص می‌کند', () {

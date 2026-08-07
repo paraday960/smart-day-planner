@@ -19,6 +19,8 @@ class OnlineAiNotAvailableException implements Exception {
 /// از API های سازگار با OpenAI استفاده می‌کند:
 /// - گوگل Gemini (پیش‌فرض؛ فارسی قوی و سهمیهٔ رایگان سخاوتمندانه)
 /// - Groq (خیلی سریع)
+/// - DeepSeek (چینی؛ از داخل ایران در دسترس و ارزان)
+/// - GapGPT (ایرانی؛ بدون VPN، کلید رایگان)
 ///
 /// کلید از این منابع خوانده می‌شود (به ترتیب اولویت):
 /// 1. `--dart-define=ONLINE_AI_API_KEY=...` هنگام ساخت
@@ -134,6 +136,16 @@ class OnlineLlmBackend implements LlmBackend {
         return const _Endpoint(
           url: 'https://api.groq.com/openai/v1/chat/completions',
           model: 'llama-3.3-70b-versatile',
+        );
+      case OnlineAiConfig.providerDeepseek:
+        return const _Endpoint(
+          url: 'https://api.deepseek.com/v1/chat/completions',
+          model: 'deepseek-chat',
+        );
+      case OnlineAiConfig.providerGapgpt:
+        return const _Endpoint(
+          url: 'https://gapgpt.app/api/v1/chat/completions',
+          model: 'gpt-4',
         );
       case OnlineAiConfig.providerGemini:
       default:

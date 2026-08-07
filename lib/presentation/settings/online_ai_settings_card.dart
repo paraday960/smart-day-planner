@@ -93,11 +93,19 @@ class _OnlineAiSettingsCardState extends State<OnlineAiSettingsCard> {
               items: const [
                 DropdownMenuItem(
                   value: OnlineAiConfig.providerGemini,
-                  child: Text('Google Gemini (فارسی قوی‌تر)'),
+                  child: Text('Google Gemini'),
                 ),
                 DropdownMenuItem(
                   value: OnlineAiConfig.providerGroq,
-                  child: Text('Groq (سریع‌تر)'),
+                  child: Text('Groq'),
+                ),
+                DropdownMenuItem(
+                  value: OnlineAiConfig.providerDeepseek,
+                  child: Text('DeepSeek (از ایران در دسترس 🇮🇷)'),
+                ),
+                DropdownMenuItem(
+                  value: OnlineAiConfig.providerGapgpt,
+                  child: Text('GapGPT (ایرانی - بدون VPN)'),
                 ),
               ],
               onChanged: _loaded
@@ -111,7 +119,7 @@ class _OnlineAiSettingsCardState extends State<OnlineAiSettingsCard> {
               enabled: _loaded && !_saving,
               decoration: InputDecoration(
                 labelText: 'کلید API رایگان',
-                hintText: 'AIza...  یا  gsk_...',
+                hintText: 'AIza...  یا  gsk_...  یا  sk-...',
                 border: const OutlineInputBorder(),
                 suffixIcon: IconButton(
                   icon: Icon(_showKey ? Icons.visibility_off : Icons.visibility),
@@ -153,21 +161,7 @@ class _ProviderHelp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isGemini = provider == OnlineAiConfig.providerGemini;
-    final steps = isGemini
-        ? [
-            '۱. به ai.google.dev برو و با حساب گوگل وارد شو.',
-            '۲. روی Get an API key بزن و یک کلید رایگان بساز.',
-            '۳. کلید (شبیه AIza...) را در بالا کپی کن.',
-          ]
-        : [
-            '۱. به console.groq.com برو و یک حساب رایگان بساز.',
-            '۲. در بخش API Keys یک کلید رایگان بساز.',
-            '۳. کلید (شبیه gsk_...) را در بالا کپی کن.',
-          ];
-    final url = isGemini
-        ? 'https://ai.google.dev/'
-        : 'https://console.groq.com/';
+    final (steps, url) = _guideFor(provider);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -189,5 +183,47 @@ class _ProviderHelp extends StatelessWidget {
         ),
       ],
     );
+  }
+
+  (List<String>, String) _guideFor(String p) {
+    switch (p) {
+      case OnlineAiConfig.providerGroq:
+        return (
+          [
+            '۱. به console.groq.com برو و با حساب گوگل وارد شو.',
+            '۲. در بخش API Keys یک کلید رایگان بساز.',
+            '۳. کلید (شبیه gsk_...) را در بالا کپی کن.',
+          ],
+          'https://console.groq.com/'
+        );
+      case OnlineAiConfig.providerDeepseek:
+        return (
+          [
+            '۱. به platform.deepseek.com برو و ثبت‌نام کن (بدون VPN، از ایران در دسترس).',
+            '۲. در بخش API Keys یک کلید بساز (شارژ اولیه رایگان می‌گیری).',
+            '۳. کلید (شبیه sk-...) را در بالا کپی کن.',
+          ],
+          'https://platform.deepseek.com/'
+        );
+      case OnlineAiConfig.providerGapgpt:
+        return (
+          [
+            '۱. به gapgpt.app برو و ثبت‌نام کن (سرویس ایرانی، بدون VPN).',
+            '۲. یک کلید API رایگان بگیر.',
+            '۳. کلید را در بالا کپی کن.',
+          ],
+          'https://gapgpt.app/'
+        );
+      case OnlineAiConfig.providerGemini:
+      default:
+        return (
+          [
+            '۱. به ai.google.dev برو و با حساب گوگل وارد شو.',
+            '۲. روی Get an API key بزن و یک کلید رایگان بساز.',
+            '۳. کلید (شبیه AIza...) را در بالا کپی کن.',
+          ],
+          'https://ai.google.dev/'
+        );
+    }
   }
 }

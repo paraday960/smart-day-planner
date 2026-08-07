@@ -74,7 +74,12 @@ void main() {
     });
 
     test('برنامه امروز → برنامهٔ زمانی', () async {
-      final answer = await assistant.generate(
+      // ساعت را به صبحِ امروز ثابت می‌کنیم تا صرف‌نظر از ساعتی که تست اجرا
+      // می‌شود، برنامهٔ امروز قابل چیدن باشد (رفع flaky در اواخر شب).
+      final morning = DateTime(
+          DateTime.now().year, DateTime.now().month, DateTime.now().day, 9);
+      final morningAssistant = RuleBasedLocalAssistant(now: () => morning);
+      final answer = await morningAssistant.generate(
           prompt: 'برنامه امروزمو بچین', tasks: _sampleTasks());
       expect(answer, contains('برنامهٔ امروز'));
       expect(answer, contains('تا'));

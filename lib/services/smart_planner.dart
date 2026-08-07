@@ -242,12 +242,14 @@ class SmartPlanner {
   WeekDayPlan buildDayPlanFor(
     DateTime day, {
     required List<Task> tasks,
+    DateTime? now,
     int dayStartHour = 9,
     int dayEndHour = 22,
   }) {
-    final isToday = _isSameDay(day, DateTime.now());
+    final reference = now ?? DateTime.now();
+    final isToday = _isSameDay(day, reference);
     final start = isToday
-        ? DateTime.now()
+        ? reference
         : DateTime(day.year, day.month, day.day, dayStartHour);
     final plan = buildTodayPlan(tasks, now: start, dayEndHour: dayEndHour);
     return WeekDayPlan(date: day, items: plan, isToday: isToday);
@@ -269,6 +271,7 @@ class SmartPlanner {
       final plan = buildDayPlanFor(
         day,
         tasks: tasks,
+        now: current,
         dayStartHour: dayStartHour,
         dayEndHour: dayEndHour,
       );

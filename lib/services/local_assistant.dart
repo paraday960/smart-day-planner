@@ -83,14 +83,21 @@ class RuleBasedLocalAssistant implements LocalLlmAdapter {
   RuleBasedLocalAssistant({
     SmartPlanner planner = const SmartPlanner(),
     AssistantContext context = const AssistantContext(),
+    DateTime Function()? now,
   })  : _planner = planner,
         _context = context,
         _timeAware = context.availability == null
             ? null
-            : TimeAwarePlanner(planner: planner);
+            : TimeAwarePlanner(planner: planner),
+        _now = now;
 
   final SmartPlanner _planner;
   final AssistantContext _context;
+
+  /// ساعت قابل تزریق برای تست (پیش‌فرض: ساعت واقعی). به برنامه‌های «امروز»
+  /// اجازه می‌دهد مستقل از ساعتی که اجرا می‌شوند پایدار باشند.
+  final DateTime Function()? _now;
+  DateTime get _currentTime => (_now ?? DateTime.now)();
 
   /// برنامه‌ریزی با رعایت ساعت کاری/تعطیلات کاربر (اگر تنظیم شده باشد).
   final TimeAwarePlanner? _timeAware;
@@ -221,7 +228,7 @@ class RuleBasedLocalAssistant implements LocalLlmAdapter {
         settings: availability,
       );
       if (plan.isEmpty) {
-        if (availability.isOffDay(DateTime.now())) {
+        if (availability.isOffDay(_currentTime)) {
           return 'امروز طبق تنظیماتت روز تعطیل است؛ برنامه‌ای نمی‌چینم. استراحتت را بکن. 😌 (ساعت کاری $startEndLabel)';
         }
         // اصلاح برای تست flaky: حتی وقتی برنامه خالی است، ذکر «با رعایت ساعت کاری» بماند
@@ -230,7 +237,7 @@ class RuleBasedLocalAssistant implements LocalLlmAdapter {
       return 'برنامهٔ امروز (با رعایت ساعت کاری $startEndLabel):\n${plan.take(8).map((item) => '${PersianFormat.time(item.start)} تا ${PersianFormat.time(item.end)} — ${item.task.title}').join('\n')}';
     }
 
-    final plan = _planner.buildTodayPlan(tasks);
+    final plan = _planner.buildTodayPlan(tasks, now: _currentTime);
     if (plan.isEmpty) {
       return 'برای امروز برنامهٔ قابل چیدن ندارم؛ یا زمان روز تمام شده یا کاری ثبت نشده.';
     }
@@ -261,7 +268,7 @@ class RuleBasedLocalAssistant implements LocalLlmAdapter {
   }
 
   String _overdue(List<Task> tasks) {
-    final now = DateTime.now();
+    final now = _currentTime;
     final overdue = tasks
         .where((t) => !t.isDone && t.dueAt != null && t.dueAt!.isBefore(now))
         .toList()
@@ -289,7 +296,7 @@ class RuleBasedLocalAssistant implements LocalLlmAdapter {
 
   String _risk(List<Task> tasks) {
     final parts = <String>[];
-    final now = DateTime.now();
+    final now = _currentTime;
     final overdue = tasks
         .where((t) => !t.isDone && t.dueAt != null && t.dueAt!.isBefore(now))
         .toList();
@@ -325,7 +332,7 @@ class RuleBasedLocalAssistant implements LocalLlmAdapter {
   }
 
   String _doneToday(List<Task> tasks) {
-    final now = DateTime.now();
+    final now = _currentTime;
     final startOfDay = DateTime(now.year, now.month, now.day);
     final done = tasks
         .where((t) =>

@@ -19,6 +19,8 @@ class OnlineAiConfig {
   /// شناسهٔ سرویس‌های پشتیبانی‌شده.
   static const String providerGemini = 'gemini';
   static const String providerGroq = 'groq';
+  static const String providerDeepseek = 'deepseek';
+  static const String providerGapgpt = 'gapgpt';
 
   String _apiKey = '';
   String _provider = providerGemini;
