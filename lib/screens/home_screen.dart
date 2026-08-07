@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../app/app_providers.dart';
+import '../app/app_theme.dart';
 import '../app/feature_flags.dart';
 import '../domain/services/notification_service_port.dart';
 import '../domain/services/voice_response_port.dart';
@@ -298,10 +299,22 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     return DefaultTabController(
       length: 5,
       child: Scaffold(
+        backgroundColor: const Color(0xFFF6F5FF),
         appBar: AppBar(
-          title: const Text('دستیار روزانه ایرانی'),
-          bottom: const TabBar(
-            tabs: [
+          title: const Text('دستیار روزانه هوشمند'),
+          flexibleSpace: Container(
+            decoration: const BoxDecoration(
+              gradient: AppTheme.brandGradient,
+            ),
+          ),
+          bottom: TabBar(
+            indicatorColor: Colors.white,
+            indicatorWeight: 3,
+            labelColor: Colors.white,
+            unselectedLabelColor: Colors.white70,
+            labelStyle: const TextStyle(
+                fontFamily: 'Vazirmatn', fontWeight: FontWeight.bold),
+            tabs: const [
               Tab(icon: Icon(Icons.chat_bubble_outline), text: 'دستیار'),
               Tab(icon: Icon(Icons.auto_awesome), text: 'امروز'),
               Tab(icon: Icon(Icons.checklist), text: 'کارها'),
@@ -311,11 +324,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               Tab(icon: Icon(Icons.settings_outlined), text: 'تنظیمات'),
             ],
           ),
-        ),
-        floatingActionButton: FloatingActionButton.extended(
-          onPressed: () => _openTaskForm(),
-          icon: const Icon(Icons.add),
-          label: const Text('کار جدید'),
         ),
         body: TabBarView(
           children: [

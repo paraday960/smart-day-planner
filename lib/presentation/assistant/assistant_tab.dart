@@ -1,9 +1,16 @@
 import 'package:flutter/material.dart';
 
+import '../../app/app_theme.dart';
 import '../../services/voice_response_service.dart';
+import 'animated_assistant_character.dart';
 import 'chat_message.dart';
 
-/// تب دستیار — یک چت ساده مثل اپ‌های هوش مصنوعی: متن یا صدا می‌دهی، جواب می‌گیری.
+/// تب دستیار — چت با یک آواتار متحرک کوچک که انگار کارها را انجام می‌دهد.
+///
+/// آواتار با وضعیت لحظه‌ای هماهنگ می‌شود:
+/// - گوش دادن (میکروفون فعال) → [AssistantMood.listening]
+/// - در حال پردازش پاسخ → [AssistantMood.thinking]
+/// - پس از انجام کار → [AssistantMood.writing] و بعد [AssistantMood.happy]
 class AssistantTab extends StatefulWidget {
   const AssistantTab({
     super.key,
@@ -50,12 +57,33 @@ class AssistantTab extends StatefulWidget {
 
 class _AssistantTabState extends State<AssistantTab> {
   final ScrollController _scroll = ScrollController();
+  AssistantMood _mood = AssistantMood.idle;
+
+  AssistantMood _computeMood() {
+    if (widget.isListening) return AssistantMood.listening;
+    if (widget.isTyping) {
+      // در حال پردازش یک فرمان/سؤال
+      final lastUser = widget.messages.isNotEmpty
+          ? widget.messages.last.isUser
+          : false;
+      return lastUser ? AssistantMood.writing : AssistantMood.thinking;
+    }
+    // پس از آخرین پاسخ دستیار، لحظه‌ای happy
+    final last = widget.messages.isNotEmpty ? widget.messages.last : null;
+    if (last != null && !last.isUser) {
+      final age = DateTime.now().difference(last.time).inSeconds;
+      if (age < 4) return AssistantMood.happy;
+    }
+    return AssistantMood.idle;
+  }
 
   @override
   void didUpdateWidget(covariant AssistantTab oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.messages.length != widget.messages.length ||
-        oldWidget.isTyping != widget.isTyping) {
+        oldWidget.isTyping != widget.isTyping ||
+        oldWidget.isListening != widget.isListening) {
+      _mood = _computeMood();
       _scrollToBottom();
     }
   }
@@ -80,55 +108,113 @@ class _AssistantTabState extends State<AssistantTab> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    // پیام‌ها به‌صورت معکوس برای چت (جدیدترین پایین).
     final reversed = widget.messages.reversed.toList();
+    final statusText = _mood == AssistantMood.listening
+        ? 'دارم گوش می‌دهم...'
+        : _mood == AssistantMood.thinking
+            ? 'در حال فکر کردن...'
+            : _mood == AssistantMood.writing
+                ? 'در حال انجام کارت...'
+                : _mood == AssistantMood.happy
+                    ? 'انجام شد! 😊'
+                    : 'سلام، من دستیارت هستم';
 
     return Column(
       children: [
-        // نوار وضعیت هوش
-        Padding(
-          padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
-          child: Row(
-            children: [
-              _StatusChip(label: widget.assistantStatusLabel),
-              const Spacer(),
-              PopupMenuButton<String>(
-                icon: const Icon(Icons.volume_up_outlined),
-                tooltip: 'پاسخ صوتی',
-                onSelected: (v) {
-                  if (v == 'toggle') {
-                    widget.onVoiceResponseEnabledChanged(
-                        !widget.voiceResponseEnabled);
-                  } else if (v == 'test') {
-                    widget.onTestVoice();
-                  }
-                },
-                itemBuilder: (_) => [
-                  CheckedPopupMenuItem(
-                    value: 'toggle',
-                    checked: widget.voiceResponseEnabled,
-                    child: const Text('پاسخ صوتی دستیار'),
-                  ),
-                  const PopupMenuItem(value: 'test', child: Text('تست صدا')),
-                ],
+        // ─── هدر آواتار متحرک ───
+        Container(
+          decoration: BoxDecoration(
+            gradient: AppTheme.brandGradient,
+            borderRadius: const BorderRadius.vertical(
+              bottom: Radius.circular(28),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: AppTheme.primary.withValues(alpha: 0.25),
+                blurRadius: 20,
+                offset: const Offset(0, 8),
               ),
             ],
           ),
+          child: SafeArea(
+            bottom: false,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Column(
+                children: [
+                  Row(
+                    children: [
+                      const SizedBox(width: 16),
+                      // وضعیت هوش
+                      _StatusChip(label: widget.assistantStatusLabel),
+                      const Spacer(),
+                      PopupMenuButton<String>(
+                        color: Colors.white,
+                        icon: const Icon(Icons.volume_up_outlined,
+                            color: Colors.white),
+                        tooltip: 'پاسخ صوتی',
+                        onSelected: (v) {
+                          if (v == 'toggle') {
+                            widget.onVoiceResponseEnabledChanged(
+                                !widget.voiceResponseEnabled);
+                          } else if (v == 'test') {
+                            widget.onTestVoice();
+                          }
+                        },
+                        itemBuilder: (_) => [
+                          CheckedPopupMenuItem(
+                            value: 'toggle',
+                            checked: widget.voiceResponseEnabled,
+                            child: const Text('پاسخ صوتی دستیار'),
+                          ),
+                          const PopupMenuItem(
+                              value: 'test', child: Text('تست صدا')),
+                        ],
+                      ),
+                      const SizedBox(width: 8),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  // آواتار متحرک کوچک
+                  SizedBox(
+                    height: 150,
+                    child: AnimatedAssistantCharacter(
+                      mood: _mood,
+                      size: 130,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 250),
+                    child: Text(
+                      statusText,
+                      key: ValueKey(statusText),
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                ],
+              ),
+            ),
+          ),
         ),
 
-        // لیست پیام‌ها
+        // ─── لیست پیام‌ها ───
         Expanded(
           child: widget.messages.isEmpty
-              ? _EmptyChat(
-                  onSuggestion: (t) {
-                    widget.controller.text = t;
-                    widget.onAsk();
-                  },
-                )
+              ? _EmptyChat(onSuggestion: (t) {
+                  widget.controller.text = t;
+                  widget.onAsk();
+                })
               : ListView.builder(
                   controller: _scroll,
                   reverse: true,
-                  padding: const EdgeInsets.all(12),
+                  padding: const EdgeInsets.all(14),
                   itemCount: reversed.length + (widget.isTyping ? 1 : 0),
                   itemBuilder: (context, index) {
                     if (widget.isTyping && index == 0) {
@@ -143,7 +229,7 @@ class _AssistantTabState extends State<AssistantTab> {
                 ),
         ),
 
-        // نوار ورودی (میکروفون + متن + ارسال)
+        // ─── نوار ورودی ───
         _InputBar(
           controller: widget.controller,
           speechReady: widget.speechReady,
@@ -156,7 +242,7 @@ class _AssistantTabState extends State<AssistantTab> {
 
         if (widget.isListening && widget.lastVoiceText.isNotEmpty)
           Padding(
-            padding: const EdgeInsets.fromLTRB(12, 0, 12, 6),
+            padding: const EdgeInsets.fromLTRB(12, 4, 12, 2),
             child: Text(
               '🎤 ${widget.lastVoiceText}',
               style: theme.textTheme.bodySmall,
@@ -190,24 +276,33 @@ class _MessageBubble extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final bubbleColor =
-        isUser ? theme.colorScheme.primary : theme.colorScheme.surfaceContainerHighest;
+        isUser ? AppTheme.primary : theme.colorScheme.surfaceContainerHighest;
     final textColor =
-        isUser ? theme.colorScheme.onPrimary : theme.colorScheme.onSurface;
+        isUser ? Colors.white : theme.colorScheme.onSurface;
     return Align(
       alignment: isUser ? Alignment.centerLeft : Alignment.centerRight,
       child: Container(
-        margin: const EdgeInsets.symmetric(vertical: 4),
+        margin: const EdgeInsets.symmetric(vertical: 5),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         constraints: BoxConstraints(
           maxWidth: MediaQuery.of(context).size.width * 0.8,
         ),
         decoration: BoxDecoration(
           color: bubbleColor,
+          boxShadow: isUser
+              ? [
+                  BoxShadow(
+                    color: AppTheme.primary.withValues(alpha: 0.2),
+                    blurRadius: 8,
+                    offset: const Offset(0, 3),
+                  )
+                ]
+              : null,
           borderRadius: BorderRadius.only(
-            topLeft: const Radius.circular(16),
-            topRight: const Radius.circular(16),
-            bottomLeft: Radius.circular(isUser ? 16 : 4),
-            bottomRight: Radius.circular(isUser ? 4 : 16),
+            topLeft: const Radius.circular(18),
+            topRight: const Radius.circular(18),
+            bottomLeft: Radius.circular(isUser ? 18 : 4),
+            bottomRight: Radius.circular(isUser ? 4 : 18),
           ),
         ),
         child: SelectableText(
@@ -229,15 +324,15 @@ class _TypingBubble extends StatelessWidget {
     return Align(
       alignment: Alignment.centerRight,
       child: Container(
-        margin: const EdgeInsets.symmetric(vertical: 4),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        margin: const EdgeInsets.symmetric(vertical: 5),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(
           color: theme.colorScheme.surfaceContainerHighest,
           borderRadius: const BorderRadius.only(
-            topLeft: Radius.circular(16),
-            topRight: Radius.circular(16),
+            topLeft: Radius.circular(18),
+            topRight: Radius.circular(18),
             bottomLeft: Radius.circular(4),
-            bottomRight: Radius.circular(16),
+            bottomRight: Radius.circular(18),
           ),
         ),
         child: const Row(
@@ -246,10 +341,11 @@ class _TypingBubble extends StatelessWidget {
             SizedBox(
               width: 14,
               height: 14,
-              child: CircularProgressIndicator(strokeWidth: 2),
+              child: CircularProgressIndicator(
+                  strokeWidth: 2, color: AppTheme.primary),
             ),
             SizedBox(width: 10),
-            Text('در حال فکر کردن...'),
+            Text('در حال انجام...', style: TextStyle(color: Colors.black54)),
           ],
         ),
       ),
@@ -257,7 +353,7 @@ class _TypingBubble extends StatelessWidget {
   }
 }
 
-/// حالت خالی چت با چند پیشنهاد.
+/// حالت خالی چت با پیشنهادها.
 class _EmptyChat extends StatelessWidget {
   const _EmptyChat({required this.onSuggestion});
   final ValueChanged<String> onSuggestion;
@@ -274,11 +370,11 @@ class _EmptyChat extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.all(20),
       children: [
-        const SizedBox(height: 24),
-        Icon(Icons.auto_awesome, size: 48, color: theme.colorScheme.primary),
-        const SizedBox(height: 12),
+        const SizedBox(height: 16),
+        const Icon(Icons.waving_hand, size: 40, color: AppTheme.primary),
+        const SizedBox(height: 8),
         Text(
-          'سلام! من دستیار هوشمندت هستم.',
+          'چی می‌خوای امروز انجام بدم؟',
           textAlign: TextAlign.center,
           style: theme.textTheme.titleMedium,
         ),
@@ -289,11 +385,13 @@ class _EmptyChat extends StatelessWidget {
           textAlign: TextAlign.center,
           style: theme.textTheme.bodySmall,
         ),
-        const SizedBox(height: 20),
+        const SizedBox(height: 18),
         for (final s in suggestions)
           Padding(
             padding: const EdgeInsets.only(bottom: 8),
             child: ActionChip(
+              avatar: const Icon(Icons.auto_awesome,
+                  size: 16, color: AppTheme.primary),
               label: Text(s, style: const TextStyle(fontSize: 12)),
               onPressed: () => onSuggestion(s),
             ),
@@ -331,14 +429,15 @@ class _InputBarState extends State<_InputBar> {
   @override
   Widget build(BuildContext context) {
     final color =
-        widget.isListening ? Colors.red : Theme.of(context).colorScheme.primary;
+        widget.isListening ? Colors.red : AppTheme.primary;
     return Material(
-      color: Theme.of(context).colorScheme.surfaceContainerLow,
-      elevation: 6,
+      color: Theme.of(context).colorScheme.surface,
+      elevation: 8,
+      shadowColor: Colors.black12,
       child: SafeArea(
         top: false,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(8, 6, 8, 8),
+          padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
           child: Row(
             children: [
               // میکروفون (نگه دار تا صحبت کنی)
@@ -349,8 +448,8 @@ class _InputBarState extends State<_InputBar> {
                     widget.speechReady ? (_) => widget.onVoiceUp() : null,
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 150),
-                  width: 44,
-                  height: 44,
+                  width: 48,
+                  height: 48,
                   decoration: BoxDecoration(
                     color: color,
                     shape: BoxShape.circle,
@@ -358,8 +457,10 @@ class _InputBarState extends State<_InputBar> {
                         ? [
                             BoxShadow(
                               color: color.withValues(
-                                  alpha: 0.25 + widget.soundLevel.abs().clamp(0, 30) / 60),
-                              blurRadius: 12 + widget.soundLevel.abs().clamp(0, 30),
+                                  alpha: 0.25 +
+                                      widget.soundLevel.abs().clamp(0, 30) / 60),
+                              blurRadius:
+                                  14 + widget.soundLevel.abs().clamp(0, 30),
                             ),
                           ]
                         : null,
@@ -370,7 +471,7 @@ class _InputBarState extends State<_InputBar> {
                   ),
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 10),
               // فیلد متن
               Expanded(
                 child: TextField(
@@ -382,18 +483,27 @@ class _InputBarState extends State<_InputBar> {
                   decoration: InputDecoration(
                     hintText: 'بپرس یا فرمان بده...',
                     filled: true,
+                    isDense: true,
                     contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 14, vertical: 10),
+                        horizontal: 16, vertical: 12),
                     border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(24),
+                      borderRadius: BorderRadius.circular(26),
+                      borderSide: BorderSide.none,
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(26),
                       borderSide: BorderSide.none,
                     ),
                   ),
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 10),
               // دکمه ارسال
               IconButton.filled(
+                style: IconButton.styleFrom(
+                  backgroundColor: AppTheme.primary,
+                  minimumSize: const Size(48, 48),
+                ),
                 onPressed: widget.onAsk,
                 icon: const Icon(Icons.send),
               ),
@@ -416,22 +526,37 @@ class _StatusChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = _isOnline
-        ? Colors.green
+        ? const Color(0xFF69F0AE)
         : _isHybrid
-            ? Colors.teal
-            : Colors.blueGrey;
+            ? Colors.tealAccent
+            : Colors.white70;
     final icon = _isOnline
         ? Icons.cloud_done_outlined
         : _isHybrid
             ? Icons.memory
             : Icons.rule;
-    return Chip(
-      avatar: Icon(icon, size: 16, color: color),
-      label: Text(label, style: TextStyle(fontSize: 11, color: color)),
-      backgroundColor: color.withValues(alpha: 0.08),
-      side: BorderSide(color: color.withValues(alpha: 0.4)),
-      visualDensity: VisualDensity.compact,
-      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.16),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: color.withValues(alpha: 0.6)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: color),
+          const SizedBox(width: 5),
+          Text(
+            label,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
