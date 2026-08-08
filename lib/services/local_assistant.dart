@@ -255,7 +255,7 @@ class RuleBasedLocalAssistant implements LocalLlmAdapter {
 
   NluIntent? _tryParseDirectIntent(String prompt) {
     final t = prompt.trim();
-    final m = RegExp('^\[([a-z_]+)\]\$').firstMatch(t);
+    final m = RegExp(r'^\[([a-z_]+)\]$').firstMatch(t);
     if (m == null) return null;
     final id = m.group(1)!;
     for (final intent in kRuleBasedAssistantIntents) {
