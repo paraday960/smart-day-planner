@@ -183,7 +183,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     super.dispose();
   }
 
-  void _onRepositoryChanged() => setState(() {});
+  void _onRepositoryChanged() {
+    // محافظت: اگر widget در حال dispose/حذف است، setState نزن.
+    // به‌علاوه، ری‌بیلد را به بعد از پایان فریم موکول می‌کنیم تا اگر در همین
+    // لحظه دیالوگ/روتی در حال بسته‌شدن است، تداخلی با حذف آن پیش نیاید
+    // (جلوگیری از خطای «_dependents.isEmpty» هنگام افزودن درآمد/هزینه).
+    if (!mounted) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) setState(() {});
+    });
+  }
 
   Future<void> _initVoiceInput() async {
     // انتخاب موتور: آفلاین (Vosk) اگر فعال و مدل موجود باشد، وگرنه سرویس گوشی.
