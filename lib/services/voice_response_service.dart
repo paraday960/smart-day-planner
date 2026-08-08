@@ -6,6 +6,7 @@ import '../domain/services/voice_response_port.dart';
 import '../models/assistant_voice_gender.dart';
 export '../models/assistant_voice_gender.dart';
 import '../utils/persian_format.dart';
+import 'offline_voice_service.dart';
 
 class VoiceResponseService implements VoiceResponsePort {
   VoiceResponseService._();
@@ -25,11 +26,21 @@ class VoiceResponseService implements VoiceResponsePort {
   AssistantVoiceGender _gender = AssistantVoiceGender.feminine;
   List<Map<String, String>> _persianVoices = [];
 
+  /// آیا موتور گفتار سیستم، صدای فارسی پشتیبانی می‌کند؟
+  /// (برای اینکه فقط وقتی سیستم فارسی بلد نیست، مدل Piper دانلود شود.)
+  bool _systemHasPersian = true;
+
+  /// اگر موتور سیستم فارسی بلد نباشد، از Piper آفلاین استفاده می‌کنیم.
+  final OfflineVoiceService _offline = OfflineVoiceService.instance;
+
   @override
   bool get enabled => _enabled;
   @override
   AssistantVoiceGender get gender => _gender;
   List<Map<String, String>> get persianVoices => List.unmodifiable(_persianVoices);
+
+  /// آیا مدل فارسی آفلاین (Piper) نصب/دانلود شده است؟
+  bool get offlineInstalled => _offline.isInstalled;
 
   @override
   Future<void> initialize() async {
@@ -59,6 +70,15 @@ class VoiceResponseService implements VoiceResponsePort {
     await _loadPersianVoices();
     await _applyPreferredVoice();
 
+    // اگر سیستم هیچ صدای فارسی‌ای نداشت، از Piper استفاده می‌کنیم.
+    _systemHasPersian = _persianVoices.isNotEmpty;
+    // برای اینکه اولین بار سریع‌تر تشخیص دهد، اگر سیستم فارسی ندارد،
+    // بررسی Piper را در پس‌زمینه شروع می‌کنیم (بدون بلاک).
+    if (!_systemHasPersian) {
+      // دانلود به‌موقع — بدون بلاک کردن UI.
+      _offline.ensureInstalled();
+    }
+
     _initialized = true;
   }
 
@@ -86,17 +106,45 @@ class VoiceResponseService implements VoiceResponsePort {
     final cleanText = _prepareForSpeech(text);
     if (cleanText.trim().isEmpty) return;
 
+    // ۱) اول موتور گفتار سیستم را امتحان می‌کنیم (اگر فارسی پشتیبانی می‌کند).
+    final systemWorked = await _trySpeakSystem(cleanText);
+    if (systemWorked) return;
+
+    // ۲) سیستم فارسی بلد نبود → Piper آفلاین (دانلود به‌موقع).
     try {
-      await _ttsInstance.stop();
-    } catch (_) {}
-    try {
-      await _ttsInstance.speak(cleanText);
+      await _offline.speak(cleanText);
     } catch (_) {
-      // اگر زبان fa-IR تنظیم نشده بود، یک بار بدون تنظیم زبان تلاش می‌کنیم.
+      // اگر Piper هم نتوانست، یک بار دیگر سیستم را با تنظیم صریح فارسی امتحان می‌کنیم.
       try {
         await _ttsInstance.setLanguage('fa-IR');
         await _ttsInstance.speak(cleanText);
       } catch (_) {}
+    }
+  }
+
+  /// تلاش با موتور سیستم. برمی‌گرداند آیا موفق بود.
+  Future<bool> _trySpeakSystem(String text) async {
+    try {
+      await _ttsInstance.stop();
+    } catch (_) {}
+
+    // اگر از قبل مشخص است که سیستم فارسی پشتیبانی نمی‌کند، مستقیم شکست بخور.
+    if (!_systemHasPersian) return false;
+
+    try {
+      await _ttsInstance.setLanguage('fa-IR');
+      await _ttsInstance.speak(text);
+      return true;
+    } catch (_) {
+      try {
+        await _ttsInstance.setLanguage('fa_IR');
+        await _ttsInstance.speak(text);
+        return true;
+      } catch (_) {
+        // سیستم فارسی را پشتیبانی نمی‌کند — دفعه‌ی بعد Piper مستقیم.
+        _systemHasPersian = false;
+        return false;
+      }
     }
   }
 
