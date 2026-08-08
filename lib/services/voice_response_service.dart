@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -165,13 +166,31 @@ class VoiceResponseService implements VoiceResponsePort {
     return _persianVoices.first;
   }
 
+  /// آماده‌سازی متن برای گفتار: ایموجی‌ها و کاراکترهای نامربوط حذف می‌شوند
+  /// تا موتور گفتار فارسی به‌درستی و بدون «ماینس‌ماینس» بخواند. عمومی است تا
+  /// قابل تست باشد.
+  @visibleForTesting
+  String prepareForSpeech(String text) {
+    return _prepareForSpeech(text);
+  }
+
   String _prepareForSpeech(String text) {
-    return PersianFormat.digits(text)
+    // حذف ایموجی‌ها و نمادهای خاص که موتور گفتار فارسی نمی‌تواند بخواند و
+    // باعث «ماینس‌ماینس»/تلفظ انگلیسی می‌شود.
+    final noEmoji = text.replaceAll(
+      RegExp(
+        r'[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE0F}\u{2B00}-\u{2BFF}\u{1F600}-\u{1F64F}\u{2190}-\u{21FF}\u{2B50}\u{2764}\u{2705}\u{2728}]',
+        unicode: true,
+      ),
+      '',
+    );
+    return PersianFormat.digits(noEmoji)
         .replaceAll('•', '')
         .replaceAll('—', '، ')
         .replaceAll(RegExp(r'[*_`#]'), '')
+        .replaceAll(RegExp(r'[«»"]'), '')
         .replaceAll(RegExp(r'\n+'), '. ')
-        .replaceAll(RegExp(r'\s+'), ' ')
+        .replaceAll(RegExp(r'\s{2,}'), ' ')
         .trim();
   }
 }
