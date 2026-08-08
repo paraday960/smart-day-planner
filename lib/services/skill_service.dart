@@ -129,4 +129,12 @@ class SkillService extends ChangeNotifier {
     _lastReward = null;
     _loaded = false;
   }
+
+  @override
+  void dispose() {
+    // Singleton — نباید واقعاً dispose شود، چون بین تست‌ها و ProviderScopeهای مختلف
+    // دوباره استفاده می‌شود. اگر super.dispose() صدا زده شود، ChangeNotifier
+    // علامت disposed می‌خورد و تست بعدی با خطای "used after being disposed" فیل می‌شود.
+    // پس برای singleton هیچ کاری نمی‌کنیم (فقط listenerها باقی می‌مانند که در تست مشکلی نیست).
+  }
 }
