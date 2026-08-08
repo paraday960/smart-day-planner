@@ -8,6 +8,7 @@ import 'goal_repository.dart';
 import 'debt_repository.dart';
 import 'llama_backend.dart';
 import 'local_assistant.dart';
+import 'local_assistant_memory.dart';
 
 /// یک پیام در تاریخچهٔ مکالمه.
 class ChatTurn {
@@ -30,9 +31,11 @@ class IntelligentAssistantService {
     required this.finance,
     required this.goal,
     required this.debt,
+    LocalAssistantMemory? memory,
     this.maxHistoryTurns = 8,
     Duration timeout = const Duration(seconds: 40),
-  }) : _timeout = timeout;
+  })  : _timeout = timeout,
+        memory = memory ?? LocalAssistantMemory.instance;
 
   final LlmBackend? online;
   final LocalLlmAdapter ruleBased;
@@ -42,16 +45,21 @@ class IntelligentAssistantService {
   final Duration _timeout;
   final int maxHistoryTurns;
 
+  /// حافظهٔ یادگیری محلی (سؤال → جواب).
+  final LocalAssistantMemory memory;
+
   /// تاریخچهٔ مکالمه (محدود به [maxHistoryTurns]).
   final List<ChatTurn> _history = [];
 
-  /// پاسخ به یک درخواست کاربر (با حافظهٔ مکالمه).
+  /// پاسخ به یک درخواست کاربر (با حافظهٔ مکالمه + یادگیری محلی).
   Future<String> ask({
     required String userText,
     required List<Task> tasks,
   }) async {
     final t = userText.trim();
     if (t.isEmpty) return 'چیزی نشنیدم. بگو چطور می‌توانم کمکت کنم.';
+
+    await memory.load();
 
     _history.add(ChatTurn(role: 'user', content: t));
     // محدود کردن تاریخچه
@@ -60,11 +68,19 @@ class IntelligentAssistantService {
     }
 
     String answer;
-    final onlineAvailable = await _isOnlineAvailable();
-    if (onlineAvailable) {
-      answer = await _askOnline(t, tasks);
+    final fromMemory = memory.lookup(t);
+    if (fromMemory != null) {
+      // دستیار این سؤال را «یاد گرفته» — مستقیم از محلی جواب بده.
+      answer = fromMemory;
     } else {
-      answer = await ruleBased.generate(prompt: t, tasks: tasks);
+      final onlineAvailable = await _isOnlineAvailable();
+      if (onlineAvailable) {
+        answer = await _askOnline(t, tasks);
+        // یادگیری: جواب آنلاین را محلی ذخیره کن تا بار بعدی محلی جواب دهد.
+        await memory.remember(t, answer);
+      } else {
+        answer = await ruleBased.generate(prompt: t, tasks: tasks);
+      }
     }
 
     _history.add(ChatTurn(role: 'assistant', content: answer));
