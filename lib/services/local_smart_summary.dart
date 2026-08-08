@@ -10,6 +10,48 @@ import 'persian_nlu.dart';
 class LocalSmartSummary {
   const LocalSmartSummary._();
 
+  /// نشانه‌های قوی که سؤال واقعاً دربارهٔ کارها/برنامه است.
+  static const _taskCues = <String>{
+    'کار', 'برنامه', 'وظیفه', 'وظيفه',
+    'کارها', 'برنامه‌ها',
+    'باید انجام', 'انجام بدم', 'انجام بده', 'مونده', 'مانده', 'باقی',
+    'چی‌کار', 'چیکار', 'چه کاری', 'کدوم کار', 'کدام کار',
+    'کارای', 'کارهای', 'بچین', 'چیدن',
+    'مهلت', 'ددلاین', 'سررسید', 'عقب‌افتاد', 'عقب افتاد',
+    'تأخیر', 'تاخیر', 'وقت آزاد', 'استراحت', 'تمرکز', 'اولویت',
+    'برنامه امروز', 'برنامه فردا', 'برنامه هفته',
+    'کار امروز', 'کار فردا', 'کارهای امروز', 'کارهای فردا',
+    'برنامهٔ', 'برنامه‌ی',
+  };
+
+  /// کلمات زمانی مجزا که به‌تنهایی نشانهٔ وظیفه نیستند.
+  static const _weakTimeCues = <String>{'امروز', 'فردا', 'هفته', 'روز'};
+  static const _taskWords = <String>{
+    'کار', 'برنامه', 'وظیفه', 'انجام', 'مونده', 'مانده',
+    'بچین', 'مهلت', 'سررسید', 'عقب', 'اولویت', 'تمرکز',
+  };
+
+  /// آیا این سؤال واقعاً به وظایف/برنامهٔ کاربر مربوط است؟
+  static bool isAboutTasks(String text) {
+    final t = text.toLowerCase();
+    for (final cue in _taskCues) {
+      if (t.contains(cue.toLowerCase())) return true;
+    }
+    for (final cue in _weakTimeCues) {
+      if (t.contains(cue)) {
+        for (final w in _taskWords) {
+          if (t.contains(w)) return true;
+        }
+        return false;
+      }
+    }
+    return false;
+  }
+
+  /// نسخهٔ عمومی برای لایه‌های دیگر.
+  static bool hasTaskRelatedAnswer(String text) => isAboutTasks(text);
+
+
   /// یک پاسخ محلی بر اساس نوع سؤال و داده‌های واقعی.
   /// اگر نتوان پاسخ معناداری ساخت، null برمی‌گرداند (تا لایهٔ بعدی تصمیم بگیرد).
   static String? answer({
@@ -26,11 +68,13 @@ class LocalSmartSummary {
     switch (qType) {
       case QuestionType.what:
       case QuestionType.planning:
+        // سؤالات باز یا نامرتبط با کارها را محلی جواب نده (به آنلاین ارجاع شود).
+        if (!isAboutTasks(text)) return null;
         return _planningAnswer(openTasks, doneTasks, overdue: overdueCount);
       case QuestionType.money:
-        // سؤالات مالی به موتور مالی/حافظه سپرده می‌شوند.
         return null;
       case QuestionType.time:
+        if (!isAboutTasks(text)) return null;
         return _timeAnswer(openTasks);
       case QuestionType.why:
         return 'من بر اساس داده‌های واقعی برنامه‌ریزی می‌کنم: مهلت‌ها، اهمیت و '
@@ -38,8 +82,9 @@ class LocalSmartSummary {
       case QuestionType.greeting:
         return null;
       case QuestionType.unknown:
-        // برای پرسش‌های کوتاه ناشناخته، یک خلاصهٔ وضعیت بده.
-        if (text.trim().length <= 12) return _statusSnapshot(openTasks, doneTasks);
+        if (isAboutTasks(text)) {
+          return _planningAnswer(openTasks, doneTasks, overdue: overdueCount);
+        }
         return null;
     }
   }
@@ -88,22 +133,6 @@ class LocalSmartSummary {
     final diff = next.dueAt!.difference(now);
     final when = _relativeTime(diff);
     return 'نزدیک‌ترین کار «${next.title}» است و $when سررسیدش می‌شود.';
-  }
-
-  static String _statusSnapshot(List<Task> open, List<Task> done) {
-    if (open.isEmpty) {
-      return 'همه‌چیز مرتب است؛ کاری برای انجام نداری ✅';
-    }
-    final total = open.length + done.length;
-    final pct = total == 0 ? 0 : ((done.length / total) * 100).round();
-    final urgent = open
-        .where((t) =>
-            t.dueAt != null &&
-            t.dueAt!.isBefore(DateTime.now().add(const Duration(hours: 24))))
-        .length;
-    return '🔔 ${PersianFormat.digits(open.length)} کار باز داری '
-        '(${PersianFormat.digits(pct)}٪ انجام شده)'
-        '${urgent > 0 ? ' و $urgent کار نزدیک مهلت است' : ''}.';
   }
 
   /// امتیاز اولویت ساده: اهمیت + نزدیکی مهلت + انرژی مورد نیاز.

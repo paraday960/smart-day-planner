@@ -128,6 +128,18 @@ class RuleBasedLocalAssistant implements LocalLlmAdapter {
     return match.confidence >= 0.4;
   }
 
+  /// آیا این پرسش پاسخ معنادار محلی دارد؟
+  ///
+  /// برخلاف [canHandle]، برای سؤالات نامرتبط با کارها false برمی‌گرداند تا
+  /// سرویس به آنلاین ارجاع دهد و پاسخ تکراری محلی ندهد.
+  bool canAnswerMeaningfully(String prompt) {
+    final text = PersianNormalizer.normalize(prompt).trim();
+    if (text.isEmpty) return true;
+    final match = _detector.detectWithScore(text);
+    if (match != null) return true;
+    return LocalSmartSummary.hasTaskRelatedAnswer(text);
+  }
+
   IntentMatch? detectIntent(String prompt) {
     final text = PersianNormalizer.normalize(prompt).trim();
     if (text.isEmpty) return null;

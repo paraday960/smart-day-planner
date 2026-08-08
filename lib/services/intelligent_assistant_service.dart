@@ -235,7 +235,7 @@ class IntelligentAssistantService {
     } else {
       _lastMemoryKey = null;
       final intentMatch = _extractLocalIntent(t);
-      final localCanHandle = ruleBased.canHandle(t);
+      final localCanHandle = _localCanAnswerMeaningfully(t);
       final stats = intentMatch != null
           ? feedbackStore.stats[intentMatch]
           : null;
@@ -489,6 +489,17 @@ class IntelligentAssistantService {
   }
 
   IntentFeedbackStore get intentFeedback => feedbackStore;
+
+  /// آیا موتور محلی می‌تواند پاسخ معنادار بدهد؟ (نه پاسخ تکراری نامرتبط)
+  bool _localCanAnswerMeaningfully(String text) {
+    try {
+      final dynamic rb = ruleBased;
+      if (rb is RuleBasedLocalAssistant) {
+        return rb.canAnswerMeaningfully(text);
+      }
+    } catch (_) {}
+    return ruleBased.canHandle(text);
+  }
 
   /// استخراج intent با امتیاز اطمینان (برای تصمیم روتر).
   double? _confidenceOf(String text) {
