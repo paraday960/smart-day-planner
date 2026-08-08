@@ -18,6 +18,8 @@ void main() {
   test('default release keeps every feature enabled', () {
     // نسخه انتشار پیش‌فرض باید همه قابلیت‌ها را روشن نگه دارد؛
     // خاموش‌کردن فقط با --dart-define در بیلد امن/دیباگ انجام می‌شود.
+    // بعد از ارتقای سطح ۲، LLM محلی و گفتار آفلاین هم پیش‌فرض روشن هستند
+    // (اگر مدل نباشد خودکار به موتور قانون‌محور/سرویس گوشی برمی‌گردد).
     expect(FeatureFlags.enableVoiceInput, isTrue);
     expect(FeatureFlags.enableVoiceResponse, isTrue);
     expect(FeatureFlags.enableCalendar, isTrue);
@@ -25,8 +27,10 @@ void main() {
     expect(FeatureFlags.enableShareFiles, isTrue);
     expect(FeatureFlags.enableSmartNotifications, isTrue);
     expect(FeatureFlags.enableEncryptedBackup, isTrue);
-    // LLM محلی پیش‌فرض خاموش است (مدل سنگین است و باید جدا اضافه شود)
-    expect(FeatureFlags.enableLocalLlm, isFalse);
+    expect(FeatureFlags.enableLocalLlm, isTrue);
+    expect(FeatureFlags.enableOfflineSpeech, isTrue);
+    expect(FeatureFlags.enableOnlineAi, isTrue);
+    expect(FeatureFlags.enableAutonomousAgent, isTrue);
   });
 
   test('flag map values match the constants', () {

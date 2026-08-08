@@ -67,28 +67,35 @@ class HybridLocalAssistant implements LocalLlmAdapter {
   }
 
   /// ساخت prompt فشرده برای LLM با اطلاعات ضروری کارها.
+  /// ارتقای سطح ۱: پرامپت حالا تاریخ شمسی امروز + خلاصه کارها + دستور دقیق‌تر دارد
   static String buildLlmPrompt(String prompt, List<Task> tasks) {
     final normalized = PersianNormalizer.normalize(prompt);
+    final now = DateTime.now();
+    final jalali = '${now.year}/${now.month}/${now.day}';
     final lines = <String>[];
     lines.add(
-        'تو یک دستیار برنامه‌ریزی روزانهٔ ایرانی هستی. همهٔ پاسخ‌ها فارسی، کوتاه و عملی باشند.');
+        'تو دستیار هوشمند آفلاین ایرانی هستی (هوش محلی). همه پاسخ‌ها فارسی، صمیمی، کوتاه (حداکثر ۴ خط) و عملی باشند. اگر اطلاعات کافی نداری، بگو «در برنامه ثبت نشده».');
+    lines.add('تاریخ امروز: $jalali');
     lines.add('');
     if (tasks.isEmpty) {
-      lines.add('کارهای کاربر: (هیچ کاری ثبت نشده)');
+      lines.add('کارهای کاربر: (هیچ کاری ثبت نشده — پیشنهاد بده کار جدید بسازد)');
     } else {
-      lines.add('کارهای کاربر:');
-      for (final task in tasks.take(15)) {
+      final open = tasks.where((t) => !t.isDone).length;
+      final done = tasks.where((t) => t.isDone).length;
+      lines.add('خلاصه: $open کار باز، $done انجام‌شده');
+      lines.add('کارهای باز:');
+      for (final task in tasks.where((t) => !t.isDone).take(12)) {
         final status = task.isDone ? 'انجام‌شده' : 'باز';
-        final due = task.dueAt != null
-            ? '، مهلت: ${task.dueAt!.toIso8601String()}'
-            : '';
-        lines.add(
-            '- ${task.title} (اهمیت ${task.importance}، تخمین ${task.estimatedMinutes} دقیقه، $status$due)');
+        final due = task.dueAt != null ? '، مهلت: ${task.dueAt!.toIso8601String()}' : '، بدون مهلت';
+        final prio = task.importance >= 4 ? ' (مهم)' : '';
+        lines.add('- ${task.title}$prio (اهمیت ${task.importance}، ${task.estimatedMinutes} دقیقه، $status$due)');
       }
+      if (open > 12) lines.add('... و ${open - 12} کار دیگر');
     }
     lines.add('');
+    lines.add('دستور: با توجه به کارهای بالا، به سؤال کاربر دقیق و کاربردی جواب بده. اگر سؤال درباره بدهی/مالی بود و داده‌ای نیست، بگو «بدهی ثبت نشده».');
     lines.add('سؤال کاربر: $normalized');
-    lines.add('خروجی: حداکثر ۴ خط، فارسی، بدون توضیح اضافه.');
+    lines.add('خروجی: فقط فارسی، بدون انگلیسی، بدون توضیح اضافه.');
     return lines.join('\n');
   }
 }

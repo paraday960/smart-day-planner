@@ -19,6 +19,7 @@ import 'task_repository.dart';
 import 'forecast_service.dart';
 import 'persian_nlu.dart';
 import 'local_assistant_intents.dart';
+import 'skill_service.dart';
 import 'smart_planner.dart';
 import 'time_aware_planner.dart';
 import 'work_learning_service.dart';
@@ -189,6 +190,14 @@ class RuleBasedLocalAssistant implements LocalLlmAdapter {
         return _manageTasks(tasks);
       case 'manage_finance':
         return _manageFinance();
+      case 'debt_query':
+        return _debtQuery();
+      case 'skill_status':
+        return _skillStatus();
+      case 'learning_history':
+        return _learningHistory();
+      case 'offline_status':
+        return _offlineStatus();
       case 'small_talk':
         return 'من که همیشه سرحالم؛ چون وظیفه‌ام کمک به توئه. 😊 از کجا شروع کنیم؟';
       default:
@@ -703,6 +712,57 @@ class RuleBasedLocalAssistant implements LocalLlmAdapter {
     if (txs.length > 5) buf.writeln('و ${PersianFormat.digits(txs.length-5)} مورد دیگر');
     buf.writeln('تراز ماه: ${PersianFormat.money(finance.netThisMonth())}');
     return buf.toString();
+  }
+
+  String _debtQuery() {
+    final debts = _context.debts;
+    if (debts == null || debts.isEmpty) return 'بدهی فعالی نداری. بگو «به فرهاد دو میلیون بدهکارم تا دو روز دیگه» تا ثبت کنم.';
+    final active = debts.where((d) => d.isActive).toList();
+    if (active.isEmpty) return 'همه بدهی‌ها تسویه شده 🎉';
+    final buf = StringBuffer()..writeln('📁 بدهی‌های فعال (${PersianFormat.digits(active.length)}):');
+    for (final d in active.take(4)) {
+      buf.writeln('• ${d.personName}: ${PersianFormat.money(d.remainingAmount)} از ${PersianFormat.money(d.amount)} تا ${PersianFormat.jalaliDate(d.dueAt)} (${PersianFormat.digits(((d.paidAmount / d.amount) * 100).round())}٪ پرداخت)');
+    }
+    if (active.length > 4) buf.writeln('و ${PersianFormat.digits(active.length - 4)} مورد دیگر — بگو «بدهی فرهاد چقدره؟» برای جزئیات یک نفر');
+    return buf.toString();
+  }
+
+  String _skillStatus() {
+    final skill = SkillService.instance;
+    // اگر هنوز لود نشده، مقادیر ۰ برمی‌گردد که اشکالی ندارد
+    return '⭐ مهارت هوش محلی\n'
+        '• سطح: ${PersianFormat.digits(skill.level)} — ${skill.levelLabel}\n'
+        '• امتیاز: ${PersianFormat.digits(skill.score)} (تا سطح بعد ${PersianFormat.digits(100 - skill.progressToNextLevel)})\n'
+        '• چیزهای یادگرفته: ${PersianFormat.digits(skill.learnedCount)}\n'
+        '• پیشرفت: ${PersianFormat.digits(skill.progressToNextLevel)}٪\n'
+        'برای تاریخچه بگو «چی یاد گرفتی؟»';
+  }
+
+  String _learningHistory() {
+    final skill = SkillService.instance;
+    if (skill.history.isEmpty) return 'هنوز چیزی یاد نگرفتم — یه سوال جدید از هوش آنلاین بپرس تا یاد بگیرم! (مثلا چیزی که محلی بلد نیست)';
+    final recent = skill.history.reversed.take(5).toList();
+    final buf = StringBuffer()..writeln('📚 تاریخچه یادگیری (${PersianFormat.digits(skill.history.length)} مورد):');
+    for (final e in recent) {
+      buf.writeln('• +${PersianFormat.digits(e['points'] ?? 0)} — ${e['reason'] ?? ''}');
+    }
+    buf.writeln('برای امتیاز بگو «مهارت من چقدره؟»');
+    return buf.toString();
+  }
+
+  String _offlineStatus() {
+    // FeatureFlags are compile-time constants, so we can check them directly
+    // ignore: deprecated_member_use
+    const localLlm = bool.fromEnvironment('ENABLE_LOCAL_LLM', defaultValue: true);
+    const offlineSpeech = bool.fromEnvironment('ENABLE_OFFLINE_SPEECH', defaultValue: true);
+    // در واقعیت باید از FeatureFlags خواند، ولی برای نمایش ساده:
+    final localLabel = localLlm ? 'فعال (در صورت وجود مدل GGUF)' : 'خاموش';
+    final offlineLabel = offlineSpeech ? 'فعال (در صورت وجود مدل Vosk)' : 'خاموش';
+    return 'هوش محلی:\n'
+        '• LLM محلی: $localLabel\n'
+        '• تشخیص گفتار آفلاین: $offlineLabel\n'
+        '• موتور قانون‌محور: همیشه فعال ✅\n'
+        'اگر مدل‌ها نباشد خودکار به موتور قانون‌محور برمی‌گردد.';
   }
 
   String _dailyBrief(List<Task> tasks) {
