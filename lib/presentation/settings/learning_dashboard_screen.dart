@@ -25,10 +25,14 @@ class _LearningDashboardScreenState extends State<LearningDashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final entries = _memory.allEntries.entries
-        .where((e) => _filter.isEmpty || e.key.contains(_filter.toLowerCase()) || e.value.contains(_filter))
+    final stats = _memory.stats;
+    final entries = _memory.entries
+        .where((e) =>
+            _filter.isEmpty ||
+            e.question.contains(_filter.toLowerCase()) ||
+            e.answer.contains(_filter))
         .toList()
-      ..sort((a, b) => b.key.compareTo(a.key));
+      ..sort((a, b) => b.lastUsedAt.compareTo(a.lastUsedAt));
 
     return Scaffold(
       appBar: AppBar(
@@ -63,6 +67,9 @@ class _LearningDashboardScreenState extends State<LearningDashboardScreen> {
           // اچیومنت‌ها
           _AchievementsCard(skill: _skill),
           const SizedBox(height: 16),
+          // آمار حافظهٔ یادگیری
+          _MemoryStatsCard(stats: stats),
+          const SizedBox(height: 16),
           TextField(
             decoration: InputDecoration(
               hintText: 'جستجو در یادگیری‌ها...',
@@ -80,14 +87,25 @@ class _LearningDashboardScreenState extends State<LearningDashboardScreen> {
           else
             ...entries.map((e) => Card(
                   child: ListTile(
-                    title: Text(e.key, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                    subtitle: Text(e.value, maxLines: 3, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12)),
+                    leading: _SourceBadge(source: e.source, degraded: e.degraded),
+                    title: Text(e.question, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                    subtitle: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(e.answer, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12)),
+                        const SizedBox(height: 2),
+                        Text(
+                          '${e.useCount} بار استفاده • کیفیت ${(e.quality * 100).round()}٪${e.degraded ? ' • ⚠️ بی‌اعتبار' : ''}',
+                          style: TextStyle(fontSize: 10, color: e.degraded ? Colors.red : Colors.grey),
+                        ),
+                      ],
+                    ),
                     isThreeLine: true,
                     trailing: PopupMenuButton<String>(
                       onSelected: (v) {
-                        if (v == 'edit') _editEntry(e.key, e.value);
-                        if (v == 'delete') _deleteEntry(e.key);
-                        if (v == 'copy') _copy(e.value);
+                        if (v == 'edit') _editEntry(e.question, e.answer);
+                        if (v == 'delete') _deleteEntry(e.question);
+                        if (v == 'copy') _copy(e.answer);
                       },
                       itemBuilder: (_) => [
                         const PopupMenuItem(value: 'edit', child: Text('ویرایش')),
@@ -196,7 +214,7 @@ class _LearningDashboardScreenState extends State<LearningDashboardScreen> {
       context: context,
       builder: (_) => AlertDialog(
         title: const Text('پاک کردن همه؟'),
-        content: const Text('همه ۲۰۰ مورد حافظه پاک شود؟'),
+        content: const Text('همه یادگیری‌های حافظه پاک شود؟'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('لغو')),
           FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('پاک کن')),
@@ -207,6 +225,127 @@ class _LearningDashboardScreenState extends State<LearningDashboardScreen> {
       await _memory.clear();
       setState(() {});
     }
+  }
+}
+
+/// نشان منبع یادگیری هر ورودی.
+class _SourceBadge extends StatelessWidget {
+  const _SourceBadge({required this.source, required this.degraded});
+  final MemorySource source;
+  final bool degraded;
+
+  @override
+  Widget build(BuildContext context) {
+    final (icon, color, tooltip) = switch (source) {
+      MemorySource.online => (Icons.public, Colors.blue, 'یادگرفته از هوش آنلاین'),
+      MemorySource.correction => (Icons.edit_note, Colors.green, 'تصحیح کاربر'),
+      MemorySource.import => (Icons.download, Colors.orange, 'وارد شده'),
+      MemorySource.local => (Icons.smartphone, Colors.purple, 'یادگیری محلی'),
+    };
+    return Tooltip(
+      message: tooltip,
+      child: CircleAvatar(
+        radius: 16,
+        backgroundColor: (degraded ? Colors.red : color).withValues(alpha: 0.15),
+        child: Icon(degraded ? Icons.warning_amber : icon,
+            size: 18, color: degraded ? Colors.red : color),
+      ),
+    );
+  }
+}
+
+/// کارت آمار حافظهٔ یادگیری.
+class _MemoryStatsCard extends StatelessWidget {
+  const _MemoryStatsCard({required this.stats});
+  final MemoryStats stats;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      color: Colors.blue.shade50,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.memory, color: Colors.blue),
+                const SizedBox(width: 8),
+                const Text('آمار یادگیری از هوش آنلاین', style: TextStyle(fontWeight: FontWeight.bold)),
+                const Spacer(),
+                Text('${stats.total} یادگیری', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue)),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                _StatChip(
+                  icon: Icons.public,
+                  label: '🌐 ${stats.bySource[MemorySource.online] ?? 0} از آنلاین',
+                ),
+                _StatChip(
+                  icon: Icons.edit_note,
+                  label: '✏️ ${stats.bySource[MemorySource.correction] ?? 0} تصحیح',
+                ),
+                _StatChip(
+                  icon: Icons.smartphone,
+                  label: '📱 ${stats.bySource[MemorySource.local] ?? 0} محلی',
+                ),
+                _StatChip(
+                  icon: Icons.repeat,
+                  label: '🔁 ${stats.totalHits} بار استفاده',
+                ),
+                _StatChip(
+                  icon: Icons.star_half,
+                  label: '⭐ کیفیت ${(stats.avgFeedback * 50 + 50).round()}٪',
+                ),
+                if (stats.degradedCount > 0)
+                  _StatChip(
+                    icon: Icons.warning_amber,
+                    label: '⚠️ ${stats.degradedCount} بی‌اعتبار',
+                    color: Colors.red,
+                  ),
+              ],
+            ),
+            if (stats.topTopics.isNotEmpty) ...[
+              const SizedBox(height: 10),
+              Text('موضوعات پرتکرار: ${stats.topTopics.map((t) => '${t.key} (${t.value})').join(' • ')}', style: const TextStyle(fontSize: 11)),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _StatChip extends StatelessWidget {
+  const _StatChip({required this.icon, required this.label, this.color});
+  final IconData icon;
+  final String label;
+  final Color? color;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = color ?? Colors.blue.shade700;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: c.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: c.withValues(alpha: 0.4)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: c),
+          const SizedBox(width: 4),
+          Text(label, style: TextStyle(fontSize: 11, color: c)),
+        ],
+      ),
+    );
   }
 }
 

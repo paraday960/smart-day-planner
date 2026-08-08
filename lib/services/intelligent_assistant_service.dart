@@ -3,6 +3,7 @@ import 'dart:async';
 import '../models/finance_transaction.dart';
 import '../models/task.dart';
 import '../utils/persian_format.dart';
+import 'feedback_learning_service.dart';
 import 'finance_repository.dart';
 import 'goal_repository.dart';
 import 'debt_repository.dart';
@@ -19,13 +20,15 @@ class ChatTurn {
   final String content;
 }
 
-/// دستیار گفتگوی هوشمند.
+/// دستیار گفتگوی هوشمند — تعامل و یادگیری هوش محلی از هوش آنلاین.
 ///
-/// تفاوت با دستیار قبلی:
-/// 1. **دادهٔ واقعی برنامه** را به هوش آنلاین می‌دهد (مالی، کارها، بدهی‌ها،
-///    اهداف) تا پاسخ‌ها بر اساس وضعیت واقعی کاربر باشد، نه عمومی.
-/// 2. **حافظهٔ مکالمه** دارد (چند مرحلهٔ پیوسته).
-/// 3. **مسیریابی هوشمند**: تشخیص می‌دهد سناریو، فرمان اجرایی یا سؤال عادی است.
+/// حلقهٔ یادگیری:
+/// 1. محلی بلد نیست → از آنلاین می‌پرسد (با دانش یادگرفته‌شدهٔ قبلی در پرامپت)
+/// 2. پاسخ آنلاین در حافظهٔ ساختاریافته ذخیره می‌شود (منبع، تاریخ، کیفیت)
+/// 3. دفعهٔ بعد همان/سؤال مشابه → مستقیم از محلی (سریع و رایگان)
+/// 4. بازخورد کاربر (👍/👎) → امتیاز ورودی را تغییر می‌دهد؛ بازخورد منفی
+///    «خوددرمانی» می‌کند: دوباره از آنلاین می‌پرسد و جواب بهتر را جایگزین می‌کند
+/// 5. تصحیح کاربر → جواب تمیز و دقیق جایگزین می‌شود (منبع: تصحیح)
 class IntelligentAssistantService {
   IntelligentAssistantService({
     required this.online,
@@ -47,11 +50,23 @@ class IntelligentAssistantService {
   final Duration _timeout;
   final int maxHistoryTurns;
 
-  /// حافظهٔ یادگیری محلی (سؤال → جواب).
+  /// حافظهٔ یادگیری محلی (سؤال → جواب + متادیتا).
   final LocalAssistantMemory memory;
 
   /// تاریخچهٔ مکالمه (محدود به [maxHistoryTurns]).
   final List<ChatTurn> _history = [];
+
+  /// کلید (سؤال نرمال‌شده) آخرین ورودی‌ای که از حافظه پاسخ داده شد.
+  String? _lastMemoryKey;
+
+  /// آیا پاسخ آخر واقعاً از بک‌اند آنلاین آمده (نه fallback)؟
+  bool _lastAnswerFromOnline = false;
+
+  /// برچسب منبع آخرین پاسخ برای نمایش.
+  String _lastSourceLabel = '—';
+
+  /// منبع آخرین پاسخ (برای UI).
+  String get lastAnswerSourceLabel => _lastSourceLabel;
 
   bool _isCorrection(String text) {
     final norm = VoiceNlu.normalize(text);
@@ -60,7 +75,7 @@ class IntelligentAssistantService {
         norm.contains('تصحیح');
   }
 
-  /// پاسخ به یک درخواست کاربر (با حافظهٔ مکالمه + یادگیری محلی).
+  /// پاسخ به یک درخواست کاربر (با حافظهٔ مکالمه + یادگیری محلی از آنلاین).
   Future<String> ask({
     required String userText,
     required List<Task> tasks,
@@ -70,8 +85,46 @@ class IntelligentAssistantService {
 
     await memory.load();
 
-    // ── یادگیری از تصحیح کاربر ──
-    // اگر کاربر بعد از جواب محلی بگوید "نه اشتباهه، ۱M بود" و عدد جدید بدهد، حافظه را به‌روز کن
+    // ── ۱) یادگیری تقویتی از بازخورد کاربر ──
+    // اگر کاربر بعد از یک پاسخ «خوب بود» / «بد بود» بگوید و آن پاسخ از
+    // حافظه آمده باشد، امتیاز ورودی حافظه تغییر می‌کند. بازخورد منفی
+    // باعث «خوددرمانی» می‌شود: دوباره از آنلاین پرسیده و جواب بهتر می‌آید.
+    if (_history.isNotEmpty &&
+        _history.last.role == 'assistant' &&
+        FeedbackLearningService.isFeedback(t)) {
+      final fb = FeedbackLearningService.detectFromText(t);
+      if (fb != FeedbackType.neutral && _lastMemoryKey != null) {
+        final updated = await memory.rate(
+          _lastMemoryKey!,
+          positive: fb == FeedbackType.positive,
+        );
+        _history.add(ChatTurn(role: 'user', content: t));
+        String ack;
+        if (fb == FeedbackType.positive) {
+          // ignore: unawaited_futures
+          SkillService.instance.addPoints(2, 'بازخورد مثبت روی یادگیری');
+          ack = 'ممنون! این پاسخ را قوی‌تر به خاطر سپردم 💪';
+        } else if (updated == null) {
+          // ورودی کاملاً بی‌اعتبار شد و حذف گردید
+          ack = 'متوجه شدم؛ این یادگیری اشتباه بود و حذفش کردم. سؤال را دوباره بپرس تا از نو یاد بگیرم.';
+        } else {
+          // خوددرمانی: پرسش دوباره از آنلاین و جایگزینی جواب
+          await _selfHeal(_lastMemoryKey!, tasks);
+          // ignore: unawaited_futures
+          SkillService.instance.addPoints(5, 'خوددرمانی از بازخورد');
+          ack = 'متوجه شدم؛ از هوش آنلاین جواب بهتری گرفتم و جایگزینش کردم.';
+        }
+        _history.add(ChatTurn(role: 'assistant', content: ack));
+        _lastMemoryKey = null;
+        _lastSourceLabel = 'بازخورد';
+        return ack;
+      }
+    }
+
+    // ── ۲) یادگیری از تصحیح کاربر ──
+    // اگر کاربر بعد از جواب محلی بگوید "نه اشتباهه، ۱M بود" و عدد جدید
+    // بدهد، حافظه با جواب تمیز و تصحیح‌شده به‌روز می‌شود (منبع: تصحیح)
+    // و همان‌جا تأیید داده می‌شود (متن تصحیح سؤال جدید نیست).
     if (_isCorrection(t) && _history.isNotEmpty && _history.last.role == 'assistant') {
       final lastUserIndex = _history.lastIndexWhere((e) => e.role == 'user');
       if (lastUserIndex != -1) {
@@ -79,10 +132,31 @@ class IntelligentAssistantService {
         final newAmount = VoiceNlu.parseAmount(t);
         // اگر کاربر عدد جدید یا نام جدید داد، همان سؤال قبلی را با پاسخ تصحیح‌شده به‌روز کن
         if (newAmount > 0 || VoiceNlu.extractPersonNameForQuery(t).isNotEmpty) {
-          final correctedAnswer = 'تصحیح کاربر: $t';
-          await memory.remember(lastUserQ, correctedAnswer);
+          final correctedAnswer = _buildCorrectedAnswer(t, newAmount);
+          await memory.updateAnswer(
+            lastUserQ,
+            correctedAnswer,
+            source: MemorySource.correction,
+            feedbackScore: 0.3,
+          );
+          // اگر پاسخ قبلی از حافظه با کلید متفاوت آمده بود، آن ورودی را هم اصلاح کن
+          if (_lastMemoryKey != null &&
+              _lastMemoryKey != memory.normalizeQuestion(lastUserQ)) {
+            await memory.updateEntryByKey(
+              _lastMemoryKey!,
+              correctedAnswer,
+              source: MemorySource.correction,
+              feedbackScore: 0.3,
+            );
+          }
           // ignore: unawaited_futures
           SkillService.instance.addPoints(7, 'یادگیری از تصحیح');
+          _history.add(ChatTurn(role: 'user', content: t));
+          const ack = 'تصحیح شد! این را یاد گرفتم و از حالا درست جواب می‌دهم ✏️';
+          _history.add(ChatTurn(role: 'assistant', content: ack));
+          _lastMemoryKey = memory.normalizeQuestion(lastUserQ);
+          _lastSourceLabel = 'تصحیح';
+          return ack;
         }
       }
     }
@@ -94,14 +168,19 @@ class IntelligentAssistantService {
     }
 
     String answer;
-    final fromMemory = memory.lookup(t);
+    final fromMemory = memory.lookupEntry(t);
     if (fromMemory != null) {
       // دستیار این سؤال را «یاد گرفته» — مستقیم از محلی جواب بده.
-      answer = fromMemory;
-      // امتیاز برای استفاده از دانش یادگرفته‌شده
+      answer = fromMemory.answer;
+      _lastMemoryKey = fromMemory.question;
+      _lastSourceLabel = 'حافظهٔ محلی (یادگیری از آنلاین)';
+      // ثبت استفاده برای تقویت ورودی + امتیاز مهارت
+      // ignore: unawaited_futures
+      memory.recordHit(t);
       // ignore: unawaited_futures
       SkillService.instance.addForScenarioReuse();
     } else {
+      _lastMemoryKey = null;
       // آیا هوش محلی (قانون‌محور) این سؤال را می‌فهمد؟
       final localCanHandle = ruleBased.canHandle(t);
       final onlineAvailable = await _isOnlineAvailable();
@@ -109,21 +188,69 @@ class IntelligentAssistantService {
       if (localCanHandle) {
         // محلی بلد است → سریع و رایگان از محلی جواب بده.
         answer = await ruleBased.generate(prompt: t, tasks: tasks);
+        _lastSourceLabel = 'هوش محلی';
       } else if (onlineAvailable) {
         // محلی متوجه نشد → از آنلاین بپرس و یاد بگیر.
+        _lastAnswerFromOnline = false;
         answer = await _askOnline(t, tasks);
-        await memory.remember(t, answer);
-        // امتیاز مهارت برای یادگیری جدید
-        // ignore: unawaited_futures
-        SkillService.instance.addForLocalAnswer(question: t);
+        if (_lastAnswerFromOnline) {
+          // فقط پاسخ واقعی آنلاین یاد گرفته می‌شود (fallback نه)
+          await memory.rememberEntry(
+            t,
+            answer,
+            source: MemorySource.online,
+          );
+          _lastMemoryKey = memory.normalizeQuestion(t);
+          _lastSourceLabel = 'هوش آنلاین (یاد گرفته شد)';
+          // امتیاز مهارت برای یادگیری جدید
+          // ignore: unawaited_futures
+          SkillService.instance.addForLocalAnswer(question: t);
+        } else {
+          _lastSourceLabel = 'هوش قانونی (آنلاین خطا داد)';
+        }
       } else {
         // آنلاین هم در دسترس نیست → محلی (به‌ترین تلاش).
         answer = await ruleBased.generate(prompt: t, tasks: tasks);
+        _lastSourceLabel = 'هوش قانونی';
       }
     }
 
     _history.add(ChatTurn(role: 'assistant', content: answer));
     return answer;
+  }
+
+  /// «خوددرمانی»: پرسش دوباره از آنلاین و جایگزینی جواب بی‌اعتبار.
+  Future<void> _selfHeal(String question, List<Task> tasks) async {
+    final backend = online;
+    if (backend == null) return;
+    try {
+      if (!await backend.available) return;
+      final prompt = _buildPrompt(question, _buildContext(tasks));
+      final newAnswer = await backend.generate(prompt).timeout(_timeout);
+      if (newAnswer.trim().isNotEmpty) {
+        await memory.updateEntryByKey(
+          question,
+          newAnswer,
+          source: MemorySource.online,
+          feedbackScore: 0.2,
+        );
+      }
+    } catch (_) {
+      // خوددرمانی ناموفق — ورودی با امتیاز کاهش‌یافته باقی می‌ماند
+    }
+  }
+
+  /// ساخت جواب تمیز از متن تصحیح کاربر (به‌جای ذخیرهٔ متن خام).
+  String _buildCorrectedAnswer(String correctionText, int amount) {
+    if (amount > 0) {
+      return 'طبق تصحیح شما، مبلغ درست ${PersianFormat.money(amount)} است.';
+    }
+    final clean = correctionText
+        .replaceAll(
+            RegExp(r'^(نه|نخیر|اشتباهه|اشتباه|غلطه|غلط|ببخشید|ببخش)\s*'),
+            '')
+        .trim();
+    return clean.isEmpty ? 'تصحیح کاربر ثبت شد.' : 'تصحیح: $clean';
   }
 
   Future<bool> _isOnlineAvailable() async {
@@ -136,14 +263,16 @@ class IntelligentAssistantService {
     }
   }
 
-  /// پرسش از هوش آنلاین با context کامل برنامه.
+  /// پرسش از هوش آنلاین با context کامل برنامه + دانش یادگرفته‌شدهٔ قبلی.
   Future<String> _askOnline(String userText, List<Task> tasks) async {
     final context = _buildContext(tasks);
     final prompt = _buildPrompt(userText, context);
     try {
-      return await online!
+      final answer = await online!
           .generate(prompt)
           .timeout(_timeout, onTimeout: () => _ruleBasedAnswer(userText, tasks));
+      _lastAnswerFromOnline = true;
+      return answer;
     } catch (_) {
       return _ruleBasedAnswer(userText, tasks);
     }
@@ -228,9 +357,22 @@ class IntelligentAssistantService {
     final historyText = _history
         .map((h) => '${h.role == 'user' ? 'کاربر' : 'دستیار'}: ${h.content}')
         .join('\n');
+
+    // ── تعامل دوطرفه: تزریق دانش یادگرفته‌شدهٔ قبلی به پرامپت آنلاین ──
+    // تا پاسخ‌های جدید با تجربهٔ قبلی (سبک و محتوا) هماهنگ باشند.
+    final learned = memory.similarEntries(userText, limit: 3);
+    final learnedText = learned.isEmpty
+        ? ''
+        : 'دانش یادگرفته‌شدهٔ قبلی (از تعاملات گذشته با هوش آنلاین):\n' +
+            learned
+                .map((e) => '  سؤال: ${e.question}\n  جواب خوب قبلی: ${e.answer}')
+                .join('\n') +
+            '\nاگر سؤال کاربر به یکی از موارد بالا نزدیک است، هم‌سبک و هم‌محتوا با آن جواب بده.\n\n';
+
     return 'تو دستیار برنامه‌ریزی روزانهٔ هوشمند ایرانی هستی. همهٔ پاسخ‌ها فارسی، '
         'کوتاه، دوستانه و عملی باشند. بر اساس داده‌های واقعی زیر از برنامهٔ کاربر جواب بده.\n\n'
         'داده‌های واقعی برنامه:\n$context\n'
+        '$learnedText'
         'تاریخچهٔ گفتگو:\n$historyText\n'
         'سؤال کاربر: $userText\n'
         'خروجی: حداکثر ۵ خط فارسی، بدون توضیح اضافه. اگر به داده‌ای نیاز داری که نیست، '
