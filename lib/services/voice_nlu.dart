@@ -44,16 +44,45 @@ class VoiceNlu {
 
   static String extractPersonNameForDebt(String text, DebtType type) {
     final normalized = normalize(text);
+    final hasQarz = normalized.contains('قرض') || normalized.contains('وام');
+
+    // الگوی قرض/وام: «از فرهاد قرض کردم» یا «به فرهاد قرض دادم» — هر دو نوع را پوشش بده
+    if (hasQarz) {
+      final fromQarz = RegExp(r'از\s+(\S+)').firstMatch(normalized);
+      if (fromQarz != null) {
+        final name = fromQarz.group(1) ?? '';
+        if (name.isNotEmpty &&
+            name != 'من' &&
+            !containsAny(name, ['میل', 'میلیون', 'هزار', 'تومان', 'تومن', 'میلیارد', 'ریال']) &&
+            int.tryParse(convertPersianDigits(name)) == null &&
+            parseSmallNumber(name) == null) {
+          return name;
+        }
+      }
+      final toQarz = RegExp(r'به\s+(\S+)').firstMatch(normalized);
+      if (toQarz != null) {
+        final name = toQarz.group(1) ?? '';
+        if (name.isNotEmpty && name != 'من') return name;
+      }
+    }
 
     if (type == DebtType.debt) {
       final toMatch = RegExp(r'به\s+(\S+)').firstMatch(normalized);
       if (toMatch != null) return toMatch.group(1) ?? '';
+      // تلاش برای حالت بدون «به»: «فرهاد دو میلیون بدهکارم»
       final debtMatch = RegExp(r'(\S+)\s+(یک|یه|دو|سه|چهار|پنج|شش|شیش|هفت|هشت|نه|ده|\d+)').firstMatch(normalized);
-      if (debtMatch != null) return debtMatch.group(1) ?? '';
+      if (debtMatch != null) {
+        final cand = debtMatch.group(1) ?? '';
+        if (cand != 'امروز' && cand != 'فردا' && cand != 'دیروز' && cand != 'من') return cand;
+      }
     } else {
       final fromMatch = RegExp(r'از\s+(\S+)').firstMatch(normalized);
       if (fromMatch != null) return fromMatch.group(1) ?? '';
     }
+
+    // آخرین تلاش: اگر «از X» وجود داشت، همان را برگردان (برای قرض)
+    final anyFrom = RegExp(r'از\s+(\S+)').firstMatch(normalized);
+    if (anyFrom != null) return anyFrom.group(1) ?? '';
 
     return '';
   }
@@ -248,11 +277,12 @@ class VoiceNlu {
   static int parseAmount(String text) {
     final normalized = normalize(text).replaceAll(',', '').replaceAll('٬', '');
 
-    final digitMatches = RegExp(r'(\d+)\s*(میلیون|هزار|تومان|تومن|ریال)?').allMatches(normalized).toList();
+    final digitMatches = RegExp(r'(\d+)\s*(میلیارد|میلیون|میل|هزار|تومان|تومن|ریال)?').allMatches(normalized).toList();
     for (final match in digitMatches) {
       var amount = int.parse(match.group(1)!);
       final suffix = match.group(2) ?? '';
-      if (suffix.contains('میلیون')) return amount * 1000000;
+      if (suffix.contains('میلیارد')) return amount * 1000000000;
+      if (suffix.contains('میلیون') || suffix == 'میل' || suffix.contains('میل')) return amount * 1000000;
       if (suffix.contains('هزار')) return amount * 1000;
       if (suffix.contains('ریال')) return (amount / 10).round();
       if (suffix.contains('تومان') || suffix.contains('تومن') || amount >= 1000) return amount;
@@ -273,7 +303,21 @@ class VoiceNlu {
         continue;
       }
 
+      if (word.contains('میلیارد')) {
+        total += (current == 0 ? 1 : current) * 1000000000;
+        current = 0;
+        sawMoneyScale = true;
+        continue;
+      }
+
       if (word.contains('میلیون')) {
+        total += (current == 0 ? 1 : current) * 1000000;
+        current = 0;
+        sawMoneyScale = true;
+        continue;
+      }
+
+      if (word == 'میل') {
         total += (current == 0 ? 1 : current) * 1000000;
         current = 0;
         sawMoneyScale = true;

@@ -111,7 +111,27 @@ class VoiceCommandProcessor {
       return _handleDebtPaymentCommand(text);
     }
 
-    if (VoiceNlu.containsAny(text, ['بدهکارم', 'بدهکار هستم', 'بدهی دارم', 'طلب دارم', 'ازم طلب داره', 'ازش طلب دارم'])) {
+    // پوشش جامع بدهی/طلب/قرض/وام — شامل «قرض کردم/گرفتم/دادم» و «وام گرفتم» و مخفف «میل»
+    if (VoiceNlu.containsAny(text, [
+      'بدهکارم',
+      'بدهکار هستم',
+      'بدهی دارم',
+      'بدهکار شدم',
+      'طلب دارم',
+      'ازم طلب داره',
+      'ازش طلب دارم',
+      'طلبکارم',
+      'قرض کردم',
+      'قرض گرفتم',
+      'قرض داده',
+      'قرض دادم',
+      'قرضه دارم',
+      'وام گرفتم',
+      'وام دادم',
+      'پول قرض',
+      'پول گرفتم از',
+      'قرضه'
+    ])) {
       final multiNames = VoiceNlu.extractMultiDebtPersons(text);
       if (multiNames.length >= 2) {
         return _handleMultiDebtCommand(rawText, text, multiNames);
@@ -298,7 +318,16 @@ class VoiceCommandProcessor {
   }
 
   bool _isIncompleteDebt(String text) {
-    return VoiceNlu.containsAny(text, ['بدهکارم', 'بدهی دارم']) && VoiceNlu.parseAmount(text) <= 0;
+    return VoiceNlu.containsAny(text, [
+          'بدهکارم',
+          'بدهی دارم',
+          'بدهکار شدم',
+          'قرض کردم',
+          'قرض گرفتم',
+          'وام گرفتم',
+          'پول گرفتم'
+        ]) &&
+        VoiceNlu.parseAmount(text) <= 0;
   }
 
   /// تشخیص جمله‌های طبیعی مثل «فردا ساعت ۲ کار دارم» که باید کار بسازند
@@ -567,10 +596,49 @@ class VoiceCommandProcessor {
   Future<String> _handleDebtCommand(String rawText, String text) async {
     final amount = VoiceNlu.parseAmount(text);
     if (amount <= 0) {
-      return 'مبلغ بدهی یا طلب را نفهمیدم. مثلاً بگو: به ممد یک میلیون بدهکارم تا دو روز دیگه باید پس بدم.';
+      // تلاش برای تشخیص مقدار مبهم مثل «پونصد» بدون واحد
+      final ambiguous = VoiceNlu.parseAmbiguousSpokenAmount(text);
+      if (ambiguous != null && ambiguous > 0) {
+        // اگر مبهم بود، با همان منطق تأیید ادامه بده — اینجا فعلاً پیام راهنما می‌دهیم
+      }
+      return 'مبلغ بدهی یا طلب را نفهمیدم. مثلاً بگو: به ممد یک میلیون بدهکارم تا دو روز دیگه باید پس بدم. (مخفف «میل» هم می‌فهمم: ۲ میل = ۲ میلیون)';
     }
 
-    final type = VoiceNlu.containsAny(text, ['طلب دارم', 'ازش طلب دارم']) ? DebtType.receivable : DebtType.debt;
+    // تشخیص نوع: طلب (ما باید بگیریم) vs بدهی (ما باید پس بدیم)
+    // طلب: «طلب دارم», «قرض دادم», «وام دادم»
+    // بدهی: «بدهکارم», «قرض کردم/گرفتم», «وام گرفتم»
+    final isReceivable = VoiceNlu.containsAny(text, [
+      'طلب دارم',
+      'ازش طلب دارم',
+      'طلبکارم',
+      'قرض دادم',
+      'قرض داده',
+      'وام دادم',
+      'پول دادم'
+    ]);
+    final isDebt = VoiceNlu.containsAny(text, [
+      'بدهکارم',
+      'بدهی دارم',
+      'بدهکار شدم',
+      'قرض کردم',
+      'قرض گرفتم',
+      'قرضه دارم',
+      'وام گرفتم',
+      'پول گرفتم',
+      'پول قرض'
+    ]);
+    DebtType type;
+    if (isReceivable && !isDebt) {
+      type = DebtType.receivable;
+    } else if (isDebt && !isReceivable) {
+      type = DebtType.debt;
+    } else if (text.contains('دادم') && (text.contains('قرض') || text.contains('وام'))) {
+      type = DebtType.receivable;
+    } else if (text.contains('گرفتم') || text.contains('کردم')) {
+      type = DebtType.debt;
+    } else {
+      type = DebtType.debt;
+    }
     final person = VoiceNlu.extractPersonNameForDebt(text, type);
     final dueAt = VoiceNlu.guessDueAt(text) ?? DateTime.now().add(const Duration(days: 2));
     final confidence = _confidenceService.evaluate(

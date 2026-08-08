@@ -210,23 +210,24 @@ class AutonomousAgentService {
 
   String _detectIntent(String text) {
     final t = text.toLowerCase();
-    if (t.contains('بدهی') || t.contains('بدهکار')) return 'debt';
+    if (t.contains('بدهی') || t.contains('بدهکار') || t.contains('قرض') || t.contains('وام')) return 'debt';
     if (t.contains('پرداخت') || t.contains('پس دادم')) return 'debt_payment';
     if (t.contains('کنار بذار') || t.contains('کنار بگذار')) return 'allocation';
-    if (t.contains('کار') || t.contains('وظیفه')) return 'task';
+    if (t.contains('کار') || t.contains('وظیفه') || t.contains('قرار') || t.contains('جلسه')) return 'task';
     if (t.contains('هزینه') || t.contains('خرج')) return 'expense';
     return 'general';
   }
 
   int _extractAmount(String text) {
-    // استخراج ساده عدد + هزار/میلیون
+    // استخراج ساده عدد + هزار/میلیون/میل/میلیارد
     final normalized = PersianFormat.englishDigits(text);
-    final reg = RegExp(r'(\d+)\s*(هزار|میلیون|تومان|تومن)?');
+    final reg = RegExp(r'(\d+)\s*(میلیارد|میلیون|میل|هزار|تومان|تومن)?');
     final match = reg.firstMatch(normalized);
     if (match == null) return 0;
     var value = int.tryParse(match.group(1) ?? '0') ?? 0;
     final unit = match.group(2) ?? '';
-    if (unit.contains('میلیون')) value *= 1000000;
+    if (unit.contains('میلیارد')) value *= 1000000000;
+    else if (unit.contains('میلیون') || unit == 'میل' || unit.contains('میل')) value *= 1000000;
     else if (unit.contains('هزار')) value *= 1000;
     return value;
   }
@@ -234,7 +235,7 @@ class AutonomousAgentService {
   double _estimateConfidence(String text, String intent, int amount) {
     var score = 0.5;
     if (amount > 0) score += 0.2;
-    if (text.contains('تومان') || text.contains('هزار') || text.contains('میلیون')) score += 0.15;
+    if (text.contains('تومان') || text.contains('هزار') || text.contains('میلیون') || text.contains('میل') || text.contains('میلیارد')) score += 0.15;
     if (text.contains('پونصد') || text.contains('پانصد')) score -= 0.15;
     if (intent != 'general') score += 0.15;
     return score.clamp(0.0, 1.0);
