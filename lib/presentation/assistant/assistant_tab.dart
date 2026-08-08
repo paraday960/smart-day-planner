@@ -634,7 +634,7 @@ class _SkillBar extends ConsumerWidget {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      '${skill.score} امتیاز • ${skill.learnedCount} چیز یاد گرفته',
+                      '${skill.score} امتیاز • ${skill.learnedCount} یادگیری • 🔥${skill.streak} روز استریک',
                       style: theme.textTheme.bodySmall?.copyWith(fontSize: 11, color: theme.colorScheme.outline),
                     ),
                   ],

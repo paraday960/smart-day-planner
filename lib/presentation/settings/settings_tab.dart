@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/app_providers.dart';
 import '../../app_config.dart';
+import 'learning_dashboard_screen.dart';
 import 'offline_voice_settings_card.dart';
 import 'online_ai_settings_card.dart';
 
@@ -158,6 +159,17 @@ class SettingsTab extends ConsumerWidget {
                   ],
                 ),
               ],
+            ),
+          ),
+        ),
+        Card.outlined(
+          child: ListTile(
+            leading: const Icon(Icons.school_outlined),
+            title: const Text('مدیریت حافظه یادگیری 🧠'),
+            subtitle: const Text('هر چی هوش محلی یاد گرفته: ویرایش/حذف، جستجو، صادرات/واردات — با امتیاز مهارت'),
+            trailing: FilledButton.tonal(
+              onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const LearningDashboardScreen())),
+              child: const Text('باز کردن'),
             ),
           ),
         ),

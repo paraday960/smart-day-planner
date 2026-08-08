@@ -10,6 +10,7 @@ import 'llama_backend.dart';
 import 'local_assistant.dart';
 import 'local_assistant_memory.dart';
 import 'skill_service.dart';
+import 'voice_nlu.dart';
 
 /// یک پیام در تاریخچهٔ مکالمه.
 class ChatTurn {
@@ -52,6 +53,13 @@ class IntelligentAssistantService {
   /// تاریخچهٔ مکالمه (محدود به [maxHistoryTurns]).
   final List<ChatTurn> _history = [];
 
+  bool _isCorrection(String text) {
+    final norm = VoiceNlu.normalize(text);
+    return norm.contains('نه') && (norm.contains('اشتباه') || norm.contains('ببخشید') || norm.contains('غلط')) ||
+        norm.startsWith('نه ') ||
+        norm.contains('تصحیح');
+  }
+
   /// پاسخ به یک درخواست کاربر (با حافظهٔ مکالمه + یادگیری محلی).
   Future<String> ask({
     required String userText,
@@ -61,6 +69,23 @@ class IntelligentAssistantService {
     if (t.isEmpty) return 'چیزی نشنیدم. بگو چطور می‌توانم کمکت کنم.';
 
     await memory.load();
+
+    // ── یادگیری از تصحیح کاربر ──
+    // اگر کاربر بعد از جواب محلی بگوید "نه اشتباهه، ۱M بود" و عدد جدید بدهد، حافظه را به‌روز کن
+    if (_isCorrection(t) && _history.isNotEmpty && _history.last.role == 'assistant') {
+      final lastUserIndex = _history.lastIndexWhere((e) => e.role == 'user');
+      if (lastUserIndex != -1) {
+        final lastUserQ = _history[lastUserIndex].content;
+        final newAmount = VoiceNlu.parseAmount(t);
+        // اگر کاربر عدد جدید یا نام جدید داد، همان سؤال قبلی را با پاسخ تصحیح‌شده به‌روز کن
+        if (newAmount > 0 || VoiceNlu.extractPersonNameForQuery(t).isNotEmpty) {
+          final correctedAnswer = 'تصحیح کاربر: $t';
+          await memory.remember(lastUserQ, correctedAnswer);
+          // ignore: unawaited_futures
+          SkillService.instance.addPoints(7, 'یادگیری از تصحیح');
+        }
+      }
+    }
 
     _history.add(ChatTurn(role: 'user', content: t));
     // محدود کردن تاریخچه

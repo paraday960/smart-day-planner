@@ -86,6 +86,50 @@ class LocalAssistantMemory {
   /// تعداد پاسخ‌های یادگرفته‌شده.
   int get count => _entries.length;
 
+  Map<String, String> get allEntries => Map.unmodifiable(_entries);
+
+  Future<void> deleteEntry(String question) async {
+    final norm = _normalize(question);
+    _entries.remove(norm);
+    await _save();
+  }
+
+  Future<void> updateEntry(String oldQuestion, String newQuestion, String newAnswer) async {
+    final oldNorm = _normalize(oldQuestion);
+    final newNorm = _normalize(newQuestion);
+    if (oldNorm != newNorm) _entries.remove(oldNorm);
+    if (newNorm.isNotEmpty && newAnswer.trim().isNotEmpty) {
+      _entries[newNorm] = newAnswer.trim();
+      if (_entries.length > _maxEntries) {
+        final keys = _entries.keys.toList();
+        _entries.remove(keys.first);
+      }
+    }
+    await _save();
+  }
+
+  String exportJson() => jsonEncode(_entries);
+
+  Future<void> importJson(String json, {bool merge = true}) async {
+    try {
+      final decoded = jsonDecode(json);
+      if (decoded is Map<String, dynamic>) {
+        if (!merge) _entries.clear();
+        for (final e in decoded.entries) {
+          final k = _normalize(e.key);
+          if (k.isNotEmpty) _entries[k] = e.value.toString();
+        }
+        while (_entries.length > _maxEntries) {
+          _entries.remove(_entries.keys.first);
+        }
+        await _save();
+      }
+    } catch (_) {}
+  }
+
+  /// آیا حافظه حاوی این سؤال (یا مشابه معنایی) است؟
+  bool containsSimilar(String question) => lookup(question) != null;
+
   /// پاک کردن کل حافظه (برای تست و تنظیمات).
   Future<void> clear() async {
     _entries.clear();
