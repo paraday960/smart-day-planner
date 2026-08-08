@@ -1,5 +1,43 @@
 # Changelog
 
+## 2026-08-08 — ارتقای هوش محلی (NLU، مسیریاب مکالمه، یادگیری بازخورد)
+
+- `persian_nlu.dart`: توکنایزر، تطبیق کلمه‌ای، IntentMatch با confidence،
+  detectCandidates، PersianQuestionClassifier، AnaphoraDetector،
+  PersianSemanticSimilarity، پشتیبانی از keywords/requiresKeywords
+- `conversation_router.dart` (جدید): ConversationContext، LocalAssistantRouter
+  (محلی/شفاف‌سازی/پیگیری/fallback)، LocalAssistantConversation
+- `local_feedback_learning.dart` (جدید): IntentFeedbackStore برای یادگیری از
+  بازخورد محلی بدون آنلاین
+- `local_assistant.dart`: canHandle مبتنی بر آستانهٔ اطمینان، detectIntent،
+  answerIntent، respondConversationally و ۶ intent جدید
+- تست: nlu_upgrade_test (۱۶ تست) و local_assistant_upgrade_test (۹ تست)
+
+## 2026-08-08 — ارتقای هوش محلی (NLU، مسیریاب مکالمه، یادگیری بازخورد) 🧠
+
+**NLU (`lib/services/persian_nlu.dart`):**
+- توکنایزر فارسی، تطبیق در سطح کلمه (`hasWord`/`countWords`)
+- هر intent حالا `keywords` و `requiresKeywords` و `confidence` دارد
+- `detectCandidates` برای شفاف‌سازی ابهام؛ `IntentMatch` با امتیاز اطمینان
+- `PersianQuestionClassifier`، `AnaphoraDetector` (پیگیری «ادامه‌اش چیه؟»)
+- `PersianSemanticSimilarity` (Jaccard + هم‌معناها + بایگرام)
+
+**مسیریاب مکالمه (فایل جدید `lib/services/conversation_router.dart`):**
+- `ConversationContext`، `LocalAssistantRouter` (تصمیم محلی/شفاف‌سازی/پیگیری/fallback)
+- `LocalAssistantConversation` برای مدیریت چرخهٔ سؤال/جواب
+
+**یادگیری از بازخورد محلی (فایل جدید `lib/services/local_feedback_learning.dart`):**
+- `IntentFeedbackStore`: آمار موفقیت/شکست، ضریب اطمینان پویا، تای‌بریک، سریال‌سازی
+
+**دستیار قانون‌محور (`lib/services/local_assistant.dart` و `local_assistant_intents.dart`):**
+- `canHandle` مبتنی بر آستانهٔ اطمینان؛ `detectIntent`، `answerIntent`،
+  `respondConversationally`
+- ۶ intent جدید: تمرکز، بازچیدن برنامه، وقت آزاد، نکتهٔ بهره‌وری، توقف، قابلیت‌ها
+
+**تست:**
+- `test/nlu_upgrade_test.dart` (۲۸ تست مستقل) و
+  `test/local_assistant_upgrade_test.dart` (۷ تست فلاتری)
+
 ## 2026-08-07 — رفع شکاف‌های KNOWN_GAPS (به مدار برگشتن) 🚀
 
 **Refactor (شکاف ۶):**

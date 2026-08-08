@@ -18,6 +18,7 @@ import 'goal_repository.dart';
 import 'task_repository.dart';
 import 'forecast_service.dart';
 import 'persian_nlu.dart';
+import 'conversation_router.dart';
 import 'local_assistant_intents.dart';
 import 'skill_service.dart';
 import 'smart_planner.dart';
@@ -121,17 +122,52 @@ class RuleBasedLocalAssistant implements LocalLlmAdapter {
   bool canHandle(String prompt) {
     final text = PersianNormalizer.normalize(prompt).trim();
     if (text.isEmpty) return true;
-    final intent = _detector.detect(text);
-    return intent != null;
+    final match = _detector.detectWithScore(text);
+    if (match == null) return false;
+    return match.confidence >= 0.4;
+  }
+
+  IntentMatch? detectIntent(String prompt) {
+    final text = PersianNormalizer.normalize(prompt).trim();
+    if (text.isEmpty) return null;
+    return _detector.detectWithScore(text);
+  }
+
+  Future<String> answerIntent(String intentId, List<Task> tasks) async {
+    return generate(prompt: '[' + intentId + ']', tasks: tasks);
+  }
+
+  Future<AssistantReply> respondConversationally({
+    required String prompt,
+    required List<Task> tasks,
+    LocalAssistantRouter? router,
+  }) async {
+    if (router == null) {
+      final text = PersianNormalizer.normalize(prompt).trim();
+      final match = _detector.detectWithScore(text);
+      final answer = await generate(prompt: prompt, tasks: tasks);
+      return AssistantReply(
+        text: answer,
+        source: 'local',
+        intentId: match?.id,
+        confidence: match?.confidence ?? 0,
+      );
+    }
+    final conv = LocalAssistantConversation(
+      router: router,
+      generateForIntent: answerIntent,
+    );
+    return conv.respond(text: prompt, tasks: tasks);
   }
 
   @override
   Future<String> generate(
       {required String prompt, required List<Task> tasks}) async {
     final text = PersianNormalizer.normalize(prompt);
-    final intent = _detector.detect(text);
+    final directIntent = _tryParseDirectIntent(prompt);
+    final intent = directIntent ?? _detector.detect(text);
 
-    if (intent == null || text.isEmpty) {
+    if (intent == null || (text.isEmpty && directIntent == null)) {
       return _dailyBrief(tasks);
     }
 
@@ -200,9 +236,110 @@ class RuleBasedLocalAssistant implements LocalLlmAdapter {
         return _offlineStatus();
       case 'small_talk':
         return 'من که همیشه سرحالم؛ چون وظیفه‌ام کمک به توئه. 😊 از کجا شروع کنیم؟';
+      case 'focus_suggestion':
+        return _focusSuggestion(tasks);
+      case 'reschedule':
+        return _reschedule(tasks);
+      case 'free_time':
+        return _freeTime(tasks);
+      case 'productivity_tip':
+        return _productivityTip(tasks);
+      case 'cancel_or_stop':
+        return 'باشه، متوقف شد. 👍 هر وقت خواستی دوباره ازم بپرس.';
+      case 'capability_query':
+        return _capabilityQuery();
       default:
         return _dailyBrief(tasks);
     }
+  }
+
+  NluIntent? _tryParseDirectIntent(String prompt) {
+    final t = prompt.trim();
+    final m = RegExp('^\[([a-z_]+)\]\$').firstMatch(t);
+    if (m == null) return null;
+    final id = m.group(1)!;
+    for (final intent in kRuleBasedAssistantIntents) {
+      if (intent.id == id) return intent;
+    }
+    return null;
+  }
+
+  String _focusSuggestion(List<Task> tasks) {
+    final open = tasks.where((t) => !t.isDone).toList()
+      ..sort((a, b) =>
+          _planner.priorityScore(b).compareTo(_planner.priorityScore(a)));
+    if (open.isEmpty) {
+      return 'کار بازی نداری؛ این فرصت خوبیه برای استراحت یا برنامه‌ریزی هفتهٔ آینده. 🌿';
+    }
+    final top = open.first;
+    final reason = _planner.explainPriority(top);
+    final mins = _planner.recommendedEstimate(top, tasks);
+    return '🎯 تمرکزت رو بذار روی «' + top.title + '».
+'
+        'دلیل: ' + reason + '.
+'
+        'زمان پیشنهادی: ' + PersianFormat.minutes(mins) + '. ' +
+        (open.length > 1 ? 'بعدش برو سراغ «' + open[1].title + '».' : '');
+  }
+
+  String _reschedule(List<Task> tasks) {
+    final plan = _planner.buildTodayPlan(tasks, now: _currentTime);
+    if (plan.isEmpty) {
+      return 'برنامه‌ای برای بازچیدن ندارم. کاری ثبت کن تا دوباره بچینم.';
+    }
+    final buf = StringBuffer('برنامهٔ بازچیده‌شدهٔ امروز:
+');
+    for (final item in plan.take(6)) {
+      buf.writeln(PersianFormat.time(item.start) + ' — ' + item.task.title);
+    }
+    return buf.toString();
+  }
+
+  String _freeTime(List<Task> tasks) {
+    final plan = _planner.buildTodayPlan(tasks, now: _currentTime);
+    if (plan.isEmpty) {
+      return 'تا آخر روز زمان آزاد زیادی داری. 🌿 اگر کار جدیدی داری، الان بهترین وقت برای ثبت آن است.';
+    }
+    final lastEnd = plan.last.end;
+    final endOfDay = DateTime(
+        _currentTime.year, _currentTime.month, _currentTime.day, 22);
+    final freeMinutes = endOfDay.difference(lastEnd).inMinutes;
+    if (freeMinutes <= 0) {
+      return 'تا پایان روز زمان آزاد کمی داری؛ شاید بهتره بقیه کارها را به فردا موکول کنی.';
+    }
+    final busy = plan.fold<int>(0, (s, i) => s + i.task.estimatedMinutes);
+    return 'امروز حدود ' + PersianFormat.minutes(busy) + ' زمان برنامه‌ریزی‌شده داری ' +
+        'و تقریباً ' + PersianFormat.minutes(freeMinutes) + ' زمان آزاد تا پایان روز. ' +
+        (freeMinutes >= 90 ? 'برای یک کار عمیق یا استراحت کافیه.' : 'کوتاهه؛ روی یک کار کوچک متمرکز شو.');
+  }
+
+  String _productivityTip(List<Task> tasks) {
+    final open = tasks.where((t) => !t.isDone).length;
+    final highEnergy =
+        tasks.where((t) => !t.isDone && t.energy == EnergyLevel.high).length;
+    var tip = 'قانون ۲ دقیقه: کارهایی که زیر ۲ دقیقه طول می‌کشند را همین الان انجام بده.';
+    if (highEnergy > 0) {
+      tip = highEnergy.toString() + ' کار با انرژی بالا داری — سخت‌ترینش را اول انجام بده.';
+    } else if (open > 5) {
+      tip = PersianFormat.digits(open) + ' کار باز داری؛ اول ۳ تای مهم را انتخاب کن و بقیه را به فردا بسپار.';
+    }
+    return '💡 نکتهٔ بهره‌وری: ' + tip;
+  }
+
+  String _capabilityQuery() {
+    return 'من می‌تونم:
+'
+        '• برنامه‌ریزی روزانه/هفتگی کنم و کار بعدی رو پیشنهاد بدم
+'
+        '• وضعیت مالی، بودجه و بدهی‌هات رو تحلیل کنم
+'
+        '• پیش‌بینی درآمد/هزینه و برنامهٔ پرداخت بدهی بدم
+'
+        '• عادت‌ها و ریسک‌هات رو بررسی کنم
+'
+        '• با فرمان صوتی کارها و تراکنش‌ها رو ثبت کنم
+'
+        '• پاسخ‌هام رو از تعاملاتت یاد بگیرم (آفلاین هم کار می‌کنم)';
   }
 
   String _greeting(List<Task> tasks) {
