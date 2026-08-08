@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:smart_day_planner/services/conversation_router.dart';
+import 'package:smart_day_planner/services/persian_nlu.dart';
 import 'package:smart_day_planner/services/debt_repository.dart';
 import 'package:smart_day_planner/services/finance_repository.dart';
 import 'package:smart_day_planner/services/goal_repository.dart';
