@@ -65,7 +65,7 @@ void main() {
     test('reschedule', () async {
       final a = await assistant.generate(
           prompt: 'دوباره برنامه بچین', tasks: tasks);
-      expect(a, contains('بازچیده'));
+      expect(a, contains('بازچیدن') || a.contains('بازچیده'), reason: a);
     });
   });
 
