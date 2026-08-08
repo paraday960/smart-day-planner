@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:archive/archive.dart';
+import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:path_provider/path_provider.dart';
@@ -28,6 +29,12 @@ class OfflineVoiceService {
   static const String modelUrl =
       'https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/'
       'vits-piper-fa_IR-amir-medium.tar.bz2';
+
+  /// SHA-256 فایل مدل بالا — بررسی صحت دانلود تا فایل خراب یا دستکاری‌شده
+  /// هرگز نصب نشود. (در 2026-08-08 از روی فایل رسمی انتشار محاسبه شده؛
+  /// اگر URL مدل عوض شد این مقدار هم باید به‌روز شود.)
+  static const String modelSha256 =
+      '46af65c1cdd86ec300db3998f2bf31a68d9e38da930c0655c1ff6f610e84f864';
 
   static const String _dirName = 'vits-piper-fa_IR-amir-medium';
 
@@ -118,6 +125,18 @@ class OfflineVoiceService {
     await response.pipe(sink);
     await sink.close();
     httpClient.close(force: true);
+
+    // ۱.۱) بررسی صحت فایل دانلودی — فایل خراب یا دستکاری‌شده نصب نمی‌شود.
+    final digest = await sha256.bind(tmpFile.openRead()).first;
+    if (digest.toString() != modelSha256) {
+      try {
+        await tmpFile.delete();
+      } catch (_) {}
+      throw Exception(
+        'checksum مدل نامعتبر است. دانلود دوباره انجام شود یا نسخهٔ '
+        'modelSha256 در offline_voice_service.dart به‌روز شود.',
+      );
+    }
 
     // ۲) استخراج tar.bz2 با پکیج archive
     debugPrint('OfflineVoiceService: استخراج مدل...');
@@ -224,9 +243,10 @@ Future<void> extractTarBz2(String tarBz2Path, String destPath) async {
     if (rel.isEmpty) continue; // پوشهٔ ریشه
 
     final outFile = File('$destPath/$rel');
-    // ایمن‌سازی: فقط درون destPath.
+    // ایمن‌سازی: فقط درون destPath. (نکته: مقایسه با جداکنندهٔ مسیر،
+    // وگرنه «dest-evil/...» هم به‌اشتباه داخل dest به حساب می‌آمد.)
     final normalizedOut = outFile.absolute.path;
-    if (!normalizedOut.startsWith(normalizedDest)) {
+    if (!normalizedOut.startsWith(normalizedDest + Platform.pathSeparator)) {
       continue;
     }
 

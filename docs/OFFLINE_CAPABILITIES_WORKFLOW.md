@@ -1,10 +1,12 @@
 # راهنمای workflow «Offline Capabilities Build» (Vosk + LLM)
 
-> **چرا این فایل اینجاست؟** توکن GitHub App که روی این ریپو کار می‌کند مجوز
-> `workflows` ندارد و نمی‌تواند فایل‌های `.github/workflows/*` را push کند.
-> محتوای دقیق workflow در این سند نگهداری می‌شود تا بتوانید آن را دستی اضافه
-> کنید — یا اگر به اپ اجازهٔ **Workflows (read/write)** در
-> `Settings → Integrations → GitHub Apps` بدهید، در سشن بعدی push می‌شود.
+> **وضعیت (2026-08-08):** فایل `.github/workflows/offline_capabilities.yml`
+> به ریپو اضافه شده و دیگر نیازی به ساخت دستی نیست — از تب Actions قابل اجراست.
+> این سند به‌عنوان مرجع نگهداری می‌شود.
+>
+> (پیشینه: قبلاً توکن GitHub App که روی ریپو کار می‌کرد مجوز `workflows`
+> نداشت و نمی‌توانست فایل‌های `.github/workflows/*` را push کند؛ محتوای دقیق
+> workflow در این سند نگهداری می‌شد.)
 
 ## هدف
 

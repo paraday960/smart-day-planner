@@ -32,78 +32,10 @@ jobs:
       # پوشهٔ android/ حالا در ریپو نسخه‌دار است (با Manifest و jniLibs کامل)
       # بنابراین flutter create اجرا نمی‌شود تا تنظیمات سفارشی بازنویسی نشود.
 
-      - name: Enable Android desugaring
-        run: |
-          echo "=== Before patch ==="
-          ls -la android/app/ 2>&1 | head -n 20
-          cat android/app/build.gradle 2>&1 | head -n 150 || true
-          cat android/app/build.gradle.kts 2>&1 | head -n 200 || true
-          echo ""
-          echo "=== Patching ==="
-          python3 <<'PY'
-          from pathlib import Path
-          import re
-
-          groovy = Path("android/app/build.gradle")
-          kotlin = Path("android/app/build.gradle.kts")
-
-          if groovy.exists():
-              text = groovy.read_text()
-              print("Found groovy build.gradle")
-              # Ensure compileOptions enables desugaring
-              if "coreLibraryDesugaringEnabled" not in text:
-                  text = re.sub(r'compileOptions\s*\{', 'compileOptions {\n        coreLibraryDesugaringEnabled true', text, count=1)
-                  print("Added coreLibraryDesugaringEnabled true to groovy")
-              elif "coreLibraryDesugaringEnabled false" in text:
-                  text = text.replace("coreLibraryDesugaringEnabled false", "coreLibraryDesugaringEnabled true")
-                  print("Fixed false to true in groovy")
-              # Ensure dependency
-              if "desugar_jdk_libs" not in text:
-                  # Find dependencies block and insert
-                  if "dependencies {" in text:
-                      text = text.replace("dependencies {", "dependencies {\n    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.1.4'", 1)
-                      print("Added desugar lib to groovy")
-                  else:
-                      # If no dependencies block, append one
-                      text += "\ndependencies {\n    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.1.4'\n}\n"
-                      print("Created dependencies block in groovy")
-              groovy.write_text(text)
-              print("Groovy patch done")
-          else:
-              print("No groovy file")
-
-          if kotlin.exists():
-              text = kotlin.read_text()
-              print("Found kotlin build.gradle.kts")
-              print("Original kotlin snippet:")
-              print(text[:1000])
-              # Ensure compileOptions enables desugaring
-              if "isCoreLibraryDesugaringEnabled" not in text:
-                  # Try to insert inside compileOptions
-                  text = re.sub(r'compileOptions\s*\{', 'compileOptions {\n        isCoreLibraryDesugaringEnabled = true', text, count=1)
-                  print("Added isCoreLibraryDesugaringEnabled = true to kotlin")
-              elif "isCoreLibraryDesugaringEnabled = false" in text:
-                  text = text.replace("isCoreLibraryDesugaringEnabled = false", "isCoreLibraryDesugaringEnabled = true")
-                  print("Fixed false to true in kotlin")
-              # Ensure dependency - kotlin uses coreLibraryDesugaring("...")
-              if "desugar_jdk_libs" not in text:
-                  if "dependencies {" in text:
-                      text = text.replace("dependencies {", 'dependencies {\n    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")', 1)
-                      print("Added desugar lib to kotlin")
-                  else:
-                      text += '\ndependencies {\n    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")\n}\n'
-                      print("Created dependencies block in kotlin")
-              kotlin.write_text(text)
-              print("Kotlin patch done")
-              print("Patched kotlin snippet:")
-              print(text[:3000])
-          else:
-              print("No kotlin file")
-          PY
-          echo ""
-          echo "=== After patch ==="
-          cat android/app/build.gradle 2>&1 | head -n 200 || true
-          cat android/app/build.gradle.kts 2>&1 | head -n 300 || true
+      # پوشهٔ android/ در ریپو نسخه‌دار است (با Manifest و jniLibs کامل)
+      # بنابراین flutter create اجرا نمی‌شود تا تنظیمات سفارشی بازنویسی نشود.
+      # (مرحلهٔ قدیمی «Enable Android desugaring» حذف شد؛ build.gradle.kts
+      # از قبل desugaring را فعال دارد و پچ runtime در CI فقط ریسک شکستن بود.)
 
       - name: Clean up auto-generated widget_test
         # flutter create یک test/widget_test.dart پیش‌فرض با ارجاع به MyApp تولید می‌کند
@@ -136,7 +68,7 @@ jobs:
             --dart-define=ENABLE_ENCRYPTED_BACKUP=false
 
       - name: Build debug APK
-        run: flutter build apk --debug --dart-define=ENABLE_CALENDAR=false --dart-define=ENABLE_PDF_EXPORT=false --dart-define=ENABLE_SHARE_FILES=false --dart-define=ENABLE_SMART_NOTIFICATIONS=false
+        run: flutter build apk --debug
 
       - name: Upload debug APK
         uses: actions/upload-artifact@v4

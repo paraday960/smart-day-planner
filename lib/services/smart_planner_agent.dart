@@ -94,7 +94,9 @@ class SmartScenarioMemory {
           return MapEntry(k, list);
         });
       }
-    } catch (_) {}
+    } catch (e, s) {
+      debugPrint('SmartScenarioMemory: خطا در بارگذاری حافظه: $e\n$s');
+    }
     _loaded = true;
   }
 
@@ -103,7 +105,9 @@ class SmartScenarioMemory {
       final prefs = await SharedPreferences.getInstance();
       final map = _plans.map((k, v) => MapEntry(k, v.map((a) => a.toJson()).toList()));
       await prefs.setString(_prefKey, jsonEncode(map));
-    } catch (_) {}
+    } catch (e, s) {
+      debugPrint('SmartScenarioMemory: خطا در ذخیرهٔ حافظه: $e\n$s');
+    }
   }
 
   List<SmartAction>? get(String fingerprint) => _plans[fingerprint];

@@ -33,7 +33,7 @@ jobs:
           channel: stable
           cache: true
 
-      # پوشهٔ android/ حالا در ریپو نسخه‌دار است (با Manifest و jniLibs کامل)
+      # پوشهٔ android/ در ریپو نسخه‌دار است (با Manifest و jniLibs کامل)
       # بنابراین flutter create اجرا نمی‌شود تا تنظیمات سفارشی بازنویسی نشود.
 
       - name: Clean up auto-generated widget_test
@@ -53,59 +53,43 @@ jobs:
           else
             echo "No widget_test.dart found"
           fi
-          echo "=== test folder after cleanup ==="
-          ls -la test/ 2>&1 | head -n 30
 
-      - name: Enable Android desugaring (full version)
+      # امضای release با کلید واقعی از GitHub Secrets.
+      # اگر Secrets تنظیم نشده باشند، مرحلهٔ build release با خطای واضح
+      # متوقف می‌شود (gradle: «key.properties یافت نشد»).
+      - name: Setup release signing (from Secrets)
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
-          echo "=== Patching desugaring for FULL build ==="
-          python3 <<'PY'
-          from pathlib import Path
-          import re
-          groovy = Path("android/app/build.gradle")
-          kotlin = Path("android/app/build.gradle.kts")
-          if groovy.exists():
-              t = groovy.read_text()
-              print("Found groovy")
-              if "coreLibraryDesugaringEnabled" not in t:
-                  t = re.sub(r'compileOptions\s*\{', 'compileOptions {\n        coreLibraryDesugaringEnabled true', t, count=1)
-              elif "coreLibraryDesugaringEnabled false" in t:
-                  t = t.replace("coreLibraryDesugaringEnabled false", "coreLibraryDesugaringEnabled true")
-              if "desugar_jdk_libs" not in t:
-                  if "dependencies {" in t:
-                      t = t.replace("dependencies {", "dependencies {\n    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.1.4'", 1)
-                  else:
-                      t += "\ndependencies {\n    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.1.4'\n}\n"
-              groovy.write_text(t)
-              print("Groovy patched")
-          if kotlin.exists():
-              t = kotlin.read_text()
-              print("Found kotlin build.gradle.kts")
-              if "isCoreLibraryDesugaringEnabled" not in t:
-                  t = re.sub(r'compileOptions\s*\{', 'compileOptions {\n        isCoreLibraryDesugaringEnabled = true', t, count=1)
-              elif "isCoreLibraryDesugaringEnabled = false" in t:
-                  t = t.replace("isCoreLibraryDesugaringEnabled = false", "isCoreLibraryDesugaringEnabled = true")
-              if "desugar_jdk_libs" not in t:
-                  if "dependencies {" in t:
-                      t = t.replace("dependencies {", 'dependencies {\n    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")', 1)
-                  else:
-                      t += '\ndependencies {\n    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")\n}\n'
-              kotlin.write_text(t)
-              print("Kotlin patched")
-              print(t[:2000])
-          PY
-          echo "=== After patch ==="
-          cat android/app/build.gradle.kts 2>&1 | head -n 300 || true
-          cat android/app/build.gradle 2>&1 | head -n 200 || true
+          if [ -z "$KEYSTORE_BASE64" ]; then
+            echo "::warning::KEYSTORE_BASE64 تنظیم نشده است — بیلد release بدون کلید امضا متوقف می‌شود."
+            echo "برای رفع: Settings → Secrets and variables → Actions و تنظیم ۴ سکرت زیر:"
+            echo "  KEYSTORE_BASE64 (خروجی base64 از فایل .jks)"
+            echo "  KEYSTORE_PASSWORD / KEY_PASSWORD / KEY_ALIAS"
+            exit 0
+          fi
+          echo "$KEYSTORE_BASE64" | base64 -d > android/keystore.jks
+          cat > android/key.properties <<EOF
+          storePassword=$KEYSTORE_PASSWORD
+          keyPassword=$KEY_PASSWORD
+          keyAlias=$KEY_ALIAS
+          storeFile=keystore.jks
+          EOF
+          echo "key.properties ساخته شد (android/keystore.jks از Secrets)."
 
       - name: Get dependencies
         run: flutter pub get
 
+      # ⚠️ خطای analyze یا تست = توقف workflow. انتشار از روی کدِ
+      # شکست‌خورده مجاز نیست (قبلاً با «|| echo» نادیده گرفته می‌شد).
       - name: Analyze
-        run: flutter analyze --no-fatal-infos --no-fatal-warnings || echo "Analyze found issues but continuing for release build"
+        run: flutter analyze --no-fatal-infos --no-fatal-warnings
 
       - name: Tests
-        run: flutter test || echo "Tests had failures but continuing"
+        run: flutter test
 
       - name: Build release APK (FULL - all features enabled)
         if: ${{ inputs.build_type == 'apk' }}

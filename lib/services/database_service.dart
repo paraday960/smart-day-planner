@@ -48,6 +48,21 @@ class DatabaseService {
         await db.execute('CREATE INDEX idx_finance_created_at ON finance_transactions(created_at)');
         await db.execute('CREATE INDEX idx_finance_type ON finance_transactions(type)');
       },
+      // ── مسیر مهاجرت نسخه‌های آینده ──────────────────────────────
+      // برای هر تغییر اسکیما: `version` را یکی بالا ببرید و یک بلوک
+      // تدریجی (oldVersion < N) اینجا اضافه کنید:
+      //
+      //   if (oldVersion < 2) {
+      //     await db.execute('ALTER TABLE tasks ADD COLUMN ...');
+      //   }
+      //
+      // بدون این مسیر، اپ‌های نصب‌شده بعد از اولین تغییر اسکیما یا
+      // کرش می‌کنند یا داده‌هایشان را از دست می‌دهند.
+      onUpgrade: (db, oldVersion, newVersion) async {
+        if (oldVersion < 2) {
+          // اولین مهاجرت آینده اینجا اضافه می‌شود.
+        }
+      },
     );
 
     return _database!;

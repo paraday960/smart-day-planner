@@ -15,9 +15,10 @@
   `LlamaModelLocator` جستجو می‌کند (`<اسناد>/llm/`) — قبلش مسیرها ناهماهنگ بودند
   و مدل باندل‌شده هیچ‌وقت پیدا نمی‌شد.
 - `main.dart` هنگام `ENABLE_LOCAL_LLM=true` مدل asset را یک‌بار نصب می‌کند.
-- **Workflow جدید `.github/workflows/offline_capabilities.yml`** مدل
-  `qwen2.5-0.5b-instruct-q4_k_m.gguf` (~۴۷۰MB) را روی runner دانلود، به
-  pubspec اضافه و داخل APK باندل می‌کند (input اختیاری `include_llm`).
+- **Workflow `.github/workflows/offline_capabilities.yml`** (از 2026-08-08 در
+  ریپو موجود است) مدل `qwen2.5-0.5b-instruct-q4_k_m.gguf` (~۴۷۰MB) را روی
+  runner دانلود، به pubspec اضافه و داخل APK باندل می‌کند (input اختیاری
+  `include_llm`).
 
 **چرا مدل داخل ریپو نیست؟** حجمش (~۴۷۰MB) از سقف فایل گیت‌هاب (>100MB) بیشتر است.
 
@@ -34,8 +35,9 @@
   `<اسناد>/vosk/` کپی می‌کند — دقیقاً همان مسیری که `VoskModelLocator` جستجو
   می‌کند (قبلاً locator اصلاً asset را چک نمی‌کرد).
 - `main.dart` هنگام `ENABLE_OFFLINE_SPEECH=true` مدل را یک‌بار نصب می‌کند.
-- Workflow `offline_capabilities.yml` مدل فارسی (~۴۰MB) را موقع build دانلود و
-  باندل می‌کند و APK با `ENABLE_OFFLINE_SPEECH=true` می‌سازد.
+- Workflow `offline_capabilities.yml` (موجود در ریپو از 2026-08-08) مدل فارسی
+  (~۴۰MB) را موقع build دانلود و باندل می‌کند و APK با
+  `ENABLE_OFFLINE_SPEECH=true` می‌سازد.
 
 **چرا مدل داخل ریپو نیست؟** ~۴۰MB حجمش با وجود امکان commit، ریپو را سنگین
 می‌کند و `assets/models/*.zip` عمداً gitignore شده؛ دانلود هنگام ساخت تمیزتر است.

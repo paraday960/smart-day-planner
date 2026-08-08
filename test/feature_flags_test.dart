@@ -25,8 +25,10 @@ void main() {
     expect(FeatureFlags.enableShareFiles, isTrue);
     expect(FeatureFlags.enableSmartNotifications, isTrue);
     expect(FeatureFlags.enableEncryptedBackup, isTrue);
-    // LLM محلی پیش‌فرض خاموش است (مدل سنگین است و باید جدا اضافه شود)
-    expect(FeatureFlags.enableLocalLlm, isFalse);
+    // LLM محلی و گفتار آفلاین هم پیش‌فرض روشن‌اند؛ اگر مدل موجود نباشد
+    // خودکار به موتور قانون‌محور / سرویس گوشی برمی‌گردند (fallback امن).
+    expect(FeatureFlags.enableLocalLlm, isTrue);
+    expect(FeatureFlags.enableOfflineSpeech, isTrue);
   });
 
   test('flag map values match the constants', () {

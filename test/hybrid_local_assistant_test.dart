@@ -80,10 +80,10 @@ void main() {
     expect(prompt, contains('الان چی کار کنم'));
   });
 
-  test('feature flag پیش‌فرض خاموش است و status نشان‌گر را درست می‌سازد', () {
-    expect(FeatureFlags.enableLocalLlm, isFalse);
+  test('feature flag پیش‌فرض روشن است؛ بدون backend واقعی، fallback قانونی می‌ماند', () {
+    expect(FeatureFlags.enableLocalLlm, isTrue);
     final hybrid = HybridLocalAssistant(
-        llm: FakeLlmBackend(), fallback: RuleBasedLocalAssistant());
+        llm: null, fallback: RuleBasedLocalAssistant());
     expect(hybrid.hasLlmConfigured, isFalse);
     expect(hybrid.statusLabel, contains('قانونی'));
   });
