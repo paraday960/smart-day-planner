@@ -2,7 +2,7 @@
 import 'package:smart_day_planner/services/persian_nlu.dart';
 import 'package:smart_day_planner/services/conversation_router.dart';
 import 'package:smart_day_planner/services/local_feedback_learning.dart';
-import 'package:test/test.dart';
+import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('PersianNormalizer.tokenize', () {
