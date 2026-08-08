@@ -108,9 +108,9 @@ class IntelligentAssistantService {
         _isRephrase(prevText, t)) {
       feedbackStore.recordFailure(prevIntent);
     }
-    // intent قبلی مصرف شد؛ تا پاسخ این نوبت مقداردهی شود.
-    _lastLocalIntentId = null;
     _lastUserText = t;
+    // توجه: _lastLocalIntentId اینجا صفر نمی‌شود تا اگر کاربر این نوبت را تصحیح
+    // کرد، بتوان شکست intent محلی قبلی را ثبت کرد. بعد از پاسخ این نوبت بازنشانی می‌شود.
 
     // ── ۱) یادگیری تقویتی از بازخورد کاربر ──
     // اگر کاربر بعد از یک پاسخ «خوب بود» / «بد بود» بگوید و آن پاسخ از
