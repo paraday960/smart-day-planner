@@ -19,12 +19,13 @@ class FeatureFlags {
   static const enableEncryptedBackup =
       bool.fromEnvironment('ENABLE_ENCRYPTED_BACKUP', defaultValue: true);
 
-  /// LLM محلی (llama.cpp و امثال آن) — پیش‌فرض خاموش است چون
-  /// مدل‌ها سنگین‌اند و باید جداگانه به اپ اضافه شوند.
+  /// LLM محلی (llama.cpp و امثال آن) — پیش‌فرض روشن است.
+  ///
   /// وقتی روشن باشد، [HybridLocalAssistant] سعی می‌کند از مدل استفاده کند
-  /// و اگر در دسترس نبود خودکار به موتور قانون‌محور برمی‌گردد.
+  /// و اگر مدل در دسترس نبود خودکار به موتور قانون‌محور برمی‌گردد
+  /// (بدون کرش؛ فقط پیام «LLM فعال ولی مدل یافت نشد»).
   static const enableLocalLlm =
-      bool.fromEnvironment('ENABLE_LOCAL_LLM', defaultValue: false);
+      bool.fromEnvironment('ENABLE_LOCAL_LLM', defaultValue: true);
 
   /// هوش مصنوعی آنلاین رایگان — پیش‌فرض روشن است. وقتی کلیدی از تنظیمات یا
   /// `ONLINE_AI_API_KEY` وجود داشته باشد، دستیار اول از هوش آنلاین استفاده
@@ -32,12 +33,12 @@ class FeatureFlags {
   static const enableOnlineAi =
       bool.fromEnvironment('ENABLE_ONLINE_AI', defaultValue: true);
 
-  /// تشخیص گفتار آفلاین با Vosk — پیش‌فرض خاموش است چون مدل فارسی
-  /// (~۴۰MB) باید جداگانه دانلود شود. وقتی روشن باشد و مدل موجود باشد،
-  /// فرمان صوتی بدون اینترنت کار می‌کند؛ در غیر این صورت به سرویس
-  /// آنلاین گوشی برمی‌گردد.
+  /// تشخیص گفتار آفلاین با Vosk — پیش‌فرض روشن است.
+  ///
+  /// وقتی روشن باشد و مدل موجود باشد، فرمان صوتی بدون اینترنت کار می‌کند؛
+  /// در غیر این صورت خودکار به سرویس آنلاین گوشی برمی‌گردد.
   static const enableOfflineSpeech =
-      bool.fromEnvironment('ENABLE_OFFLINE_SPEECH', defaultValue: false);
+      bool.fromEnvironment('ENABLE_OFFLINE_SPEECH', defaultValue: true);
 
   /// دستیار خودکار هیبرید — وقتی روشن باشد تمام کارها توسط دستیار انجام می‌شود
   /// و فقط موارد حساس تایید می‌خواهد. پیش‌فرض روشن است.

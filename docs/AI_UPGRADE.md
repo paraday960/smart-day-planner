@@ -42,7 +42,7 @@
 | `lib/services/hybrid_local_assistant.dart` | `LlmBackend` (interface)، `MethodChannelLlmBackend`، `HybridLocalAssistant` با fallback و timeout |
 | `lib/services/finance_insights_service.dart` | تحلیل مالی pure: تشخیص هزینهٔ غیرعادی (نسبت به ۳۰ روز قبل)، توصیه‌ها، ریسک |
 | `lib/services/smart_planner.dart` | `buildWeekPlan`، `bestDeepWorkWindows`، `catchUpPlan` |
-| `lib/app/feature_flags.dart` | flag جدید `ENABLE_LOCAL_LLM` (پیش‌فرض خاموش) |
+| `lib/app/feature_flags.dart` | flag جدید `ENABLE_LOCAL_LLM` (پیش‌فرض روشن؛ بدون مدل خودکار fallback می‌کند) |
 | `lib/app/app_providers.dart` | `assistantProvider` (هیبرید با زمینهٔ مالی) |
 
 ## تست‌ها

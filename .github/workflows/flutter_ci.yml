@@ -68,7 +68,7 @@ jobs:
             --dart-define=ENABLE_ENCRYPTED_BACKUP=false
 
       - name: Build debug APK
-        run: flutter build apk --debug --dart-define=ENABLE_CALENDAR=false --dart-define=ENABLE_PDF_EXPORT=false --dart-define=ENABLE_SHARE_FILES=false --dart-define=ENABLE_SMART_NOTIFICATIONS=false
+        run: flutter build apk --debug
 
       - name: Upload debug APK
         uses: actions/upload-artifact@v4

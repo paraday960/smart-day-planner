@@ -105,11 +105,7 @@ jobs:
           fi
           flutter build apk --debug \
             --dart-define=ENABLE_OFFLINE_SPEECH=true \
-            $LLM_FLAG \
-            --dart-define=ENABLE_CALENDAR=false \
-            --dart-define=ENABLE_PDF_EXPORT=false \
-            --dart-define=ENABLE_SHARE_FILES=false \
-            --dart-define=ENABLE_SMART_NOTIFICATIONS=false
+            $LLM_FLAG
 
       - name: Upload offline debug APK
         uses: actions/upload-artifact@v4
