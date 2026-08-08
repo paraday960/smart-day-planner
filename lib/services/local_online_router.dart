@@ -41,11 +41,12 @@ class LocalOnlineRouter {
 
     final qType = PersianQuestionClassifier.classify(t);
 
-    // ۱) سؤال مالی/چیستیِ باز که محلی دقیق نمی‌فهمد → آنلاین.
-    if (qType == QuestionType.money && !localCanHandle) {
+    // ۱) سؤال چرایی/مالیِ باز → آنلاین (حتی اگر localCanHandle ضعیف باشد).
+    final isOpenQuestion = t.contains('؟') || t.contains('?') || t.length > 20;
+    if (qType == QuestionType.why && (isOpenQuestion || !localCanHandle)) {
       return RouteTarget.online;
     }
-    if (qType == QuestionType.why && !localCanHandle) {
+    if (qType == QuestionType.money && !localCanHandle) {
       return RouteTarget.online;
     }
 
