@@ -282,8 +282,7 @@ class RuleBasedLocalAssistant implements LocalLlmAdapter {
     if (open.length > 1) {
       parts.add('بعدش برو سراغ «' + open[1].title + '».');
     }
-    return parts.join('
-');
+    return parts.join('\n');
   }
 
   String _reschedule(List<Task> tasks) {
@@ -340,8 +339,7 @@ class RuleBasedLocalAssistant implements LocalLlmAdapter {
       '• عادت‌ها و ریسک‌هات رو بررسی کنم',
       '• با فرمان صوتی کارها و تراکنش‌ها رو ثبت کنم',
       '• پاسخ‌هام رو از تعاملاتت یاد بگیرم (آفلاین هم کار می‌کنم)',
-    ].join('
-');
+    ].join('\n');
   }
 
   String _greeting(List<Task> tasks) {
