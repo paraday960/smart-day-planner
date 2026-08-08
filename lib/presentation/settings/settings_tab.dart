@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/app_providers.dart';
 import '../../app_config.dart';
+import 'offline_voice_settings_card.dart';
 import 'online_ai_settings_card.dart';
 
 class SettingsTab extends ConsumerWidget {
@@ -49,6 +50,8 @@ class SettingsTab extends ConsumerWidget {
         Text('تنظیمات حرفه‌ای', style: Theme.of(context).textTheme.titleLarge),
         const SizedBox(height: 12),
         const OnlineAiSettingsCard(),
+        const SizedBox(height: 12),
+        const OfflineVoiceSettingsCard(),
         const SizedBox(height: 12),
         Card.outlined(
           child: Padding(

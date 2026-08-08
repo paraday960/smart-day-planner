@@ -57,11 +57,13 @@ class OfflineVoiceService {
   }
 
   /// بررسی نصب بودن مدل (بر اساس flag ذخیره‌شده + وجود فایل‌ها).
-  Future<bool> ensureInstalled() async {
+  ///
+  /// اگر در حال دانلود است، تا [timeoutSeconds] صبر می‌کند و اگر تمام نشد
+  /// false برمی‌گرداند تا UI بلاک نشود.
+  Future<bool> ensureInstalled({int timeoutSeconds = 300}) async {
     if (_installed) return true;
     if (_checking) {
-      // منتظر بمان تا دانلود تمام شود (تا ۵ دقیقه).
-      for (var i = 0; i < 300; i++) {
+      for (var i = 0; i < timeoutSeconds; i++) {
         await Future.delayed(const Duration(seconds: 1));
         if (_installed) return true;
         if (!_checking) return false;
@@ -160,7 +162,7 @@ class OfflineVoiceService {
   /// تبدیل متن فارسی به فایل WAV و پخش آن.
   Future<void> speak(String text) async {
     if (text.trim().isEmpty) return;
-    final ok = await ensureInstalled();
+    final ok = await ensureInstalled(timeoutSeconds: 90);
     if (!ok) throw Exception('مدل فارسی در دسترس نیست');
 
     final tts = await _getTts();

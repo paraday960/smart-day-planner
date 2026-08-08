@@ -33,6 +33,10 @@ class VoiceResponseService implements VoiceResponsePort {
   /// اگر موتور سیستم فارسی بلد نباشد، از Piper آفلاین استفاده می‌کنیم.
   final OfflineVoiceService _offline = OfflineVoiceService.instance;
 
+  /// آیا کاربر صراحتاً صدای آفلاین Piper را انتخاب کرده است؟
+  bool _forcePiper = false;
+  static const _forcePiperKey = 'smart_day_planner.voice_response.force_piper';
+
   @override
   bool get enabled => _enabled;
   @override
@@ -41,6 +45,23 @@ class VoiceResponseService implements VoiceResponsePort {
 
   /// آیا مدل فارسی آفلاین (Piper) نصب/دانلود شده است؟
   bool get offlineInstalled => _offline.isInstalled;
+
+  /// آیا کاربر صدای آفلاین Piper را انتخاب کرده است؟
+  bool get forcePiper => _forcePiper;
+
+  /// آیا در حال دانلود مدل Piper است؟
+  bool get offlineChecking => _offline.isChecking;
+
+  /// روشن/خاموش کردن صدای آفلاین Piper.
+  Future<void> setForcePiper(bool value) async {
+    _forcePiper = value;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_forcePiperKey, value);
+    if (value) {
+      // شروع دانلود در پس‌زمینه.
+      _offline.ensureInstalled();
+    }
+  }
 
   @override
   Future<void> initialize() async {
@@ -53,6 +74,7 @@ class VoiceResponseService implements VoiceResponsePort {
       (g) => g.name == savedGender,
       orElse: () => AssistantVoiceGender.feminine,
     );
+    _forcePiper = prefs.getBool(_forcePiperKey) ?? false;
 
     try {
       await _ttsInstance.setLanguage('fa-IR');
@@ -106,45 +128,35 @@ class VoiceResponseService implements VoiceResponsePort {
     final cleanText = _prepareForSpeech(text);
     if (cleanText.trim().isEmpty) return;
 
-    // ۱) اول موتور گفتار سیستم را امتحان می‌کنیم (اگر فارسی پشتیبانی می‌کند).
-    final systemWorked = await _trySpeakSystem(cleanText);
-    if (systemWorked) return;
-
-    // ۲) سیستم فارسی بلد نبود → Piper آفلاین (دانلود به‌موقع).
-    try {
+    // اگر کاربر Piper را اجباری کرده، مستقیماً از آن استفاده کن.
+    if (_forcePiper) {
       await _offline.speak(cleanText);
-    } catch (_) {
-      // اگر Piper هم نتوانست، یک بار دیگر سیستم را با تنظیم صریح فارسی امتحان می‌کنیم.
+      return;
+    }
+
+    // اگر سیستم قطعاً فارسی پشتیبانی می‌کند، اول با سیستم.
+    if (_systemHasPersian) {
+      try {
+        await _ttsInstance.stop();
+      } catch (_) {}
       try {
         await _ttsInstance.setLanguage('fa-IR');
         await _ttsInstance.speak(cleanText);
-      } catch (_) {}
-    }
-  }
-
-  /// تلاش با موتور سیستم. برمی‌گرداند آیا موفق بود.
-  Future<bool> _trySpeakSystem(String text) async {
-    try {
-      await _ttsInstance.stop();
-    } catch (_) {}
-
-    // اگر از قبل مشخص است که سیستم فارسی پشتیبانی نمی‌کند، مستقیم شکست بخور.
-    if (!_systemHasPersian) return false;
-
-    try {
-      await _ttsInstance.setLanguage('fa-IR');
-      await _ttsInstance.speak(text);
-      return true;
-    } catch (_) {
-      try {
-        await _ttsInstance.setLanguage('fa_IR');
-        await _ttsInstance.speak(text);
-        return true;
+        return;
       } catch (_) {
-        // سیستم فارسی را پشتیبانی نمی‌کند — دفعه‌ی بعد Piper مستقیم.
-        _systemHasPersian = false;
-        return false;
+        // اگر setLanguage/speak خطا داد، به Piper برو.
       }
+    }
+
+    // سیستم فارسی پشتیبانی نمی‌کند (یا خطا داد) → Piper آفلاین.
+    try {
+      await _offline.speak(cleanText);
+    } catch (_) {
+      // حتی اگر Piper ناموفق بود، یک بار سیستم را امتحان می‌کنیم (به‌امید
+      // که با تنظیم پیش‌فرض چیزی بشنود).
+      try {
+        await _ttsInstance.speak(cleanText);
+      } catch (_) {}
     }
   }
 
@@ -160,6 +172,13 @@ class VoiceResponseService implements VoiceResponsePort {
         ? 'سلام، من دستیار فارسی شما هستم. با صدای زن آماده کمک به برنامه‌ریزی و حسابداری روزانه‌ات هستم.'
         : 'سلام، من دستیار فارسی شما هستم. با صدای مرد آماده کمک به برنامه‌ریزی و حسابداری روزانه‌ات هستم.';
     await speak(sample, force: true);
+    return sample;
+  }
+
+  /// تست صدای فارسی آفلاین (Piper) — بدون توجه به سیستم.
+  Future<String> testPiperVoice() async {
+    const sample = 'سلام! این صدای فارسی آفلاین است. حالا می‌توانم درست فارسی صحبت کنم.';
+    await _offline.speak(sample);
     return sample;
   }
 
