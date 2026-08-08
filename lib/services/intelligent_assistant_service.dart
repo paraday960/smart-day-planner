@@ -11,6 +11,7 @@ import 'llama_backend.dart';
 import 'local_assistant.dart';
 import 'local_assistant_memory.dart';
 import 'local_feedback_learning.dart';
+import 'local_online_router.dart';
 import 'persian_nlu.dart';
 import 'conversation_router.dart';
 import 'skill_service.dart';
@@ -42,17 +43,22 @@ class IntelligentAssistantService {
     LocalAssistantMemory? memory,
     IntentFeedbackStore? feedbackStore,
     ConversationContext? conversationContext,
+    LocalOnlineRouter? onlineRouter,
     this.maxHistoryTurns = 8,
     Duration timeout = const Duration(seconds: 40),
   })  : _timeout = timeout,
         memory = memory ?? LocalAssistantMemory.instance,
         feedbackStore = feedbackStore ?? _defaultFeedbackStore,
-        conversation = conversationContext ?? ConversationContext();
+        conversation = conversationContext ?? ConversationContext(),
+        onlineRouter = onlineRouter ?? LocalOnlineRouter();
 
   final IntentFeedbackStore feedbackStore;
 
   /// زمینهٔ مکالمه برای پشتیبانی از پیگیری‌های ارجاعی (ادامه‌اش چیه؟).
   final ConversationContext conversation;
+
+  /// تصمیم‌گیرنده بین هوش محلی و آنلاین.
+  final LocalOnlineRouter onlineRouter;
 
   static final IntentFeedbackStore _defaultFeedbackStore =
       IntentFeedbackStore(storageKey: 'intent_feedback_v1');
@@ -228,11 +234,26 @@ class IntelligentAssistantService {
       SkillService.instance.addForScenarioReuse();
     } else {
       _lastMemoryKey = null;
-      // آیا هوش محلی (قانون‌محور) این سؤال را می‌فهمد؟
+      final intentMatch = _extractLocalIntent(t);
       final localCanHandle = ruleBased.canHandle(t);
-      final onlineAvailable = await _isOnlineAvailable();
+      final stats = intentMatch != null
+          ? feedbackStore.stats[intentMatch]
+          : null;
+      final route = onlineRouter.decide(
+        text: effectiveText,
+        localConfidence: intentMatch != null
+            ? _confidenceOf(t)
+            : null,
+        localCanHandle: localCanHandle,
+        localSuccessCount: stats?.success ?? 0,
+        localFailureCount: stats?.failure ?? 0,
+      );
+      final onlineAvailable = route != RouteTarget.localOnly &&
+          await _isOnlineAvailable();
 
-      if (localCanHandle) {
+      if (route == RouteTarget.localOnly ||
+          (route == RouteTarget.localFirst && localCanHandle) ||
+          (localCanHandle && !onlineAvailable)) {
         // اگر مسیریاب، پیگیری ارجاعی را به یک intent خاص وصل کرد، همان را اجرا کن.
         final followIntent =
             resolved?.intentId.isNotEmpty == true ? resolved!.intentId : null;
@@ -251,10 +272,10 @@ class IntelligentAssistantService {
             feedbackStore.recordSuccess(intentId);
           }
         }
-      } else if (onlineAvailable) {
-        // محلی متوجه نشد → از آنلاین بپرس و یاد بگیر.
+      } else if (route == RouteTarget.online && onlineAvailable) {
+        // محلی کافی نیست یا سؤال پیچیده است → آنلاین.
         _lastAnswerFromOnline = false;
-        answer = await _askOnline(t, tasks);
+        answer = await _askOnline(effectiveText, tasks);
         if (_lastAnswerFromOnline) {
           // فقط پاسخ واقعی آنلاین یاد گرفته می‌شود (fallback نه)
           await memory.rememberEntry(
@@ -456,6 +477,9 @@ class IntelligentAssistantService {
     return null;
   }
 
+  /// مانند [_extractLocalIntentId] ولی برای وضوح بیشتر.
+  String? _extractLocalIntent(String text) => _extractLocalIntentId(text);
+
   bool _isRephrase(String a, String b) {
     final na = PersianNormalizer.normalize(a).trim();
     final nb = PersianNormalizer.normalize(b).trim();
@@ -465,4 +489,19 @@ class IntelligentAssistantService {
   }
 
   IntentFeedbackStore get intentFeedback => feedbackStore;
+
+  /// استخراج intent با امتیاز اطمینان (برای تصمیم روتر).
+  double? _confidenceOf(String text) {
+    final m = _extractLocalIntent(text);
+    if (m == null) return null;
+    try {
+      final dynamic rb = ruleBased;
+      final dynamic match = rb.detectIntent(text);
+      if (match != null) return (match.confidence as num).toDouble();
+    } catch (_) {}
+    return null;
+  }
+
+  /// دسترسی به روتر محلی/آنلاین (برای تست/دیباگ).
+  LocalOnlineRouter get router => onlineRouter;
 }
