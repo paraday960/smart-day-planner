@@ -51,6 +51,7 @@ import '../services/notification_service.dart';
 import '../services/planned_expense_repository.dart';
 import '../services/security_service.dart';
 import '../services/share_file_service.dart';
+import '../services/skill_service.dart';
 import '../services/smart_planner.dart';
 import '../services/task_repository.dart';
 import '../services/voice_response_service.dart';
@@ -181,6 +182,14 @@ final commandConfidenceServiceProvider = Provider<CommandConfidenceService>(
     (ref) => const CommandConfidenceService());
 final timeAwarePlannerProvider =
     Provider<TimeAwarePlanner>((ref) => const TimeAwarePlanner());
+
+final skillServiceProvider = ChangeNotifierProvider<SkillService>((ref) {
+  final svc = SkillService.instance;
+  // بارگذاری امتیاز ذخیره‌شده (آسنکرون، بدون await در provider)
+  // ignore: discarded_futures
+  svc.load();
+  return svc;
+});
 final taskActionsControllerProvider =
     Provider<TaskActionsController>((ref) => const TaskActionsController());
 final financeActionsControllerProvider = Provider<FinanceActionsController>(

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../app/app_providers.dart';
 import '../../app/app_theme.dart';
 import '../../services/voice_response_service.dart';
 import 'animated_assistant_character.dart';
@@ -203,6 +205,9 @@ class _AssistantTabState extends State<AssistantTab> {
             ),
           ),
         ),
+
+        // ─── نوار مهارت — هر یادگیری = امتیاز ───
+        const _SkillBar(),
 
         // ─── لیست پیام‌ها ───
         Expanded(
@@ -556,6 +561,177 @@ class _StatusChip extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// نوار مهارت — هر یادگیری هوش محلی = امتیاز
+class _SkillBar extends ConsumerWidget {
+  const _SkillBar();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final skill = ref.watch(skillServiceProvider);
+    final theme = Theme.of(context);
+    final hasReward = skill.lastReward != null;
+    return Container(
+      margin: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppTheme.primary.withValues(alpha: 0.15)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: AppTheme.primary.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(Icons.star, size: 16, color: AppTheme.primary),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Text(
+                          'مهارت هوش محلی',
+                          style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold, fontSize: 13),
+                        ),
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: AppTheme.primary,
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            'سطح ${skill.level}',
+                            style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          skill.levelLabel,
+                          style: TextStyle(color: theme.colorScheme.outline, fontSize: 10),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '${skill.score} امتیاز • ${skill.learnedCount} چیز یاد گرفته',
+                      style: theme.textTheme.bodySmall?.copyWith(fontSize: 11, color: theme.colorScheme.outline),
+                    ),
+                  ],
+                ),
+              ),
+              // امتیاز اخیر با انیمیشن
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 300),
+                transitionBuilder: (c, a) => ScaleTransition(scale: a, child: c),
+                child: hasReward
+                    ? Container(
+                        key: ValueKey(skill.lastReward!['at']),
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.green.shade50,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.green.shade300),
+                        ),
+                        child: Text(
+                          '+${skill.lastReward!['points']}',
+                          style: TextStyle(color: Colors.green.shade700, fontWeight: FontWeight.bold, fontSize: 12),
+                        ),
+                      )
+                    : const SizedBox.shrink(),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(6),
+            child: LinearProgressIndicator(
+              value: skill.progressFraction,
+              minHeight: 6,
+              backgroundColor: Colors.grey.shade200,
+              valueColor: const AlwaysStoppedAnimation(AppTheme.primary),
+            ),
+          ),
+          const SizedBox(height: 4),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                '${skill.progressToNextLevel}/100 تا سطح بعد',
+                style: theme.textTheme.bodySmall?.copyWith(fontSize: 10, color: theme.colorScheme.outline),
+              ),
+              GestureDetector(
+                onTap: () => _showHistory(context, skill),
+                child: Text(
+                  'تاریخچه ›',
+                  style: TextStyle(color: AppTheme.primary, fontSize: 11, fontWeight: FontWeight.w600),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  static void _showHistory(BuildContext context, dynamic skill) {
+    final history = (skill.history as List).reversed.take(20).toList();
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (_) => Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2))),
+            const SizedBox(height: 12),
+            Text('تاریخچه یادگیری', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            if (history.isEmpty)
+              const Padding(padding: EdgeInsets.all(16), child: Text('هنوز چیزی یاد نگرفته — یه سوال جدید از هوش آنلاین بپرس تا یاد بگیره!'))
+            else
+              Flexible(
+                child: ListView.separated(
+                  shrinkWrap: true,
+                  itemCount: history.length,
+                  separatorBuilder: (_, __) => const Divider(height: 1),
+                  itemBuilder: (_, i) {
+                    final e = history[i] as Map;
+                    final at = DateTime.tryParse(e['at'] ?? '');
+                    final time = at != null ? '${at.year}/${at.month}/${at.day}' : '';
+                    return ListTile(
+                      dense: true,
+                      leading: CircleAvatar(backgroundColor: Colors.amber.shade100, child: Text('+${e['points']}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold))),
+                      title: Text(e['reason']?.toString() ?? '', style: const TextStyle(fontSize: 13)),
+                      subtitle: Text(time, style: const TextStyle(fontSize: 11)),
+                      trailing: Text('Lv.${e['level']}', style: const TextStyle(fontSize: 11)),
+                    );
+                  },
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }

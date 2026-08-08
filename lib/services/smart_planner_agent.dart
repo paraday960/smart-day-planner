@@ -9,6 +9,7 @@ import '../models/finance_transaction.dart';
 import '../models/task.dart';
 import '../utils/persian_format.dart';
 import 'finance_repository.dart';
+import 'skill_service.dart';
 import 'task_repository.dart';
 import 'voice_nlu.dart';
 import 'work_learning_service.dart';
@@ -154,6 +155,9 @@ class SmartPlannerAgent {
     if (learned != null) {
       final executed = await _execute(learned, taskRepository, financeRepository,
           amount: _extractTarget(normalized));
+      // امتیاز برای استفاده از دانشِ یادگرفته (بدون نیاز به آنلاین)
+      // ignore: unawaited_futures
+      SkillService.instance.addForScenarioReuse();
       return SmartPlanResult(
         message: _buildMessage(normalized, executed),
         actions: executed,
@@ -191,6 +195,9 @@ class SmartPlannerAgent {
 
     // 6) یادگیری — ذخیرهٔ برنامه برای سناریوهای مشابه آینده
     await memory.remember(fingerprint, executed);
+    // امتیاز مهارت برای یادگیری سناریوی جدید
+    // ignore: unawaited_futures
+    SkillService.instance.addForScenario(fingerprint: fingerprint);
 
     return SmartPlanResult(
       message: _buildMessage(normalized, executed),

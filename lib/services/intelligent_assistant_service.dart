@@ -9,6 +9,7 @@ import 'debt_repository.dart';
 import 'llama_backend.dart';
 import 'local_assistant.dart';
 import 'local_assistant_memory.dart';
+import 'skill_service.dart';
 
 /// یک پیام در تاریخچهٔ مکالمه.
 class ChatTurn {
@@ -72,6 +73,9 @@ class IntelligentAssistantService {
     if (fromMemory != null) {
       // دستیار این سؤال را «یاد گرفته» — مستقیم از محلی جواب بده.
       answer = fromMemory;
+      // امتیاز برای استفاده از دانش یادگرفته‌شده
+      // ignore: unawaited_futures
+      SkillService.instance.addForScenarioReuse();
     } else {
       // آیا هوش محلی (قانون‌محور) این سؤال را می‌فهمد؟
       final localCanHandle = ruleBased.canHandle(t);
@@ -84,6 +88,9 @@ class IntelligentAssistantService {
         // محلی متوجه نشد → از آنلاین بپرس و یاد بگیر.
         answer = await _askOnline(t, tasks);
         await memory.remember(t, answer);
+        // امتیاز مهارت برای یادگیری جدید
+        // ignore: unawaited_futures
+        SkillService.instance.addForLocalAnswer(question: t);
       } else {
         // آنلاین هم در دسترس نیست → محلی (به‌ترین تلاش).
         answer = await ruleBased.generate(prompt: t, tasks: tasks);
