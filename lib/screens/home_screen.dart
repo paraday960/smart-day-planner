@@ -46,6 +46,7 @@ import '../services/task_repository.dart';
 import '../application/home/assistant_coordinator.dart';
 import '../application/home/task_flow_coordinator.dart';
 import '../services/voice_input.dart';
+import '../services/voice_nlu.dart';
 // Refactor 2026-08-06: منطق دستیار به AssistantCoordinator و جریان کار به TaskFlowCoordinator منتقل شد
 import '../services/voice_response_service.dart';
 import '../utils/persian_format.dart';
@@ -858,7 +859,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   bool _isAutonomousCommand(String text) {
-    final lower = text.toLowerCase();
+    final lower = VoiceNlu.normalize(text).toLowerCase();
     const keywords = [
       'بدهکار',
       'بدهی',
@@ -883,10 +884,22 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       'میلیون',
       'میل',
       'میلیارد',
+      'حساب',
+      'مانده',
+      'پرونده',
+      'خورد خورد',
+      'قسط',
       'تایید',
       'لغو'
     ];
     if (keywords.any(lower.contains)) return true;
+    // اسم تنها مثل «فرهاد» یا پرسش پرونده «بدهی فرهاد»
+    if (VoiceNlu.isSinglePersianName(lower.trim())) return true;
+    if (VoiceNlu.extractPersonNameForQuery(lower).isNotEmpty) {
+      if (lower.contains('بدهی') || lower.contains('قرض') || lower.contains('وام') || lower.contains('حساب') || lower.contains('مانده') || lower.contains('پرونده') || lower.contains('چقدر')) {
+        return true;
+      }
+    }
     // جمله‌های طبیعی مثل «فردا ساعت ۲ کار دارم» بدون کلمهٔ «کار جدید»
     // و همچنین «فردا ساعت ۱۴ جلسه کاری دارم»
     final hasDateOrTime = lower.contains('فردا') ||

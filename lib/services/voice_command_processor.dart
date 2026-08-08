@@ -107,8 +107,20 @@ class VoiceCommandProcessor {
       return _handleAllocationCommand(text);
     }
 
-    if (VoiceNlu.containsAny(text, ['بدهی']) && VoiceNlu.containsAny(text, ['پرداخت کردم', 'پس دادم', 'تسویه کردم'])) {
+    // پرداخت بدهی — حالا هم «بدهی» هم «قرض/وام» + «پرداخت» و هم «خورد خورد به فرهاد دادم» را می‌فهمد
+    if (_isDebtPaymentIntent(text)) {
       return _handleDebtPaymentCommand(text);
+    }
+
+    // پرسش پرونده شخص: «بدهی فرهاد چقدره؟»، «حساب فرهاد»، «مانده فرهاد»، «فرهاد چقدر بدهکارم»
+    if (_isPersonDebtQuery(text)) {
+      return _handlePersonDebtQuery(rawText, text);
+    }
+
+    // اگر فقط اسم گفته شد (مثل «فرهاد») و شخص ناشناس بود، پرونده بساز
+    if (VoiceNlu.isSinglePersianName(text.trim()) ||
+        _isSinglePersonDebtMention(text)) {
+      return _handleSinglePersonMention(rawText, text);
     }
 
     // پوشش جامع بدهی/طلب/قرض/وام — شامل «قرض کردم/گرفتم/دادم» و «وام گرفتم» و مخفف «میل»
@@ -305,6 +317,39 @@ class VoiceCommandProcessor {
       return 'ثبت شد. ${status.message}';
     }
 
+    if (pending.type == 'person_creation') {
+      final personName = pending.slots['personName'] as String? ?? 'نامشخص';
+      // اگر گفت «پرونده رو بساز» بدون مبلغ، فقط پرونده خالی بساز (یادآوری)
+      if (VoiceNlu.containsAny(text, ['پرونده', 'بساز', 'درست کن']) && VoiceNlu.parseAmount(text) <= 0) {
+        await memory.rememberEntity(type: 'person', id: personName, title: personName);
+        await memory.clearPending();
+        return 'پرونده «$personName» ساخته شد 📁. از این به بعد هر بدهی، قرض یا پرداخت خرد برای «$personName» را جداگانه حساب می‌کنم.\n'
+            'الان بگو: «به $personName دو میلیون بدهکارم تا دو روز دیگه» یا «از $personName یک میل قرض گرفتم»';
+      }
+      // اگر مبلغ داشت، سعی کن بدهی برای همان شخص بسازی
+      final amount = VoiceNlu.parseAmount(text);
+      if (amount > 0) {
+        String enrichedText = text;
+        String enrichedRaw = rawText;
+        if (!text.contains(personName)) {
+          enrichedText = 'به $personName $text';
+          enrichedRaw = 'به $personName $rawText';
+        }
+        await memory.clearPending();
+        // حلقه نده — مستقیم بدهی بساز
+        return _handleDebtCommand(enrichedRaw, enrichedText);
+      }
+      // اگر «بله/آره» گفت، بپرس جزئیات
+      if (VoiceNlu.containsAny(text, ['بله', 'آره', 'بساز', 'اوکی', 'درست کن'])) {
+        return 'باشه، برای «$personName» چقدر و تا کی؟ مثلاً: «به $personName دو میلیون بدهکارم تا دو روز دیگه»';
+      }
+      if (_isNegative(text)) {
+        await memory.clearPending();
+        return 'باشه، پرونده «$personName» نساختم.';
+      }
+      return 'برای «$personName» بگو چقدر بدهکاری و تا کی؟ مثلاً: «به $personName دو میلیون بدهکارم تا دو روز دیگه» یا بگو «پرونده $personName رو بساز»';
+    }
+
     await memory.clearPending();
     return 'گفت‌وگوی قبلی را متوجه نشدم؛ لطفاً دوباره کامل بگو.';
   }
@@ -328,6 +373,159 @@ class VoiceCommandProcessor {
           'پول گرفتم'
         ]) &&
         VoiceNlu.parseAmount(text) <= 0;
+  }
+
+  bool _isDebtPaymentIntent(String text) {
+    final hasPaymentVerb = VoiceNlu.containsAny(text, [
+      'پرداخت کردم',
+      'پس دادم',
+      'تسویه کردم',
+      'پرداخت دادم',
+      'دادم به',
+      'واریز کردم'
+    ]);
+    // حالت کلاسیک: بدهی + پرداخت
+    if (VoiceNlu.containsAny(text, ['بدهی', 'قرض', 'وام']) && hasPaymentVerb) return true;
+    // حالت خرد: مبلغ + پرداخت + نام شخص شناخته‌شده
+    if (hasPaymentVerb && _hasActiveDebtForPersonInText(text)) return true;
+    // حالت «خورد خورد» یا «قسط» حتی بدون کلمه بدهی
+    if (VoiceNlu.containsAny(text, ['خورد خورد', 'قسط', 'تیکه تیکه']) &&
+        (VoiceNlu.containsAny(text, ['پرداخت', 'دادم']) || _hasActiveDebtForPersonInText(text))) {
+      return true;
+    }
+    // حالت ساده: «به فرهاد پرداخت کردم» بدون کلمه بدهی
+    if (hasPaymentVerb && VoiceNlu.containsAny(text, ['به ', 'از '])) {
+      // اگر متنش شبیه پرداخت به شخص باشد، بدهی حساب کن
+      final maybePerson = VoiceNlu.extractPersonNameForQuery(text);
+      if (maybePerson.isNotEmpty) return true;
+    }
+    return false;
+  }
+
+  bool _hasActiveDebtForPersonInText(String text) {
+    final normalized = VoiceNlu.normalize(text);
+    for (final d in debtRepository.activeItems) {
+      if (normalized.contains(d.personName)) return true;
+    }
+    return false;
+  }
+
+  bool _isPersonDebtQuery(String text) {
+    final normalized = VoiceNlu.normalize(text);
+    // الگوهای پرسش پرونده: بدهی فرهاد، حساب فرهاد، مانده فرهاد، پرونده فرهاد، قرض فرهاد
+    if (VoiceNlu.containsAny(normalized, ['بدهی', 'قرض', 'وام', 'حساب', 'مانده', 'پرونده'])) {
+      final name = VoiceNlu.extractPersonNameForQuery(normalized);
+      if (name.isNotEmpty && name.length >= 2) return true;
+    }
+    // حالت «فرهاد چقدر بدهکارم» یا «فرهاد چقدر طلب دارم»
+    if (RegExp(r'\S+\s+چقدر').hasMatch(normalized) &&
+        VoiceNlu.containsAny(normalized, ['بدهکار', 'طلب', 'بدهی', 'مانده'])) {
+      return true;
+    }
+    // حالت «وضعیت فرهاد» وقتی فرهاد شناخته شده باشد
+    if (VoiceNlu.containsAny(normalized, ['وضعیت', 'اطلاعات', 'نمایش']) &&
+        _hasActiveDebtForPersonInText(normalized)) {
+      return true;
+    }
+    return false;
+  }
+
+  bool _isSinglePersonDebtMention(String text) {
+    final normalized = VoiceNlu.normalize(text).trim();
+    // فقط یک اسم + شاید «بدهی» یا «حساب» مختصر
+    if (VoiceNlu.isSinglePersianName(normalized)) return true;
+    // «فرهاد بدهی» یا «فرهاد حساب»
+    if (RegExp(r'^[\u0600-\u06FF]{2,15}\s+(بدهی|حساب|قرض|وام)?$').hasMatch(normalized)) {
+      final name = normalized.split(' ').first;
+      if (VoiceNlu.isSinglePersianName(name)) return true;
+    }
+    return false;
+  }
+
+  Future<String> _handlePersonDebtQuery(String rawText, String text) async {
+    final name = VoiceNlu.extractPersonNameForQuery(text);
+    final queryName = name.isEmpty ? VoiceNlu.normalize(text).split(' ').first : name;
+
+    // جستجو در همه بدهی‌ها (فعال و تسویه‌شده) برای آن شخص
+    final allForPerson = debtRepository.items
+        .where((d) => d.personName == queryName || d.personName.contains(queryName) || queryName.contains(d.personName))
+        .toList();
+    final activeForPerson = debtRepository.activeItems
+        .where((d) => d.personName == queryName || d.personName.contains(queryName) || queryName.contains(d.personName))
+        .toList();
+
+    if (allForPerson.isEmpty) {
+      // شخص ناشناس — پیشنهاد ساخت پرونده
+      await conversationMemory?.setPending('person_creation', {'personName': queryName});
+      return '«$queryName» رو هنوز نمی‌شناسم. 🤔\n'
+          'می‌خوای براش پرونده بسازم تا از این به بعد همه بدهی‌ها و پرداخت‌های خردش رو جدا حساب کنم؟\n'
+          'بگو: «به $queryName دو میلیون بدهکارم تا دو روز دیگه» یا «از $queryName یک میل قرض گرفتم»\n'
+          'یا اگر فقط می‌خوای پرونده خالی بسازم، بگو «پرونده $queryName رو بساز»';
+    }
+
+    // شخص شناخته‌شده — گزارش کامل
+    final totalAmount = allForPerson.fold<int>(0, (s, d) => s + d.amount);
+    final totalPaid = allForPerson.fold<int>(0, (s, d) => s + d.paidAmount);
+    final totalRemaining = allForPerson.fold<int>(0, (s, d) => s + d.remainingAmount);
+    final activeRemaining = activeForPerson.fold<int>(0, (s, d) => s + d.remainingAmount);
+
+    final buffer = StringBuffer();
+    buffer.writeln('📁 پرونده «$queryName»:');
+    buffer.writeln('• کل بدهی/طلب ثبت‌شده: ${PersianFormat.money(totalAmount)} (${PersianFormat.digits(allForPerson.length)} مورد)');
+    buffer.writeln('• کل پرداخت‌شده: ${PersianFormat.money(totalPaid)}');
+    buffer.writeln('• مانده فعال: ${PersianFormat.money(activeRemaining)} ${activeForPerson.isEmpty ? '✅ تسویه شده' : '⏳'}');
+
+    if (activeForPerson.isNotEmpty) {
+      buffer.writeln('• جزئیات بدهی‌های فعال:');
+      for (final d in activeForPerson) {
+        final status = const DebtPlanningService().statusFor(d, financeRepository);
+        final progress = ((d.paidAmount / d.amount) * 100).round();
+        buffer.writeln(
+            '  - ${d.type.faLabel} ${PersianFormat.money(d.amount)} → پرداخت ${PersianFormat.money(d.paidAmount)} → مانده ${PersianFormat.money(d.remainingAmount)} (${PersianFormat.digits(progress)}٪ پرداخت) • مهلت ${PersianFormat.jalaliDate(d.dueAt)} • ${status.message}');
+      }
+    } else {
+      buffer.writeln('• همه بدهی‌های $queryName تسویه شده 🎉');
+      // نمایش تسویه‌شده‌ها هم
+      for (final d in allForPerson.take(2)) {
+        buffer.writeln('  - ${d.type.faLabel} ${PersianFormat.money(d.amount)} • تسویه ${PersianFormat.jalaliDate(d.dueAt)}');
+      }
+    }
+
+    // اگر پرداخت‌های خرد داشته، تاکید کن
+    if (totalPaid > 0 && totalPaid < totalAmount) {
+      buffer.writeln('💡 خورد خورد پرداخت کردی: ${PersianFormat.money(totalPaid)} از ${PersianFormat.money(totalAmount)} کم شده، ${PersianFormat.money(totalRemaining)} مونده.');
+    }
+
+    buffer.writeln('برای پرداخت جدید بگو: «۵۰۰ هزار به $queryName پرداخت کردم»');
+
+    return buffer.toString();
+  }
+
+  Future<String> _handleSinglePersonMention(String rawText, String text) async {
+    final normalized = VoiceNlu.normalize(text).trim();
+    String name = normalized;
+    if (VoiceNlu.isSinglePersianName(normalized)) {
+      name = normalized;
+    } else {
+      name = VoiceNlu.extractPersonNameForQuery(text);
+      if (name.isEmpty) name = normalized.split(' ').first;
+    }
+    name = name.replaceAll(RegExp(r'[؟?،,.]'), '').trim();
+    if (name.isEmpty || name.length < 2) return 'نام شخص را نفهمیدم. بگو: فرهاد';
+
+    // آیا این شخص را می‌شناسیم؟
+    final known = debtRepository.items.any((d) => d.personName == name || d.personName.contains(name));
+    if (known) {
+      // اگر می‌شناسیم، همان گزارش پرونده را بده
+      return _handlePersonDebtQuery(rawText, 'بدهی $name');
+    }
+
+    // ناشناس — بپرس کیه و پرونده بساز
+    await conversationMemory?.setPending('person_creation', {'personName': name});
+    return '«$name» رو نمی‌شناسم. کیه؟ 🤔\n'
+        'براش یه پرونده می‌سازم تا از این به بعد بدهی‌ها، قرض‌ها و پرداخت‌های خردش رو جدا حساب کنم.\n'
+        'بگو: «به $name چقدر بدهکاری و تا کی؟» مثلاً: «به $name دو میلیون بدهکارم تا دو روز دیگه»\n'
+        'یا بگو «پرونده $name رو بساز» تا پرونده خالی براش درست کنم.';
   }
 
   /// تشخیص جمله‌های طبیعی مثل «فردا ساعت ۲ کار دارم» که باید کار بسازند
@@ -505,19 +703,36 @@ class VoiceCommandProcessor {
 
   Future<String> _handleDebtPaymentCommand(String text) async {
     final activeDebts = debtRepository.activeItems.where((e) => e.type == DebtType.debt).toList();
-    if (activeDebts.isEmpty) return 'بدهی فعالی برای پرداخت پیدا نکردم.';
+    if (activeDebts.isEmpty) return 'بدهی فعالی برای پرداخت پیدا نکردم. اول بگو: «به فرهاد دو میلیون بدهکارم»';
 
+    // پیدا کردن بهترین بدهی برای پرداخت — اگر نام شخص در متن بود، بدهی‌های همان شخص با نزدیک‌ترین مهلت
     DebtItem? best;
-    for (final item in activeDebts) {
-      if (text.contains(item.personName)) {
-        best = item;
-        break;
+    final candidates = activeDebts.where((d) => text.contains(d.personName)).toList()
+      ..sort((a, b) => a.dueAt.compareTo(b.dueAt));
+    if (candidates.isNotEmpty) {
+      best = candidates.firstWhere((d) => d.remainingAmount > 0, orElse: () => candidates.first);
+    } else {
+      // تلاش با استخراج نام از متن (مثل «به فرهاد پرداخت کردم»)
+      final maybeName = VoiceNlu.extractPersonNameForQuery(text);
+      if (maybeName.isNotEmpty) {
+        final named = activeDebts.where((d) => d.personName == maybeName || d.personName.contains(maybeName)).toList()
+          ..sort((a, b) => a.dueAt.compareTo(b.dueAt));
+        if (named.isNotEmpty) best = named.firstWhere((d) => d.remainingAmount > 0, orElse: () => named.first);
       }
     }
-    best ??= activeDebts.first;
+    best ??= (activeDebts..sort((a, b) => a.dueAt.compareTo(b.dueAt))).firstWhere((d) => d.remainingAmount > 0, orElse: () => activeDebts.first);
 
-    final amount = VoiceNlu.parseAmount(text);
-    final payment = amount > 0 ? amount : best.remainingAmount;
+    var amount = VoiceNlu.parseAmount(text);
+    // اگر «خورد خورد» یا مبلغ مبهم بود
+    if (amount <= 0) {
+      final ambiguous = VoiceNlu.parseAmbiguousSpokenAmount(text);
+      if (ambiguous != null && ambiguous > 0) amount = ambiguous;
+    }
+    // اگر باز هم مبلغ نداشت و «خورد خورد» گفته، بپرس چقدر
+    if (amount <= 0 && VoiceNlu.containsAny(text, ['خورد خورد', 'تیکه تیکه', 'قسط', 'کم کم'])) {
+      return 'چقدر خورد خورد پرداخت کردی به «${best.personName}»؟ مثلاً بگو: «۵۰۰ هزار به ${best.personName} پرداخت کردم»';
+    }
+    final payment = amount > 0 ? amount.clamp(1, best.remainingAmount).toInt() : best.remainingAmount;
     await debtRepository.addPayment(best.id, payment);
     await financeRepository.add(
       FinanceTransaction(
@@ -525,12 +740,23 @@ class VoiceCommandProcessor {
         type: FinanceTransactionType.expense,
         amount: payment,
         createdAt: DateTime.now(),
-        note: 'پرداخت بدهی به ${best.personName}',
+        note: 'پرداخت بدهی به ${best.personName} (خورد خورد)',
         category: 'بدهی',
       ),
     );
 
-    return 'پرداخت ${PersianFormat.money(payment)} برای بدهی ${best.personName} ثبت شد.';
+    // بعد از پرداخت، بدهی را دوباره بخوان تا مانده جدید را بگیری
+    final updated = debtRepository.items.firstWhere((d) => d.id == best!.id, orElse: () => best!);
+    final remaining = updated.remainingAmount;
+    final progress = ((updated.amount - remaining) / updated.amount * 100).round();
+    await conversationMemory?.rememberEntity(type: 'debt', id: updated.id, title: updated.personName);
+
+    if (remaining <= 0) {
+      return 'پرداخت ${PersianFormat.money(payment)} به «${best.personName}» ثبت شد ✅ بدهی «${best.personName}» کامل تسویه شد! 🎉 خورد خورد همه رو دادی.';
+    }
+    return 'پرداخت ${PersianFormat.money(payment)} به «${best.personName}» ثبت شد.\n'
+        'مانده: ${PersianFormat.money(remaining)} از ${PersianFormat.money(updated.amount)} (${PersianFormat.digits(progress)}٪ پرداخت شده، ${PersianFormat.digits(100 - progress)}٪ مانده)\n'
+        'خورد خورد داری کم می‌کنی — ادامه بده! برای دیدن پرونده بگو: «بدهی ${best.personName} چقدره؟»';
   }
 
   /// ثبت دسته‌ای چند بدهی + محاسبهٔ فوری برنامهٔ پرداخت.

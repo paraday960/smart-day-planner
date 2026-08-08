@@ -87,6 +87,79 @@ class VoiceNlu {
     return '';
   }
 
+  /// استخراج نام شخص از پرسش‌هایی مثل «بدهی فرهاد چقدره؟»، «حساب فرهاد»، «فرهاد چقدر بدهکارم؟»
+  static String extractPersonNameForQuery(String text) {
+    final normalized = normalize(text);
+    // حالت خاص: «فرهاد چقدر بدهکارم» → اسم قبل از «چقدر»
+    if (normalized.contains('چقدر')) {
+      final left = normalized.split('چقدر').first.trim();
+      // حذف کلمات کلیدی بدهی از چپ
+      var cleanedLeft = left
+          .replaceAll('بدهی', ' ')
+          .replaceAll('قرض', ' ')
+          .replaceAll('وام', ' ')
+          .replaceAll('حساب', ' ')
+          .replaceAll('مانده', ' ')
+          .trim();
+      final words = cleanedLeft.split(RegExp(r'\s+')).where((w) => w.length >= 2 && w != 'من' && w != 'ما').toList();
+      for (final w in words.reversed) {
+        final cand = w.replaceAll(RegExp(r'[؟?،,.]'), '').trim();
+        if (RegExp(r'^[\u0600-\u06FF]{2,15}$').hasMatch(cand) && !['چقدر', 'چند', 'کیه'].contains(cand)) {
+          return cand;
+        }
+      }
+    }
+    // الگوهای «بدهی فرهاد»، «قرض فرهاد»، «حساب فرهاد»، «پرونده فرهاد»
+    final afterKeyword = RegExp(r'(بدهی|قرض|وام|حساب|پرونده|مانده)\s+(\S+)').firstMatch(normalized);
+    if (afterKeyword != null) {
+      final name = afterKeyword.group(2) ?? '';
+      if (name.isNotEmpty && name.length >= 2 && !containsAny(name, ['چقدر', 'چند', 'کیه', 'کجاست', 'چیست'])) {
+        return name.replaceAll(RegExp(r'[؟?،,.]'), '').trim();
+      }
+    }
+    // الگوی «فرهاد بدهیش چقدره» یا «فرهاد چقدر بدهکارم»
+    final beforeKeyword = RegExp(r'(\S+)\s+(بدهی|قرض|وام|حساب|مانده|بدهکار)').firstMatch(normalized);
+    if (beforeKeyword != null) {
+      final name = beforeKeyword.group(1) ?? '';
+      if (name.isNotEmpty && name.length >= 2 && name != 'من' && name != 'ما') {
+        return name.replaceAll(RegExp(r'[؟?،,.]'), '').trim();
+      }
+    }
+    // اگر متن فقط یک اسم باشد (مثلاً «فرهاد»)
+    final trimmed = normalized.replaceAll(RegExp(r'[؟?،,.]'), '').trim();
+    if (RegExp(r'^[\u0600-\u06FF]{2,15}$').hasMatch(trimmed) && trimmed.split(' ').length == 1) {
+      // کلمات عمومی را فیلتر کن
+      const common = ['سلام', 'بدهی', 'قرض', 'وام', 'حساب', 'مانده', 'پرونده', 'امروز', 'فردا', 'کمک', 'پرداخت'];
+      if (!common.contains(trimmed)) return trimmed;
+    }
+    // آخرین تلاش: «از فرهاد» یا «به فرهاد»
+    final from = RegExp(r'از\s+(\S+)').firstMatch(normalized);
+    if (from != null) {
+      final name = from.group(1) ?? '';
+      if (name.isNotEmpty && name.length >= 2) return name;
+    }
+    final to = RegExp(r'به\s+(\S+)').firstMatch(normalized);
+    if (to != null) {
+      final name = to.group(1) ?? '';
+      if (name.isNotEmpty && name.length >= 2) return name;
+    }
+    return '';
+  }
+
+  /// آیا متن فقط یک اسم فارسی است؟ (مثل «فرهاد»)
+  static bool isSinglePersianName(String text) {
+    final normalized = normalize(text).replaceAll(RegExp(r'[؟?،,.]'), '').trim();
+    if (normalized.split(' ').length != 1) return false;
+    if (normalized.length < 2 || normalized.length > 15) return false;
+    if (!RegExp(r'^[\u0600-\u06FF]+$').hasMatch(normalized)) return false;
+    const commonWords = [
+      'سلام', 'بدهی', 'قرض', 'وام', 'حساب', 'مانده', 'پرونده', 'پرداخت', 'امروز', 'فردا', 'دیروز',
+      'کار', 'وظیفه', 'هزینه', 'درآمد', 'کمک', 'راهنما', 'چیست', 'چقدر', 'چطور'
+    ];
+    if (commonWords.contains(normalized)) return false;
+    return true;
+  }
+
   static String cleanPlannedExpenseTitle(String rawText) {
     var title = normalize(rawText);
     final patterns = [
