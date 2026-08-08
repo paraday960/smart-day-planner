@@ -10,6 +10,8 @@ import 'debt_repository.dart';
 import 'llama_backend.dart';
 import 'local_assistant.dart';
 import 'local_assistant_memory.dart';
+import 'local_feedback_learning.dart';
+import 'persian_nlu.dart';
 import 'skill_service.dart';
 import 'voice_nlu.dart';
 
@@ -37,10 +39,17 @@ class IntelligentAssistantService {
     required this.goal,
     required this.debt,
     LocalAssistantMemory? memory,
+    IntentFeedbackStore? feedbackStore,
     this.maxHistoryTurns = 8,
     Duration timeout = const Duration(seconds: 40),
   })  : _timeout = timeout,
-        memory = memory ?? LocalAssistantMemory.instance;
+        memory = memory ?? LocalAssistantMemory.instance,
+        feedbackStore = feedbackStore ?? _defaultFeedbackStore;
+
+  final IntentFeedbackStore feedbackStore;
+
+  static final IntentFeedbackStore _defaultFeedbackStore =
+      IntentFeedbackStore(storageKey: 'intent_feedback_v1');
 
   final LlmBackend? online;
   final LocalLlmAdapter ruleBased;
@@ -68,6 +77,9 @@ class IntelligentAssistantService {
   /// منبع آخرین پاسخ (برای UI).
   String get lastAnswerSourceLabel => _lastSourceLabel;
 
+  String? _lastLocalIntentId;
+  String? _lastUserText;
+
   bool _isCorrection(String text) {
     final norm = VoiceNlu.normalize(text);
     return norm.contains('نه') && (norm.contains('اشتباه') || norm.contains('ببخشید') || norm.contains('غلط')) ||
@@ -84,6 +96,20 @@ class IntelligentAssistantService {
     if (t.isEmpty) return 'چیزی نشنیدم. بگو چطور می‌توانم کمکت کنم.';
 
     await memory.load();
+    await feedbackStore.load();
+
+    // یادگیری ضمنی: بازنویسی هم‌مضمون سؤال قبلی = شکست پاسخ محلی
+    final prevText = _lastUserText;
+    final prevIntent = _lastLocalIntentId;
+    if (prevText != null &&
+        prevIntent != null &&
+        !FeedbackLearningService.isFeedback(t) &&
+        !_isCorrection(t) &&
+        _isRephrase(prevText, t)) {
+      feedbackStore.recordFailure(prevIntent);
+    }
+    _lastUserText = t;
+    _lastLocalIntentId = null;
 
     // ── ۱) یادگیری تقویتی از بازخورد کاربر ──
     // اگر کاربر بعد از یک پاسخ «خوب بود» / «بد بود» بگوید و آن پاسخ از
@@ -149,6 +175,10 @@ class IntelligentAssistantService {
               feedbackScore: 0.3,
             );
           }
+          if (_lastLocalIntentId != null) {
+            feedbackStore.recordFailure(_lastLocalIntentId!);
+            _lastLocalIntentId = null;
+          }
           // ignore: unawaited_futures
           SkillService.instance.addPoints(7, 'یادگیری از تصحیح');
           _history.add(ChatTurn(role: 'user', content: t));
@@ -186,9 +216,13 @@ class IntelligentAssistantService {
       final onlineAvailable = await _isOnlineAvailable();
 
       if (localCanHandle) {
-        // محلی بلد است → سریع و رایگان از محلی جواب بده.
         answer = await ruleBased.generate(prompt: t, tasks: tasks);
         _lastSourceLabel = 'هوش محلی';
+        final intentId = _extractLocalIntentId(t);
+        if (intentId != null) {
+          _lastLocalIntentId = intentId;
+          feedbackStore.recordSuccess(intentId);
+        }
       } else if (onlineAvailable) {
         // محلی متوجه نشد → از آنلاین بپرس و یاد بگیر.
         _lastAnswerFromOnline = false;
@@ -378,4 +412,23 @@ class IntelligentAssistantService {
         'خروجی: حداکثر ۵ خط فارسی، بدون توضیح اضافه. اگر به داده‌ای نیاز داری که نیست، '
         'بگو «در برنامه ثبت نشده» و راهنمایی کن.';
   }
+
+  String? _extractLocalIntentId(String text) {
+    try {
+      final dynamic rb = ruleBased;
+      final dynamic match = rb.detectIntent(text);
+      if (match != null) return match.id as String;
+    } catch (_) {}
+    return null;
+  }
+
+  bool _isRephrase(String a, String b) {
+    final na = PersianNormalizer.normalize(a).trim();
+    final nb = PersianNormalizer.normalize(b).trim();
+    if (na.isEmpty || nb.isEmpty || na == nb) return false;
+    final sim = PersianSemanticSimilarity.score(na, nb);
+    return sim >= 0.45 && sim < 0.92;
+  }
+
+  IntentFeedbackStore get intentFeedback => feedbackStore;
 }

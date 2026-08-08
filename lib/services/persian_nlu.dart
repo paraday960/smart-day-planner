@@ -270,6 +270,7 @@ class PersianSemanticSimilarity {
     'آیا', 'یا', 'نه', 'بله', 'آره', 'خب', 'و', 'را', 'هم', 'نیست',
     'ندارم', 'باید', 'میتونم', 'میتونی', 'الان', 'حالا', 'کردم', 'کردی',
     'کند', 'شود', 'باشه', 'درباره', 'برام', 'برات', 'خواستم',
+    'بچین',
   };
   static const Map<String, String> _synonyms = {
     'قرض': 'بدهی', 'وام': 'بدهی', 'بدهکاری': 'بدهی',
@@ -284,12 +285,23 @@ class PersianSemanticSimilarity {
 
   static String _canonical(String w) {
     var word = w;
-    for (final suffix in ['\u200cام', '\u200cات', '\u200cاش', 'مون', 'تون', 'شون']) {
+    const suffixes = <String>[
+      '‌ام', '‌ات', '‌اش',
+      'مون', 'تون', 'شون',
+      'مو', 'تو', 'شو', 'رو', 'ها', 'تر', 'تری',
+    ];
+    for (final suffix in suffixes) {
       if (word.endsWith(suffix) && word.length > suffix.length + 2) {
         word = word.substring(0, word.length - suffix.length);
         break;
       }
     }
+    const colloquial = <String, String>{
+      'امروزمو': 'امروز', 'امروزتو': 'امروز', 'امروزشو': 'امروز',
+      'امروزم': 'امروز', 'برناممو': 'برنامه', 'برنامتو': 'برنامه',
+      'میخوام': 'خواهم', 'میتونم': 'توانم',
+    };
+    if (colloquial.containsKey(word)) return colloquial[word]!;
     return _synonyms[word] ?? word;
   }
 
