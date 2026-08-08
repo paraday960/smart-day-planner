@@ -86,7 +86,6 @@ class VoiceNlu {
     var title = normalize(rawText);
     final patterns = [
       r'کار جدید',
-      r'کار جدید',
       r'وظیفه جدید',
       r'اضافه کن',
       r'ثبت کن',
@@ -100,8 +99,14 @@ class VoiceNlu {
       r'خیلی مهم',
       r'فوری',
       r'ضروری',
-      r'ساعت\s+\S+',
+      r'ساعت\s+\S+(\s+(عصر|صبح|شب|ظهر|بعد\s+از\s+ظهر))?',
       r'تا\s+\S+\s+(دقیقه|ساعت)\s+(دیگه|دیگر)',
+      r'\bدارم\b',
+      r'\bداریم\b',
+      r'\bعصر\b',
+      r'\bصبح\b',
+      r'\bظهر\b',
+      r'\bشب\b',
     ];
     for (final pattern in patterns) {
       title = title.replaceAll(RegExp(pattern), ' ');

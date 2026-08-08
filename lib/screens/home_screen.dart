@@ -859,7 +859,53 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   bool _isAutonomousCommand(String text) {
     final lower = text.toLowerCase();
-    const keywords = ['بدهکار', 'بدهی', 'کنار بذار', 'کنار بگذار', 'پرداخت', 'هزینه', 'کار جدید', 'وظیفه', 'خرج', 'تومان', 'هزار', 'میلیون', 'تایید', 'لغو'];
-    return keywords.any(lower.contains);
+    const keywords = [
+      'بدهکار',
+      'بدهی',
+      'کنار بذار',
+      'کنار بگذار',
+      'پرداخت',
+      'هزینه',
+      'کار جدید',
+      'کار دارم',
+      'قرار دارم',
+      'جلسه دارم',
+      'کلاس دارم',
+      'شیفت دارم',
+      'جلسه کاری',
+      'قرار کاری',
+      'وظیفه',
+      'خرج',
+      'تومان',
+      'هزار',
+      'میلیون',
+      'تایید',
+      'لغو'
+    ];
+    if (keywords.any(lower.contains)) return true;
+    // جمله‌های طبیعی مثل «فردا ساعت ۲ کار دارم» بدون کلمهٔ «کار جدید»
+    // و همچنین «فردا ساعت ۱۴ جلسه کاری دارم»
+    final hasDateOrTime = lower.contains('فردا') ||
+        lower.contains('امروز') ||
+        lower.contains('پس فردا') ||
+        lower.contains('این هفته') ||
+        lower.contains('هفته دیگه') ||
+        lower.contains('ساعت');
+    final hasTaskPhrase = lower.contains('کار دارم') ||
+        lower.contains('قرار دارم') ||
+        lower.contains('جلسه دارم') ||
+        lower.contains('کلاس دارم') ||
+        lower.contains('شیفت دارم');
+    if (hasDateOrTime && hasTaskPhrase) return true;
+    // حالت کوتاه: «ساعت ۳ جلسه» + تاریخ
+    if (hasDateOrTime &&
+        (lower.contains('قرار') ||
+            lower.contains('جلسه') ||
+            lower.contains('کلاس') ||
+            lower.contains('شیفت')) &&
+        lower.contains('ساعت')) {
+      return true;
+    }
+    return false;
   }
 }

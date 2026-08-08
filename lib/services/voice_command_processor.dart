@@ -179,7 +179,21 @@ class VoiceCommandProcessor {
       return 'هزینه ${PersianFormat.money(amount)} ثبت شد.';
     }
 
-    if (VoiceNlu.containsAny(text, ['کار جدید', 'وظیفه جدید', 'اضافه کن', 'ثبت کن', 'یادم بنداز'])) {
+    if (VoiceNlu.containsAny(text, [
+      'کار جدید',
+      'وظیفه جدید',
+      'اضافه کن',
+      'ثبت کن',
+      'یادم بنداز',
+      'کار دارم',
+      'قرار دارم',
+      'جلسه دارم',
+      'کلاس دارم',
+      'شیفت دارم',
+      'قرار کاری',
+      'جلسه کاری'
+    ]) ||
+        _isImplicitTask(text)) {
       return _addTaskByVoice(rawText, text);
     }
 
@@ -285,6 +299,56 @@ class VoiceCommandProcessor {
 
   bool _isIncompleteDebt(String text) {
     return VoiceNlu.containsAny(text, ['بدهکارم', 'بدهی دارم']) && VoiceNlu.parseAmount(text) <= 0;
+  }
+
+  /// تشخیص جمله‌های طبیعی مثل «فردا ساعت ۲ کار دارم» که باید کار بسازند
+  /// ولی کلمهٔ صریح «کار جدید/اضافه کن» ندارند.
+  /// برای اینکه سؤال‌هایی مثل «فردا چی کار کنم؟» اشتباهی کار نسازند،
+  /// کلمات سؤالی را مستثنی می‌کنیم.
+  bool _isImplicitTask(String text) {
+    // اگر سؤالی یا درخواست برنامه است، کار نساز
+    if (VoiceNlu.containsAny(text, [
+      'چی کار کنم',
+      'چیکار کنم',
+      'چه کار کنم',
+      'برنامه',
+      'چی عقب',
+      'پیشنهاد',
+      'راهنما',
+      'کمک',
+      'وضعیت',
+      'ریسک'
+    ])) {
+      return false;
+    }
+    final hasDateOrTime = VoiceNlu.containsAny(text, [
+      'فردا',
+      'امروز',
+      'پس فردا',
+      'این هفته',
+      'هفته دیگه',
+      'ساعت',
+      'صبح',
+      'ظهر',
+      'عصر',
+      'شب'
+    ]);
+    final hasTaskKeyword = VoiceNlu.containsAny(text, [
+      'کار دارم',
+      'قرار دارم',
+      'جلسه دارم',
+      'کلاس دارم',
+      'شیفت دارم'
+    ]);
+    // حالت خیلی طبیعی: «فردا ساعت ۲ کار دارم» -> hasDateOrTime + hasTaskKeyword
+    if (hasDateOrTime && hasTaskKeyword) return true;
+    // حالت کوتاه: «ساعت ۲ جلسه» + فردا/امروز
+    if (hasDateOrTime &&
+        VoiceNlu.containsAny(text, ['قرار', 'جلسه', 'کلاس', 'شیفت']) &&
+        text.contains('ساعت')) {
+      return true;
+    }
+    return false;
   }
 
   double? _extractWorkHours(String text) {
