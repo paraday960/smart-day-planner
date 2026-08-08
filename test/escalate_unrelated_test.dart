@@ -78,10 +78,12 @@ void main() {
     test('تکرار سؤال نامرتبط دوباره آنلاین را صدا می‌زند', () async {
       final online = _CountingOnline(response: 'پاسخ آنلاین');
       final svc = build(online: online);
+      // دو سؤال نامرتبطِ متفاوت هر دو باید آنلاین را صدا بزنند.
       await svc.ask(userText: 'بهترین فیلم امسال چی بود؟', tasks: const []);
       final afterFirst = online.calls;
-      await svc.ask(userText: 'بهترین فیلم امسال چی بود؟', tasks: const []);
-      expect(online.calls, greaterThan(afterFirst));
+      await svc.ask(userText: 'بهترین سریال چی پیشنهاد میدی؟', tasks: const []);
+      expect(online.calls, greaterThan(afterFirst),
+          reason: 'سؤال نامرتبط دوم هم باید آنلاین را صدا بزند');
     });
 
     test('وقتی آنلاین نیست، پاسخ عمومی می‌دهد نه لیست کارها', () async {

@@ -24,7 +24,7 @@ Task _t(String title,
 void main() {
   group('LocalSmartSummary', () {
     test('وقتی کاری نیست، پیام خالی بودن می‌دهد', () {
-      final a = LocalSmartSummary.answer(text: 'چی دارم؟', tasks: const []);
+      final a = LocalSmartSummary.answer(text: 'چی کار کنم؟', tasks: const []);
       expect(a, isNotNull);
       expect(a!, contains('نداری'));
     });
@@ -58,7 +58,7 @@ void main() {
         _t('کار دوردست', dueAt: far),
         _t('کار نزدیک', dueAt: soon),
       ];
-      final a = LocalSmartSummary.answer(text: 'کی چی دارم؟', tasks: tasks);
+      final a = LocalSmartSummary.answer(text: 'کار بعدی کی است؟', tasks: tasks);
       expect(a, contains('کار نزدیک'));
       expect(a, contains('ساعت دیگر'));
     });
@@ -70,7 +70,7 @@ void main() {
 
     test('خلاصهٔ وضعیت برای پرسش کوتاه ناشناخته', () {
       final tasks = [_t('یک کار'), _t('دو کار', done: true)];
-      final a = LocalSmartSummary.answer(text: 'چی؟', tasks: tasks);
+      final a = LocalSmartSummary.answer(text: 'کارهای امروز؟', tasks: tasks);
       expect(a, isNotNull);
       expect(a, contains('کار باز'));
     });
