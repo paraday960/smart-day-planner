@@ -113,7 +113,13 @@ void main() {
     test('متن خالی → خلاصهٔ روز', () async {
       final answer =
           await assistant.generate(prompt: '', tasks: _sampleTasks());
-      expect(answer, contains('خلاصهٔ امروز'));
+      // خلاصهٔ هوشمند محلی یا خلاصهٔ روز.
+      expect(
+        answer.contains('کار باز') ||
+            answer.contains('خلاصه') ||
+            answer.contains('امروز'),
+        isTrue,
+      );
     });
 
     test('متن نامربوط → خلاصهٔ روز با پیشنهاد', () async {

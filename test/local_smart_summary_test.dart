@@ -11,6 +11,7 @@ Task _t(String title,
   return Task(
     id: title,
     title: title,
+    createdAt: DateTime.now(),
     importance: importance,
     energy: energy,
     estimatedMinutes: 30,
