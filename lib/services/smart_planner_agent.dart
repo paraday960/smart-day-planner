@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../app/feature_flags.dart';
 import 'llama_backend.dart';
+import '../models/debt_item.dart';
 import '../models/finance_transaction.dart';
 import '../models/task.dart';
 import '../utils/persian_format.dart';
@@ -235,11 +236,18 @@ class SmartPlannerAgent {
     } else {
       scale = 'x';
     }
-    final hasDate =
-        text.contains('هفته') || text.contains('فردا') || text.contains('ماه');
-    final hasEvent =
-        text.contains('برم') || text.contains('قرار') || text.contains('بیرون');
-    return 'scenario:$scale:date:$hasDate:event:$hasEvent';
+    // شخص‌محور: فرهاد و مریم جدا یاد گرفته شوند
+    final person = VoiceNlu.extractPersonNameForQuery(text).isNotEmpty
+        ? VoiceNlu.extractPersonNameForQuery(text)
+        : VoiceNlu.extractPersonNameForDebt(text, DebtType.debt).isNotEmpty
+            ? VoiceNlu.extractPersonNameForDebt(text, DebtType.debt)
+            : 'x';
+    // تاریخ نسبی (چند روز دیگر) به جای boolean کلی
+    final due = VoiceNlu.guessDueAt(text);
+    final dueKey = due != null ? '${due.difference(DateTime.now()).inDays}روز' : 'nodate';
+    final eventTitle = _detectEventTitle(text) ?? 'noevent';
+    // اثر انگشت دقیق‌تر: شخص + مبلغ + مهلت نسبی + رویداد
+    return 'scenario:$scale:person:$person:due:$dueKey:event:$eventTitle';
   }
 
   int _extractTarget(String text) {

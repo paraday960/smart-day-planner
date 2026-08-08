@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -52,8 +53,7 @@ class LocalAssistantMemory {
     final exact = _entries[norm];
     if (exact != null) return exact;
 
-    // ۲) تطبیق فازی: اگر سؤال موجود زیرمجموعهٔ این سؤال باشد یا شباهت بالا
-    //    داشته باشد. (برای سؤالات مشابهِ کوتاه)
+    // ۲) تطبیق فازی معنایی — Jaccard + TF-IDF + هم‌معناها + شخص
     String? bestMatch;
     var bestScore = 0.0;
     for (final entry in _entries.entries) {
@@ -63,7 +63,7 @@ class LocalAssistantMemory {
         bestMatch = entry.value;
       }
     }
-    if (bestScore >= 0.7) return bestMatch;
+    if (bestScore >= 0.68) return bestMatch;
     return null;
   }
 
@@ -99,23 +99,124 @@ class LocalAssistantMemory {
   }
 
   String _normalize(String s) {
-    return s
+    var text = s
         .trim()
         .toLowerCase()
-        .replaceAll(RegExp(r'[\u200c\u200f\u200e]'), '') // نیم‌فاصله/فاصله
+        .replaceAll(RegExp(r'[\u200c\u200f\u200e]'), '') // نیم‌فاصله
+        .replaceAll(RegExp(r'[،,.!؟?]'), ' ')
         .replaceAll(RegExp(r'\s+'), ' ')
         .trim();
+    // اصلاح فاصله‌گذاری بدهکار
+    text = text.replaceAll(RegExp(r'بده\s+کار'), 'بدهکار');
+    // یکسان‌سازی هم‌معناها برای تطبیق معنایی
+    text = _expandSynonyms(text);
+    return text;
+  }
+
+  /// نگاشت هم‌معناها به یک فرم کانونی برای تطبیق معنایی بهتر
+  /// مثلاً «قرض» و «وام» → «بدهی»، «حساب/پرونده/مانده» → «بدهی»
+  String _expandSynonyms(String s) {
+    const synMap = {
+      'قرض': 'بدهی',
+      'وام': 'بدهی',
+      'بدهکاری': 'بدهی',
+      'بدهکارم': 'بدهی',
+      'بدهکار': 'بدهی',
+      'طلب': 'بدهی',
+      'طلبکار': 'بدهی',
+      'حساب': 'بدهی',
+      'پرونده': 'بدهی',
+      'مانده': 'بدهی',
+      'چقدره': 'چقدر',
+      'چند': 'چقدر',
+    };
+    var out = s;
+    synMap.forEach((k, v) {
+      out = out.replaceAll(RegExp('\\b$k\\b'), v);
+    });
+    return out;
   }
 
   double _similarity(String a, String b) {
     if (a == b) return 1.0;
-    // جاکارد روی کلمات
+
+    // اگر شخص متفاوت باشد، امتیاز را کم کن (فرهاد vs مریم نباید یکی شود)
+    final personA = _extractPersonToken(a);
+    final personB = _extractPersonToken(b);
+    final personMismatch = personA != null && personB != null && personA != personB;
+
+    // ۱) جاکارد روی کلمات (مثل قبل) — وزن ۰.۵
     final setA = a.split(RegExp(r'\s+')).where((w) => w.length > 1).toSet();
     final setB = b.split(RegExp(r'\s+')).where((w) => w.length > 1).toSet();
+    double jaccard = 0.0;
+    if (setA.isNotEmpty && setB.isNotEmpty) {
+      final inter = setA.intersection(setB).length;
+      final union = setA.union(setB).length;
+      jaccard = union == 0 ? 0.0 : inter / union;
+    }
+
+    // ۲) TF-IDF cosine روی تکرار کلمات — وزن ۰.۳ (برای سؤالات طولانی‌تر دقیق‌تر)
+    final tfidf = _tfidfCosine(a, b);
+
+    // ۳) شباهت کاراکتری (برای غلط املایی جزئی) — وزن ۰.۲
+    final charSim = _charBigramSimilarity(a, b);
+
+    var score = jaccard * 0.5 + tfidf * 0.3 + charSim * 0.2;
+
+    // اگر شخص متفاوت بود، ۰.۲۵ کم کن
+    if (personMismatch) score -= 0.25;
+
+    // اگر یکی زیرمجموعه دیگری بود (مثلاً «بدهی فرهاد» در «بدهی فرهاد چقدره؟») امتیاز بده
+    if (a.contains(b) || b.contains(a)) score = (score + 0.15).clamp(0.0, 1.0);
+
+    return score.clamp(0.0, 1.0);
+  }
+
+  String? _extractPersonToken(String s) {
+    // ساده: آخرین کلمه فارسی ۲-۱۵ حرفی که اسم باشد (نه کلمه عمومی)
+    final words = s.split(RegExp(r'\s+')).where((w) => w.length >= 2).toList();
+    const common = ['بدهی', 'چقدر', 'حساب', 'امروز', 'فردا', 'سلام', 'پرداخت'];
+    for (final w in words.reversed) {
+      if (RegExp(r'^[\u0600-\u06FF]{2,15}$').hasMatch(w) && !common.contains(w)) {
+        return w;
+      }
+    }
+    return null;
+  }
+
+  double _tfidfCosine(String a, String b) {
+    final tokensA = a.split(RegExp(r'\s+')).where((w) => w.length > 1).toList();
+    final tokensB = b.split(RegExp(r'\s+')).where((w) => w.length > 1).toList();
+    if (tokensA.isEmpty || tokensB.isEmpty) return 0.0;
+    final all = {...tokensA, ...tokensB}.toList();
+    final vecA = all.map((t) => tokensA.where((x) => x == t).length.toDouble()).toList();
+    final vecB = all.map((t) => tokensB.where((x) => x == t).length.toDouble()).toList();
+    double dot = 0, magA = 0, magB = 0;
+    for (var i = 0; i < all.length; i++) {
+      dot += vecA[i] * vecB[i];
+      magA += vecA[i] * vecA[i];
+      magB += vecB[i] * vecB[i];
+    }
+    if (magA == 0 || magB == 0) return 0.0;
+    return dot / (sqrt(magA) * sqrt(magB) + 1e-9);
+  }
+
+  double _charBigramSimilarity(String a, String b) {
+    Set<String> bigrams(String s) {
+      final s2 = s.replaceAll(' ', '');
+      if (s2.length < 2) return {s2};
+      final set = <String>{};
+      for (var i = 0; i < s2.length - 1; i++) {
+        set.add(s2.substring(i, i + 2));
+      }
+      return set;
+    }
+
+    final setA = bigrams(a);
+    final setB = bigrams(b);
     if (setA.isEmpty || setB.isEmpty) return 0.0;
-    final intersection = setA.intersection(setB).length;
+    final inter = setA.intersection(setB).length;
     final union = setA.union(setB).length;
-    if (union == 0) return 0.0;
-    return intersection / union;
+    return union == 0 ? 0.0 : inter / union;
   }
 }
