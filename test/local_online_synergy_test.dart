@@ -8,25 +8,23 @@ import 'package:smart_day_planner/services/intelligent_assistant_service.dart';
 import 'package:smart_day_planner/services/local_assistant.dart';
 import 'package:smart_day_planner/services/local_assistant_memory.dart';
 import 'package:smart_day_planner/services/local_feedback_learning.dart';
+import 'package:smart_day_planner/services/llama_backend.dart';
 import 'package:smart_day_planner/services/local_online_router.dart';
 
 /// یک بک‌اند آنلاین جعلی که در صورت available بودن پاسخ می‌دهد.
-class _FakeOnline implements dynamic {
+class _FakeOnline implements LlmBackend {
   bool availableResult;
   int calls = 0;
   String answer;
   _FakeOnline({this.availableResult = true, this.answer = 'پاسخ آنلاین'});
 
   @override
-  dynamic noSuchMethod(Invocation inv) {
-    if (inv.memberName == #available) {
-      return Future.value(availableResult);
-    }
-    if (inv.memberName == #generate) {
-      calls++;
-      return Future.value(answer);
-    }
-    return super.noSuchMethod(inv);
+  Future<bool> get available async => availableResult;
+
+  @override
+  Future<String> generate(String prompt) async {
+    calls++;
+    return answer;
   }
 }
 
@@ -35,7 +33,7 @@ IntelligentAssistantService build({
   LocalOnlineRouter? router,
 }) {
   return IntelligentAssistantService(
-    online: online as dynamic,
+    online: online,
     ruleBased: RuleBasedLocalAssistant(),
     finance: FinanceRepository(),
     goal: GoalRepository(),

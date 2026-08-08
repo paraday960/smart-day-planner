@@ -49,18 +49,18 @@ class LocalOnlineRouter {
       return RouteTarget.online;
     }
 
-    // ۲) پرسش‌های خیلی کوتاه با intent محلی قوی → محلی.
-    if (localCanHandle &&
-        (localConfidence ?? 0) >= confidenceThreshold &&
-        t.length <= maxLocalLength) {
-      return RouteTarget.localOnly;
-    }
-
-    // ۳) اگر محلی این intent را قبلاً زیاد اشتباه جواب داده، آنلاین.
+    // ۲) اگر محلی این intent را قبلاً زیاد اشتباه جواب داده، آنلاین (اولویت بالا).
     final total = localSuccessCount + localFailureCount;
     if (localCanHandle && total >= 4) {
       final failRate = localFailureCount / total;
       if (failRate > 0.5) return RouteTarget.online;
+    }
+
+    // ۳) پرسش‌های خیلی کوتاه با intent محلی قوی → محلی.
+    if (localCanHandle &&
+        (localConfidence ?? 0) >= confidenceThreshold &&
+        t.length <= maxLocalLength) {
+      return RouteTarget.localOnly;
     }
 
     // ۴) اگر محلی می‌تواند ولی اطمینانش متوسط است، اول محلی.
