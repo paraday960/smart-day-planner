@@ -17,6 +17,7 @@ import 'planned_expense_repository.dart';
 import 'goal_repository.dart';
 import 'task_repository.dart';
 import 'forecast_service.dart';
+import 'local_smart_summary.dart';
 import 'persian_nlu.dart';
 import 'conversation_router.dart';
 import 'local_assistant_intents.dart';
@@ -168,6 +169,9 @@ class RuleBasedLocalAssistant implements LocalLlmAdapter {
     final intent = directIntent ?? _detector.detect(text);
 
     if (intent == null || (text.isEmpty && directIntent == null)) {
+      // پاسخ هوشمند آفلاین بر اساس نوع سؤال و داده‌های واقعی.
+      final smart = LocalSmartSummary.answer(text: text, tasks: tasks);
+      if (smart != null) return smart;
       return _dailyBrief(tasks);
     }
 
