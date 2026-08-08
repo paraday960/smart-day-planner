@@ -45,10 +45,10 @@ void main() {
   test('حلقه دوطرفه: بار اول آنلاین، بار دوم از حافظه', () async {
     final online = _FakeOnline();
     final svc = build(online: online);
-    final a1 = await svc.ask(userText: 'چطور تمرکز کنم؟', tasks: const []);
+    final a1 = await svc.ask(userText: 'بهترین فیلم کمدی چی ببینم؟', tasks: const []);
     expect(online.calls, 1);
     expect(a1, contains('پاسخ آموخته'));
-    final a2 = await svc.ask(userText: 'چطور تمرکز کنم؟', tasks: const []);
+    final a2 = await svc.ask(userText: 'بهترین فیلم کمدی چی ببینم؟', tasks: const []);
     expect(online.calls, 1, reason: 'بار دوم باید از حافظه بیاید');
     expect(a2, contains('پاسخ آموخته'));
   });
