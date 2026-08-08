@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../services/voice_response_service.dart';
 
@@ -16,7 +17,7 @@ class OfflineVoiceSettingsCard extends StatefulWidget {
 }
 
 class _OfflineVoiceSettingsCardState extends State<OfflineVoiceSettingsCard> {
-  late bool _forcePiper;
+  bool _forcePiper = false;
   bool _downloading = false;
   bool _installed = false;
 
@@ -28,10 +29,14 @@ class _OfflineVoiceSettingsCardState extends State<OfflineVoiceSettingsCard> {
 
   Future<void> _load() async {
     final service = VoiceResponseService.instance;
-    await service.initialize();
+    // از initialize استفاده نمی‌کنیم چون در محیط تست/بدون پلاگین ممکن است
+    // بلاک شود. فقط مقدار ذخیره‌شدهٔ forcePiper را از SharedPreferences می‌خوانیم.
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      _forcePiper = prefs.getBool('smart_day_planner.voice_response.force_piper') ?? false;
+    } catch (_) {}
     if (!mounted) return;
     setState(() {
-      _forcePiper = service.forcePiper;
       _installed = service.offlineInstalled;
       _downloading = service.offlineChecking;
     });

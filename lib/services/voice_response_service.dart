@@ -76,30 +76,29 @@ class VoiceResponseService implements VoiceResponsePort {
     );
     _forcePiper = prefs.getBool(_forcePiperKey) ?? false;
 
+    // تمام عملیات موتور گفتار سیستم در try/catch محافظت می‌شوند تا در
+    // محیط‌های بدون پلاگین (مثل تست) یا بدون موتور فارسی، initialize بلاک/کرش نکند.
     try {
-      await _ttsInstance.setLanguage('fa-IR');
-    } catch (_) {
-      // بعضی موتورهای گفتار فارسی را با کد fa_IR می‌پذیرند.
       try {
-        await _ttsInstance.setLanguage('fa_IR');
-      } catch (_) {}
-    }
-    await _ttsInstance.setSpeechRate(0.46);
-    await _ttsInstance.setPitch(1.0);
-    await _ttsInstance.setVolume(1.0);
-    await _ttsInstance.awaitSpeakCompletion(false);
+        await _ttsInstance.setLanguage('fa-IR');
+      } catch (_) {
+        try {
+          await _ttsInstance.setLanguage('fa_IR');
+        } catch (_) {}
+      }
+      await _ttsInstance.setSpeechRate(0.46);
+      await _ttsInstance.setPitch(1.0);
+      await _ttsInstance.setVolume(1.0);
+      await _ttsInstance.awaitSpeakCompletion(false);
 
-    await _loadPersianVoices();
-    await _applyPreferredVoice();
+      await _loadPersianVoices();
+      await _applyPreferredVoice();
+    } catch (_) {
+      _persianVoices = [];
+    }
 
     // اگر سیستم هیچ صدای فارسی‌ای نداشت، از Piper استفاده می‌کنیم.
-    _systemHasPersian = _persianVoices.isNotEmpty;
-    // برای اینکه اولین بار سریع‌تر تشخیص دهد، اگر سیستم فارسی ندارد،
-    // بررسی Piper را در پس‌زمینه شروع می‌کنیم (بدون بلاک).
-    if (!_systemHasPersian) {
-      // دانلود به‌موقع — بدون بلاک کردن UI.
-      _offline.ensureInstalled();
-    }
+    // (دانلود فقط وقتی کاربر صریحاً «صدای آفلاین Piper» را فعال کند شروع می‌شود.)
 
     _initialized = true;
   }
