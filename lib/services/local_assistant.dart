@@ -274,12 +274,16 @@ class RuleBasedLocalAssistant implements LocalLlmAdapter {
     final top = open.first;
     final reason = _planner.explainPriority(top);
     final mins = _planner.recommendedEstimate(top, tasks);
-    return '🎯 تمرکزت رو بذار روی «' + top.title + '».
-'
-        'دلیل: ' + reason + '.
-'
-        'زمان پیشنهادی: ' + PersianFormat.minutes(mins) + '. ' +
-        (open.length > 1 ? 'بعدش برو سراغ «' + open[1].title + '».' : '');
+    final parts = <String>[
+      '🎯 تمرکزت رو بذار روی «' + top.title + '».',
+      'دلیل: ' + reason + '.',
+      'زمان پیشنهادی: ' + PersianFormat.minutes(mins) + '.',
+    ];
+    if (open.length > 1) {
+      parts.add('بعدش برو سراغ «' + open[1].title + '».');
+    }
+    return parts.join('
+');
   }
 
   String _reschedule(List<Task> tasks) {
@@ -287,10 +291,11 @@ class RuleBasedLocalAssistant implements LocalLlmAdapter {
     if (plan.isEmpty) {
       return 'برنامه‌ای برای بازچیدن ندارم. کاری ثبت کن تا دوباره بچینم.';
     }
-    final buf = StringBuffer('برنامهٔ بازچیده‌شدهٔ امروز:
-');
+    final buf = StringBuffer('برنامهٔ بازچیده‌شدهٔ امروز:');
     for (final item in plan.take(6)) {
-      buf.writeln(PersianFormat.time(item.start) + ' — ' + item.task.title);
+      buf
+        ..writeln()
+        ..write(PersianFormat.time(item.start) + ' — ' + item.task.title);
     }
     return buf.toString();
   }
@@ -327,19 +332,16 @@ class RuleBasedLocalAssistant implements LocalLlmAdapter {
   }
 
   String _capabilityQuery() {
-    return 'من می‌تونم:
-'
-        '• برنامه‌ریزی روزانه/هفتگی کنم و کار بعدی رو پیشنهاد بدم
-'
-        '• وضعیت مالی، بودجه و بدهی‌هات رو تحلیل کنم
-'
-        '• پیش‌بینی درآمد/هزینه و برنامهٔ پرداخت بدهی بدم
-'
-        '• عادت‌ها و ریسک‌هات رو بررسی کنم
-'
-        '• با فرمان صوتی کارها و تراکنش‌ها رو ثبت کنم
-'
-        '• پاسخ‌هام رو از تعاملاتت یاد بگیرم (آفلاین هم کار می‌کنم)';
+    return [
+      'من می‌تونم:',
+      '• برنامه‌ریزی روزانه/هفتگی کنم و کار بعدی رو پیشنهاد بدم',
+      '• وضعیت مالی، بودجه و بدهی‌هات رو تحلیل کنم',
+      '• پیش‌بینی درآمد/هزینه و برنامهٔ پرداخت بدهی بدم',
+      '• عادت‌ها و ریسک‌هات رو بررسی کنم',
+      '• با فرمان صوتی کارها و تراکنش‌ها رو ثبت کنم',
+      '• پاسخ‌هام رو از تعاملاتت یاد بگیرم (آفلاین هم کار می‌کنم)',
+    ].join('
+');
   }
 
   String _greeting(List<Task> tasks) {
