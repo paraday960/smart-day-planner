@@ -12,6 +12,7 @@ import 'local_assistant.dart';
 import 'local_assistant_memory.dart';
 import 'local_feedback_learning.dart';
 import 'persian_nlu.dart';
+import 'conversation_router.dart';
 import 'skill_service.dart';
 import 'voice_nlu.dart';
 
@@ -40,13 +41,18 @@ class IntelligentAssistantService {
     required this.debt,
     LocalAssistantMemory? memory,
     IntentFeedbackStore? feedbackStore,
+    ConversationContext? conversationContext,
     this.maxHistoryTurns = 8,
     Duration timeout = const Duration(seconds: 40),
   })  : _timeout = timeout,
         memory = memory ?? LocalAssistantMemory.instance,
-        feedbackStore = feedbackStore ?? _defaultFeedbackStore;
+        feedbackStore = feedbackStore ?? _defaultFeedbackStore,
+        conversation = conversationContext ?? ConversationContext();
 
   final IntentFeedbackStore feedbackStore;
+
+  /// زمینهٔ مکالمه برای پشتیبانی از پیگیری‌های ارجاعی (ادامه‌اش چیه؟).
+  final ConversationContext conversation;
 
   static final IntentFeedbackStore _defaultFeedbackStore =
       IntentFeedbackStore(storageKey: 'intent_feedback_v1');
@@ -97,6 +103,16 @@ class IntelligentAssistantService {
 
     await memory.load();
     await feedbackStore.load();
+
+    // ── ۰) پیگیری ارجاعی (آنافورا): «ادامه‌اش چیه؟»، «بعدش؟» ──
+    // اگر متن یک پیگیری است و سؤال قبلی کاربر وجود دارد، به همان intent/موضوع
+    // قبلی رجوع می‌کنیم تا پاسخ مرتبط داده شود.
+    final resolved = conversation.resolveFollowUp(t);
+    String effectiveText = t;
+    if (resolved != null && resolved.intentId.isEmpty) {
+      // ارجاع به متن سؤال قبلی (برای انطباق با حافظه/آنلاین)
+      effectiveText = resolved.originalText;
+    }
 
     // یادگیری ضمنی: بازنویسی هم‌مضمون سؤال قبلی = شکست پاسخ محلی
     final prevText = _lastUserText;
@@ -217,12 +233,23 @@ class IntelligentAssistantService {
       final onlineAvailable = await _isOnlineAvailable();
 
       if (localCanHandle) {
-        answer = await ruleBased.generate(prompt: t, tasks: tasks);
-        _lastSourceLabel = 'هوش محلی';
-        final intentId = _extractLocalIntentId(t);
-        if (intentId != null) {
-          _lastLocalIntentId = intentId;
-          feedbackStore.recordSuccess(intentId);
+        // اگر مسیریاب، پیگیری ارجاعی را به یک intent خاص وصل کرد، همان را اجرا کن.
+        final followIntent =
+            resolved?.intentId.isNotEmpty == true ? resolved!.intentId : null;
+        if (followIntent != null && ruleBased is RuleBasedLocalAssistant) {
+          answer = await (ruleBased as RuleBasedLocalAssistant)
+              .answerIntent(followIntent, tasks);
+          _lastSourceLabel = 'هوش محلی (پیگیری)';
+          _lastLocalIntentId = followIntent;
+          feedbackStore.recordSuccess(followIntent);
+        } else {
+          answer = await ruleBased.generate(prompt: t, tasks: tasks);
+          _lastSourceLabel = 'هوش محلی';
+          final intentId = _extractLocalIntentId(t);
+          if (intentId != null) {
+            _lastLocalIntentId = intentId;
+            feedbackStore.recordSuccess(intentId);
+          }
         }
       } else if (onlineAvailable) {
         // محلی متوجه نشد → از آنلاین بپرس و یاد بگیر.
@@ -251,6 +278,10 @@ class IntelligentAssistantService {
     }
 
     _history.add(ChatTurn(role: 'assistant', content: answer));
+    // ثبت نوبت در زمینهٔ مکالمه برای پشتیبانی از پیگیری‌های بعدی.
+    final resolvedIntent = _lastLocalIntentId;
+    conversation.addUser(effectiveText, intentId: resolvedIntent);
+    conversation.addAssistant(answer, intentId: resolvedIntent);
     return answer;
   }
 
