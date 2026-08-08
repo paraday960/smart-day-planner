@@ -8,21 +8,27 @@ import 'package:smart_day_planner/services/goal_repository.dart';
 import 'package:smart_day_planner/services/intelligent_assistant_service.dart';
 import 'package:smart_day_planner/services/llama_backend.dart';
 import 'package:smart_day_planner/services/local_assistant.dart';
+import 'package:smart_day_planner/services/local_assistant_memory.dart';
 
 class _FakeOnline implements LlmBackend {
   _FakeOnline(this.reply);
   final String reply;
   String? lastPrompt;
+  int calls = 0;
 
   @override
   Future<bool> get available async => true;
 
   @override
   Future<String> generate(String prompt) async {
+    calls++;
     lastPrompt = prompt;
     return reply;
   }
 }
+
+/// یک سؤال که قانون‌محور نمی‌فهمد (intent ندارد).
+const String kUnknownQuestion = 'بهترین روش برای یادگیری گیتار چیست؟';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -34,9 +40,10 @@ void main() {
 
   setUp(() {
     SharedPreferences.setMockInitialValues({});
+    LocalAssistantMemory.instance.reset();
   });
 
-  test('وقتی هوش آنلاین موجود است، از آن استفاده می‌شود و context برنامه را می‌بیند',
+  test('سؤال نامفهوم برای قانون‌محور → آنلاین استفاده می‌شود و context را می‌بیند',
       () async {
     final fake = _FakeOnline('پاسخ هوش آنلاین');
     final service = IntelligentAssistantService(
@@ -45,14 +52,53 @@ void main() {
       finance: FinanceRepository(),
       goal: GoalRepository(),
       debt: DebtRepository(),
+      memory: LocalAssistantMemory.instance,
     );
 
-    final answer = await service.ask(userText: 'وضعیت مالی من چطوره؟', tasks: []);
+    // مطمئن شویم قانون‌محور این را نمی‌فهمد.
+    expect(RuleBasedLocalAssistant().canHandle(kUnknownQuestion), isFalse);
 
+    final answer = await service.ask(userText: kUnknownQuestion, tasks: []);
     expect(answer, 'پاسخ هوش آنلاین');
     // prompt باید شامل دادهٔ واقعی برنامه باشد.
-    expect(fake.lastPrompt, contains('وضعیت مالی'));
     expect(fake.lastPrompt, contains('درآمد کل'));
+  });
+
+  test('سؤالی که قانون‌محور می‌فهمد → آنلاین صدا زده نمی‌شود (محلی جواب می‌دهد)',
+      () async {
+    final fake = _FakeOnline('پاسخ آنلاین');
+    final service = IntelligentAssistantService(
+      online: fake,
+      ruleBased: RuleBasedLocalAssistant(),
+      finance: FinanceRepository(),
+      goal: GoalRepository(),
+      debt: DebtRepository(),
+      memory: LocalAssistantMemory.instance,
+    );
+
+    // «سلام» را قانون‌محور می‌فهمد → محلی، بدون آنلاین.
+    await service.ask(userText: 'سلام', tasks: []);
+    expect(fake.calls, 0, reason: 'سؤال قابل‌فهم محلی نباید آنلاین را صدا بزند');
+  });
+
+  test('سؤال نامفهوم: بار اول آنلاین و یادگیری، بار دوم محلی', () async {
+    final fake = _FakeOnline('پاسخ یادگیری');
+    final service = IntelligentAssistantService(
+      online: fake,
+      ruleBased: RuleBasedLocalAssistant(),
+      finance: FinanceRepository(),
+      goal: GoalRepository(),
+      debt: DebtRepository(),
+      memory: LocalAssistantMemory.instance,
+    );
+
+    // بار اول: آنلاین (نامفهوم برای محلی) + یادگیری
+    await service.ask(userText: kUnknownQuestion, tasks: []);
+    expect(fake.calls, 1);
+
+    // بار دوم: همان سؤال → از حافظهٔ محلی، بدون آنلاین
+    await service.ask(userText: kUnknownQuestion, tasks: []);
+    expect(fake.calls, 1, reason: 'باید از حافظهٔ محلی جواب دهد');
   });
 
   test('وقتی هوش آنلاین در دسترس نباشد، fallback قانون‌محور استفاده می‌شود',
@@ -63,27 +109,10 @@ void main() {
       finance: FinanceRepository(),
       goal: GoalRepository(),
       debt: DebtRepository(),
+      memory: LocalAssistantMemory.instance,
     );
 
-    // سلام → پاسخ خوش‌آمد از قانون‌محور.
     final answer = await service.ask(userText: 'سلام', tasks: []);
     expect(answer, isNotEmpty);
-  });
-
-  test('حافظهٔ مکالمه: درخواست دوم شامل تاریخچهٔ قبلی است', () async {
-    final fake = _FakeOnline('پاسخ');
-    final service = IntelligentAssistantService(
-      online: fake,
-      ruleBased: RuleBasedLocalAssistant(),
-      finance: FinanceRepository(),
-      goal: GoalRepository(),
-      debt: DebtRepository(),
-    );
-
-    await service.ask(userText: 'سلام', tasks: []);
-    await service.ask(userText: 'بگو چیکار کنم', tasks: []);
-
-    // در prompt دوم باید «کاربر: سلام» (تاریخچه) دیده شود.
-    expect(fake.lastPrompt, contains('کاربر: سلام'));
   });
 }

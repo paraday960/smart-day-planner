@@ -44,6 +44,9 @@ class HybridLocalAssistant implements LocalLlmAdapter {
   bool get hasLlmConfigured => _enabled && llm != null;
 
   @override
+  bool canHandle(String prompt) => _fallback.canHandle(prompt);
+
+  @override
   Future<String> generate(
       {required String prompt, required List<Task> tasks}) async {
     final backend = llm;

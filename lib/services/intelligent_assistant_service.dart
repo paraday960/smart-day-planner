@@ -73,12 +73,19 @@ class IntelligentAssistantService {
       // دستیار این سؤال را «یاد گرفته» — مستقیم از محلی جواب بده.
       answer = fromMemory;
     } else {
+      // آیا هوش محلی (قانون‌محور) این سؤال را می‌فهمد؟
+      final localCanHandle = ruleBased.canHandle(t);
       final onlineAvailable = await _isOnlineAvailable();
-      if (onlineAvailable) {
+
+      if (localCanHandle) {
+        // محلی بلد است → سریع و رایگان از محلی جواب بده.
+        answer = await ruleBased.generate(prompt: t, tasks: tasks);
+      } else if (onlineAvailable) {
+        // محلی متوجه نشد → از آنلاین بپرس و یاد بگیر.
         answer = await _askOnline(t, tasks);
-        // یادگیری: جواب آنلاین را محلی ذخیره کن تا بار بعدی محلی جواب دهد.
         await memory.remember(t, answer);
       } else {
+        // آنلاین هم در دسترس نیست → محلی (به‌ترین تلاش).
         answer = await ruleBased.generate(prompt: t, tasks: tasks);
       }
     }

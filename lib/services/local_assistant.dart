@@ -30,6 +30,12 @@ abstract class LocalLlmAdapter {
     required String prompt,
     required List<Task> tasks,
   });
+
+  /// آیا این پیاده‌سازی، متن را «می‌فهمد» (intent مشخصی دارد)؟
+  ///
+  /// پیش‌فرض: true (فرض بر این است که می‌فهمد). پیاده‌سازی قانون‌محور آن را
+  /// بر اساس تشخیص intent بازنویسی می‌کند.
+  bool canHandle(String prompt) => true;
 }
 
 /// زمینهٔ اختیاری برای پاسخ‌های مالی دستیار.
@@ -105,6 +111,18 @@ class RuleBasedLocalAssistant implements LocalLlmAdapter {
 
 
   static const IntentDetector _detector = IntentDetector(intents: kRuleBasedAssistantIntents);
+
+  /// آیا موتور قانون‌محور این متن را «می‌فهمد» (intent مشخصی دارد)؟
+  ///
+  /// برای اینکه دستیار بداند کی باید به هوش آنلاین مراجعه کند: وقتی محلی
+  /// متوجه نمی‌شود (intent ناشناخته)، بهتر است آنلاین پاسخ دهد و یاد بگیرد.
+  @override
+  bool canHandle(String prompt) {
+    final text = PersianNormalizer.normalize(prompt).trim();
+    if (text.isEmpty) return true;
+    final intent = _detector.detect(text);
+    return intent != null;
+  }
 
   @override
   Future<String> generate(

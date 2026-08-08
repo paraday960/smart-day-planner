@@ -96,6 +96,9 @@ class _RecordingFallback implements LocalLlmAdapter {
   final void Function() _onCalled;
 
   @override
+  bool canHandle(String prompt) => true;
+
+  @override
   Future<String> generate(
       {required String prompt, required List<Task> tasks}) async {
     _onCalled();
