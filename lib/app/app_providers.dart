@@ -41,6 +41,7 @@ import '../services/predictive_scheduler_service.dart';
 import '../services/autonomous_agent_service.dart';
 import '../services/habit_insight_service.dart';
 import '../services/hybrid_local_assistant.dart';
+import '../services/intelligent_assistant_service.dart';
 import '../services/llama_backend.dart';
 import '../services/local_assistant.dart';
 import '../services/online_llm_backend.dart';
@@ -105,6 +106,39 @@ final assistantProvider = Provider<LocalLlmAdapter>((ref) {
 final smartPlannerAgentProvider = Provider<SmartPlannerAgent>((ref) {
   return SmartPlannerAgent(
     onlineBackend: FeatureFlags.enableOnlineAi ? OnlineLlmBackend() : null,
+  );
+});
+
+/// دستیار گفتگوی هوشمند — با حافظهٔ مکالمه و دادهٔ واقعی برنامه.
+final intelligentAssistantProvider =
+    Provider<IntelligentAssistantService>((ref) {
+  return IntelligentAssistantService(
+    online: FeatureFlags.enableOnlineAi
+        ? OnlineLlmBackend()
+        : null,
+    ruleBased: RuleBasedLocalAssistant(
+      planner: ref.watch(smartPlannerProvider),
+      context: AssistantContext(
+        finance: ref.watch(financeRepositoryProvider),
+        forecast: ref.watch(forecastServiceProvider),
+        insights: ref.watch(financeInsightsServiceProvider),
+        availability: ref.watch(availabilityRepositoryProvider).settings,
+        debts: ref.watch(debtRepositoryProvider).activeItems,
+        workProfile: ref.watch(workLearningServiceProvider).profile(
+          tasks: ref.watch(taskRepositoryProvider).tasks,
+          transactions: ref.watch(financeRepositoryProvider).transactions,
+        ),
+        taskRepo: ref.watch(taskRepositoryProvider),
+        goalRepo: ref.watch(goalRepositoryProvider),
+        plannedRepo: ref.watch(plannedExpenseRepositoryProvider),
+        debtRepo: ref.watch(debtRepositoryProvider),
+        allocationRepo: ref.watch(allocationRepositoryProvider),
+        budgetRepo: ref.watch(categoryBudgetRepositoryProvider),
+      ),
+    ),
+    finance: ref.watch(financeRepositoryProvider),
+    goal: ref.watch(goalRepositoryProvider),
+    debt: ref.watch(debtRepositoryProvider),
   );
 });
 

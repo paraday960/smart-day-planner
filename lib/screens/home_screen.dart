@@ -801,7 +801,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
     String answer;
 
-    // ۱) سناریوی برنامه‌ریزی هوشمند — هوش آنلاین فکر می‌کند، محلی اجرا می‌کند و یاد می‌گیرد
+    // ۱) مسیریابی هوشمند: اول سناریوی برنامه‌ریزی هوشمند را امتحان کن.
     final planner = ref.read(smartPlannerAgentProvider);
     final workProfile = ref
         .read(workLearningServiceProvider)
@@ -829,8 +829,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       );
       answer = result.message;
     } else {
-      // ۳) سؤال عادی — دستیار (آنلاین / محلی / قانون‌محور)
-      answer = await _assistant.generate(prompt: t, tasks: _repository.tasks);
+      // ۳) سؤال عادی — دستیار گفتگوی هوشمند (با حافظهٔ مکالمه و دادهٔ واقعی)
+      final assistant = ref.read(intelligentAssistantProvider);
+      answer = await assistant.ask(
+        userText: t,
+        tasks: _repository.tasks,
+      );
     }
 
     if (mounted) {
