@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
+
 import 'llama_backend.dart';
 import 'online_ai_config.dart';
 
@@ -97,8 +99,11 @@ class OnlineLlmBackend implements LlmBackend {
       final text =
           await response.transform(utf8.decoder).join().timeout(_timeout);
       if (response.statusCode != 200) {
-        throw OnlineAiNotAvailableException(
-            'خطای سرویس (${response.statusCode}): ${_trim(text)}');
+        // جزئیات خطای سرویس فقط برای لاگ — به کاربر فقط کد وضعیت نمایش
+        // داده می‌شود تا پیام‌های فنی گیج‌کننده به UI نروند.
+        debugPrint(
+            'OnlineLlmBackend: خطای سرویس ${response.statusCode}: ${_trim(text)}');
+        throw OnlineAiNotAvailableException('خطای سرویس (${response.statusCode})');
       }
 
       final data = jsonDecode(text) as Map<String, dynamic>;
@@ -176,11 +181,17 @@ class PriorityLlmBackend implements LlmBackend {
   PriorityLlmBackend(
     List<LlmBackend> backends, {
     Duration timeout = const Duration(seconds: 35),
+    Duration fallbackTimeout = const Duration(seconds: 8),
   })  : _backends = List.unmodifiable(backends),
-        _timeout = timeout;
+        _timeout = timeout,
+        _fallbackTimeout = fallbackTimeout;
 
   final List<LlmBackend> _backends;
   final Duration _timeout;
+
+  /// بک‌اندهای جایگزین مهلت کوتاه‌تری دارند تا کاربر در بدترین حالت
+  /// (N بک‌اند × timeout کامل) مدت طولانی منتظر نماند.
+  final Duration _fallbackTimeout;
 
   @override
   Future<bool> get available async {
@@ -194,10 +205,12 @@ class PriorityLlmBackend implements LlmBackend {
 
   @override
   Future<String> generate(String prompt) async {
-    for (final b in _backends) {
+    for (var i = 0; i < _backends.length; i++) {
+      final b = _backends[i];
       try {
         if (await b.available) {
-          return await b.generate(prompt).timeout(_timeout);
+          final timeout = i == 0 ? _timeout : _fallbackTimeout;
+          return await b.generate(prompt).timeout(timeout);
         }
       } on TimeoutException {
         // به بک‌اند بعدی برو

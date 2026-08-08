@@ -2,6 +2,7 @@
 **/Pods/
 **/Flutter/Generated.xcconfig
 **/Flutter/flutter_export_environment.sh
+**/Flutter/ephemeral/
 **/ServiceDefinitions.json
 **/Runner/GeneratedPluginRegistrant.*
 **/.symlinks/

@@ -31,6 +31,8 @@ dependencies:
   flutter_riverpod: ^2.5.1
   # FFI برای اتصال به شیم C (llm_shim.c) و llama.cpp — LLM محلی اختیاری
   ffi: ^2.1.4
+  # کلید هوش مصنوعی آنلاین کاربر — ذخیرهٔ امن در Keystore/Keychain
+  flutter_secure_storage: ^9.2.2
   # تشخیص گفتار آفلاین (Vosk) — اختیاری، با ENABLE_OFFLINE_SPEECH=true فعال می‌شود
   vosk_flutter: ^0.3.48
   # استخراج مدل‌های zip Vosk از دایرکتوری اسناد

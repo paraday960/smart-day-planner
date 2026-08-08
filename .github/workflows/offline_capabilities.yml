@@ -1,32 +1,3 @@
-# راهنمای workflow «Offline Capabilities Build» (Vosk + LLM)
-
-> **وضعیت (2026-08-08):** فایل `.github/workflows/offline_capabilities.yml`
-> به ریپو اضافه شده و دیگر نیازی به ساخت دستی نیست — از تب Actions قابل اجراست.
-> این سند به‌عنوان مرجع نگهداری می‌شود.
->
-> (پیشینه: قبلاً توکن GitHub App که روی ریپو کار می‌کرد مجوز `workflows`
-> نداشت و نمی‌توانست فایل‌های `.github/workflows/*` را push کند؛ محتوای دقیق
-> workflow در این سند نگهداری می‌شد.)
-
-## هدف
-
-ساخت APK با قابلیت‌های آفلاین کامل (شکاف‌های ۱ و ۲ در `KNOWN_GAPS.md`):
-
-- **تشخیص گفتار آفلاین فارسی (Vosk)** — دانلود خودکار مدل (~۴۰MB) روی runner
-  و باندل در APK با `ENABLE_OFFLINE_SPEECH=true`.
-- **LLM محلی (llama.cpp + Qwen2.5 0.5B)** — اختیاری (~۴۷۰MB) از طریق input
-  workflow؛ باندل در APK با `ENABLE_LOCAL_LLM=true`.
-
-مدل‌ها داخل ریپو commit نمی‌شوند (حجمشان خیلی بزرگ است و `assets/models/*.zip`
-و `*.gguf` عمداً gitignore شده‌اند)؛ workflow آن‌ها را موقع build دانلود و به
-pubspec اضافه می‌کند.
-
-## روش اضافه کردن
-
-فایل زیر را با نام `.github/workflows/offline_capabilities.yml` در ریپو بسازید
-(محتوا را کپی کنید):
-
-```yaml
 name: Offline Capabilities Build (Vosk + LLM)
 
 # ساخت APK با قابلیت‌های آفلاین کامل:
@@ -35,6 +6,9 @@ name: Offline Capabilities Build (Vosk + LLM)
 #
 # استفاده: تب Actions → این workflow → Run workflow
 # خروجی: artifact شامل APK دیباگ با فرمان صوتی آفلاین (و LLM در صورت درخواست).
+#
+# (این فایل در 2026-08-08 از docs/OFFLINE_CAPABILITIES_WORKFLOW.md به ریپو
+# اضافه شد تا مسیر «ساخت APK آفلاین» که در README تبلیغ می‌شود واقعاً کار کند.)
 
 on:
   workflow_dispatch:
@@ -108,33 +82,6 @@ jobs:
               print('model present:', path)
           PY
 
-      - name: Enable Android desugaring (idempotent)
-        run: |
-          python3 <<'PY'
-          from pathlib import Path
-          import re
-          kotlin = Path('android/app/build.gradle.kts')
-          if kotlin.exists():
-              text = kotlin.read_text()
-              if 'isCoreLibraryDesugaringEnabled' not in text:
-                  text = re.sub(r'compileOptions\s*\{', 'compileOptions {\n        isCoreLibraryDesugaringEnabled = true', text, count=1)
-                  print('Added isCoreLibraryDesugaringEnabled = true')
-              if 'desugar_jdk_libs' not in text:
-                  text = text.replace('dependencies {', 'dependencies {\n    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")', 1)
-                  print('Added desugar_jdk_libs')
-              kotlin.write_text(text)
-          else:
-              groovy = Path('android/app/build.gradle')
-              if groovy.exists():
-                  text = groovy.read_text()
-                  if 'coreLibraryDesugaringEnabled' not in text:
-                      text = re.sub(r'compileOptions\s*\{', 'compileOptions {\n        coreLibraryDesugaringEnabled true', text, count=1)
-                  if 'desugar_jdk_libs' not in text:
-                      text = text.replace('dependencies {', "dependencies {\n    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.1.4'", 1)
-                  groovy.write_text(text)
-                  print('Groovy desugaring patched')
-          PY
-
       - name: Clean up auto-generated widget_test
         run: |
           if [ -f test/widget_test.dart ]; then
@@ -169,19 +116,3 @@ jobs:
         with:
           name: smart-day-planner-offline-apk
           path: build/app/outputs/flutter-apk/app-debug.apk
-```
-
-## استفاده
-
-1. تب **Actions** → **Offline Capabilities Build (Vosk + LLM)** → **Run workflow**.
-2. برای APK سبک با فقط فرمان صوتی آفلاین: تیک `include_llm` را بر ندارید.
-3. برای APK کامل با LLM محلی: تیک `include_llm` را بزنید (دانلود ~۴۷۰MB،
-   APK حدود ۵۰۰MB).
-4. از **Artifacts** آخرین ران، `smart-day-planner-offline-apk` را دانلود کنید.
-
-## نکتهٔ مهم دربارهٔ Vosk روی دستگاه
-
-مدل Vosk (~۴۰MB) داخل APK باندل می‌شود و در اولین اجرا توسط `VoskAssetInstaller`
-به `<اسناد>/vosk/` کپی می‌شود تا `VoskModelLocator` پیدایش کند. اگر مدل را
-نخواستید داخل APK باشد، کافیست zip را دستی در `<اسناد>/vosk/` بگذارید (همان
-مسیر را locator جستجو می‌کند).

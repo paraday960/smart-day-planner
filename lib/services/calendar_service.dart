@@ -27,7 +27,9 @@ class CalendarService implements CalendarServicePort {
     final end = now.add(Duration(days: days));
     final result = <CalendarEventSummary>[];
 
-    for (final calendar in calendars.where((c) => !(c.isReadOnly ?? false) || true)) {
+    // رویدادها از همهٔ تقویم‌ها خوانده می‌شوند (حتی فقط-خواندنی مثل تعطیلات)؛
+    // فقط برای «نوشتن» است که تقویم فقط-خواندنی فیلتر می‌شود (خط ۶۷).
+    for (final calendar in calendars) {
       final calendarId = calendar.id;
       if (calendarId == null) continue;
       final eventsResult = await _plugin.retrieveEvents(

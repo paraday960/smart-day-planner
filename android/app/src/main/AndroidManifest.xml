@@ -5,16 +5,18 @@
          • RECORD_AUDIO: فرمان صوتی فارسی
          • READ/WRITE_CALENDAR: خواندن و ثبت رویداد در تقویم گوشی
          • POST_NOTIFICATIONS: اعلان یادآوری (اندروید ۱۳+)
-         • SCHEDULE_EXACT_ALARM: زمان‌بندی دقیق هشدارهای هوشمند
          • RECEIVE_BOOT_COMPLETED: زمان‌بندی مجدد اعلان‌ها بعد از ری‌استارت
          • VIBRATE / WAKE_LOCK: اعلان‌ها
+
+         نکته: SCHEDULE_EXACT_ALARM عمداً حذف شد چون همهٔ زمان‌بندی‌ها
+         با AndroidScheduleMode.inexactAllowWhileIdle انجام می‌شوند و این
+         مجوز فقط ریسک بازبینی Play Store را بالا می‌برد.
     ─────────────────────────────────────────────────────────────────── -->
     <uses-permission android:name="android.permission.INTERNET"/>
     <uses-permission android:name="android.permission.RECORD_AUDIO"/>
     <uses-permission android:name="android.permission.READ_CALENDAR"/>
     <uses-permission android:name="android.permission.WRITE_CALENDAR"/>
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
-    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
     <uses-permission android:name="android.permission.VIBRATE"/>
     <uses-permission android:name="android.permission.WAKE_LOCK"/>
