@@ -221,7 +221,7 @@ class IntelligentAssistantService {
     }
 
     String answer;
-    final fromMemory = memory.lookupEntry(t);
+    final fromMemory = memory.lookupEntry(effectiveText);
     if (fromMemory != null) {
       // دستیار این سؤال را «یاد گرفته» — مستقیم از محلی جواب بده.
       answer = fromMemory.answer;
@@ -229,7 +229,7 @@ class IntelligentAssistantService {
       _lastSourceLabel = 'حافظهٔ محلی (یادگیری از آنلاین)';
       // ثبت استفاده برای تقویت ورودی + امتیاز مهارت
       // ignore: unawaited_futures
-      memory.recordHit(t);
+      memory.recordHit(effectiveText);
       // ignore: unawaited_futures
       SkillService.instance.addForScenarioReuse();
     } else {
@@ -279,11 +279,18 @@ class IntelligentAssistantService {
         if (_lastAnswerFromOnline) {
           // فقط پاسخ واقعی آنلاین یاد گرفته می‌شود (fallback نه)
           await memory.rememberEntry(
-            t,
+            effectiveText,
             answer,
             source: MemorySource.online,
           );
-          _lastMemoryKey = memory.normalizeQuestion(t);
+          if (effectiveText != t) {
+            await memory.rememberEntry(
+              t,
+              answer,
+              source: MemorySource.online,
+            );
+          }
+          _lastMemoryKey = memory.normalizeQuestion(effectiveText);
           _lastSourceLabel = 'هوش آنلاین (یاد گرفته شد)';
           // امتیاز مهارت برای یادگیری جدید
           // ignore: unawaited_futures
