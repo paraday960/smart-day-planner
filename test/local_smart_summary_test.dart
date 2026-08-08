@@ -77,8 +77,9 @@ void main() {
     test('تعداد کل دقیقه‌ها را گزارش می‌دهد', () {
       final tasks = [_t('الف'), _t('ب')];
       final a = LocalSmartSummary.answer(text: 'برنامه چیه؟', tasks: tasks);
-      expect(a, contains('۶۰') || a!.contains('1 ساعت'),
-          reason: 'باید ۶۰ دقیقه یا ۱ ساعت را نشان دهد');
+      final text = a ?? '';
+      final ok = text.contains('۶۰') || text.contains('1 ساعت') || text.contains('۶۰ دقیقه');
+      expect(ok, isTrue, reason: 'باید ۶۰ دقیقه یا ۱ ساعت را نشان دهد: $text');
     });
   });
 }
