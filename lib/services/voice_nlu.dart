@@ -450,13 +450,19 @@ class VoiceNlu {
   static bool containsAny(String text, List<String> words) => words.any(text.contains);
 
   static String normalize(String value) {
-    return convertPersianDigits(value)
+    var text = convertPersianDigits(value)
         .replaceAll('ي', 'ی')
         .replaceAll('ك', 'ک')
         .replaceAll(RegExp(r'[،,.!؟?]'), ' ')
         .replaceAll(RegExp(r'\s+'), ' ')
         .trim()
         .toLowerCase();
+    // اصلاح فاصله‌گذاری اشتباه رایج: «بده کارم» → «بدهکارم»، «بده کاری» → «بدهکاری»
+    // و نیم‌فاصله‌ها
+    text = text.replaceAll('\u200c', '').replaceAll('\u200b', '');
+    text = text.replaceAll(RegExp(r'بده\s+کار'), 'بدهکار');
+    text = text.replaceAll(RegExp(r'\s+'), ' ').trim();
+    return text;
   }
 
   static String convertPersianDigits(String value) {
