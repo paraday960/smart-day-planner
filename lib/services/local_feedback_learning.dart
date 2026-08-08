@@ -158,6 +158,22 @@ class IntentFeedbackStore {
         .join('\n');
   }
 
+  /// خروجی سریال برای ذخیره‌سازی دستی یا تست.
+  Map<String, dynamic> toJson() =>
+      _stats.map((k, v) => MapEntry(k, v.toJson()));
+
+  /// بارگذاری از نقشهٔ سریال (برای تست یا import).
+  void loadJson(Map<String, dynamic> json) {
+    _stats.clear();
+    for (final e in json.entries) {
+      final v = e.value;
+      if (v is Map<String, dynamic>) {
+        _stats[e.key] = IntentFeedbackStats.fromJson(v);
+      }
+    }
+    _loaded = true;
+  }
+
   void resetForTest() {
     _stats.clear();
     _loaded = false;
