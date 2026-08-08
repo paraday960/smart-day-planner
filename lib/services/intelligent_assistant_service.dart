@@ -365,9 +365,9 @@ class IntelligentAssistantService {
     }
   }
 
-  String _ruleBasedAnswer(String text, List<Task> tasks) {
+  Future<String> _ruleBasedAnswer(String text, List<Task> tasks) async {
     try {
-      return ruleBased.generate(prompt: text, tasks: tasks).toString();
+      return await ruleBased.generate(prompt: text, tasks: tasks);
     } catch (_) {
       return 'نتوانستم پاسخی آماده کنم. لطفاً دوباره سؤال کن.';
     }
