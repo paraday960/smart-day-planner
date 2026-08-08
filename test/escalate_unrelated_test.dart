@@ -81,7 +81,7 @@ void main() {
       // دو سؤال نامرتبطِ متفاوت هر دو باید آنلاین را صدا بزنند.
       await svc.ask(userText: 'بهترین فیلم امسال چی بود؟', tasks: const []);
       final afterFirst = online.calls;
-      await svc.ask(userText: 'بهترین سریال چی پیشنهاد میدی؟', tasks: const []);
+      await svc.ask(userText: 'قیمت طلا الان چنده؟', tasks: const []);
       expect(online.calls, greaterThan(afterFirst),
           reason: 'سؤال نامرتبط دوم هم باید آنلاین را صدا بزند');
     });
