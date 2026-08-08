@@ -34,12 +34,15 @@ void main() {
   test('بازنویسی هم‌مضمون سؤال، شکست ثبت می‌کند', () async {
     final fb = IntentFeedbackStore(seed: 2);
     final svc = build(fb: fb);
-    await svc.ask(userText: 'برنامه امروز چیه', tasks: const []);
+    // دو جمله با همان intent (today_plan) و کلمات متفاوت
+    await svc.ask(userText: 'برنامه امروز', tasks: const []);
     await svc.ask(userText: 'برنامه امروزمو بچین', tasks: const []);
-    expect(fb.stats['today_plan']?.failure ?? 0, greaterThan(0));
+    final fails = fb.stats['today_plan']?.failure ?? 0;
+    expect(fails, greaterThan(0),
+        reason: 'بازنویسی هم‌مضمون باید شکست پاسخ قبلی را ثبت کند');
   });
 
-  test('سؤال متفاوت، شکست ثبت نمی‌کند', () async {
+  test('سؤال کاملاً متفاوت، شکست ثبت نمی‌کند', () async {
     final fb = IntentFeedbackStore(seed: 3);
     final svc = build(fb: fb);
     await svc.ask(userText: 'برنامه امروز', tasks: const []);
@@ -52,7 +55,8 @@ void main() {
     final fb = IntentFeedbackStore(seed: 4);
     final svc = build(fb: fb);
     await svc.ask(userText: 'برنامه امروز', tasks: const []);
+    final before = fb.stats['today_plan']?.failure ?? 0;
     await svc.ask(userText: 'نه اشتباهه، ۱۰۰ هزار بود', tasks: const []);
-    expect(fb.stats['today_plan']?.failure ?? 0, greaterThan(0));
+    expect(fb.stats['today_plan']?.failure ?? 0, greaterThan(before));
   });
 }
