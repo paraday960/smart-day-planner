@@ -47,7 +47,7 @@ void main() {
     test('کارهای عقب‌افتاده را هشدار می‌دهد', () {
       final past = DateTime.now().subtract(const Duration(days: 2));
       final tasks = [_t('کار عقب‌افتاده', dueAt: past)];
-      final a = LocalSmartSummary.answer(text: 'وضعیت چطوره؟', tasks: tasks);
+      final a = LocalSmartSummary.answer(text: 'چی کار کنم؟', tasks: tasks);
       expect(a, contains('تأخیر'));
     });
 
@@ -70,8 +70,9 @@ void main() {
 
     test('خلاصهٔ وضعیت برای پرسش کوتاه ناشناخته', () {
       final tasks = [_t('یک کار'), _t('دو کار', done: true)];
-      final a = LocalSmartSummary.answer(text: 'سلام', tasks: tasks);
+      final a = LocalSmartSummary.answer(text: 'چی؟', tasks: tasks);
       expect(a, isNotNull);
+      expect(a, contains('کار باز'));
     });
 
     test('تعداد کل دقیقه‌ها را گزارش می‌دهد', () {
