@@ -416,9 +416,11 @@ class IntelligentAssistantService {
 
   String? _extractLocalIntentId(String text) {
     try {
-      final dynamic rb = ruleBased;
-      final dynamic match = rb.detectIntent(text);
-      if (match != null) return match.id as String;
+      final rb = ruleBased;
+      if (rb is RuleBasedLocalAssistant) {
+        final match = rb.detectIntent(text);
+        return match?.id;
+      }
     } catch (_) {}
     return null;
   }
