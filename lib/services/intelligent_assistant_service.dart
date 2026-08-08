@@ -104,7 +104,7 @@ class IntelligentAssistantService {
     if (prevText != null &&
         prevIntent != null &&
         !FeedbackLearningService.isFeedback(t) &&
-        !_isCorrection(t) &&
+        !_isCorrection(PersianNormalizer.normalize(t)) &&
         _isRephrase(prevText, t)) {
       feedbackStore.recordFailure(prevIntent);
     }
@@ -430,7 +430,7 @@ class IntelligentAssistantService {
     final nb = PersianNormalizer.normalize(b).trim();
     if (na.isEmpty || nb.isEmpty || na == nb) return false;
     final sim = PersianSemanticSimilarity.score(na, nb);
-    return sim >= 0.45 && sim < 0.92;
+    return sim >= 0.45 && sim < 0.95;
   }
 
   IntentFeedbackStore get intentFeedback => feedbackStore;
