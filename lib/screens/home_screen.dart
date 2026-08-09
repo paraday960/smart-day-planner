@@ -818,7 +818,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final workProfile = ref
         .read(workLearningServiceProvider)
         .profile(tasks: _repository.tasks, transactions: _financeRepository.transactions);
-    trace.step('بررسی سناریوی هوشمند');
+    trace.step(TraceStepType.routing, 'بررسی سناریوی هوشمند',
+          source: 'smart_planner_agent.dart');
     final scenario = await planner.handle(
       rawText: t,
       taskRepository: _repository,
@@ -827,10 +828,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
     if (scenario.message.isNotEmpty) {
       answer = scenario.message;
-      trace.step('پاسخ از سناریوی هوشمند',
-          detail: 'پاسخ (${answer.length} کاراکتر)');
+      trace.step(TraceStepType.local, 'پاسخ از سناریوی هوشمند',
+          source: 'smart_planner_agent.dart',
+          outputs: {'answer_length': answer.length});
     } else if (FeatureFlags.enableAutonomousAgent && _isAutonomousCommand(t)) {
-      trace.step('شناسایی فرمان اجرایی', detail: 'به عامل خودکار ارجاع شد');
+      trace.step(TraceStepType.routing, 'شناسایی فرمان اجرایی',
+          source: 'autonomous_agent_service.dart',
+          outputs: {'agent': 'hybrid'});
       final agent = ref.read(autonomousAgentServiceProvider);
       final result = await agent.handleAutonomously(
         rawText: t,
@@ -843,17 +847,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         conversationMemory: _conversationMemoryService,
       );
       answer = result.message;
-      trace.step('فرمان اجرایی انجام شد',
-          detail: 'پاسخ (${answer.length} کاراکتر)');
+      trace.step(TraceStepType.local, 'فرمان اجرایی انجام شد',
+          source: 'autonomous_agent_service.dart',
+          outputs: {'answer_length': answer.length});
     } else {
-      trace.step('ارجاع به دستیار گفتگو');
+      trace.step(TraceStepType.routing, 'ارجاع به دستیار گفتگو',
+          source: 'home_screen.dart');
       final assistant = ref.read(intelligentAssistantProvider);
       answer = await assistant.ask(
         userText: t,
         tasks: _repository.tasks,
       );
     }
-    trace.step('پایان پردازش', detail: 'پاسخ نهایی (${answer.length} کاراکتر)');
+    trace.step(TraceStepType.output, 'بازگرداندن پاسخ نهایی',
+        outputs: {'answer_length': answer.length});
 
     if (mounted) {
       setState(() {
