@@ -810,12 +810,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }
 
     String answer;
+    final trace = TraceStore.instance.start(t);
 
     // ۱) مسیریابی هوشمند: اول سناریوی برنامه‌ریزی هوشمند را امتحان کن.
     final planner = ref.read(smartPlannerAgentProvider);
     final workProfile = ref
         .read(workLearningServiceProvider)
         .profile(tasks: _repository.tasks, transactions: _financeRepository.transactions);
+    trace.step('بررسی سناریوی هوشمند');
     final scenario = await planner.handle(
       rawText: t,
       taskRepository: _repository,
@@ -824,8 +826,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
     if (scenario.message.isNotEmpty) {
       answer = scenario.message;
+      trace.step('پاسخ از سناریوی هوشمند',
+          detail: 'پاسخ (${answer.length} کاراکتر)');
     } else if (FeatureFlags.enableAutonomousAgent && _isAutonomousCommand(t)) {
-      // ۲) فرمان اجرایی (کار/مالی) — دستیار خودکار هیبرید
+      trace.step('شناسایی فرمان اجرایی', detail: 'به عامل خودکار ارجاع شد');
       final agent = ref.read(autonomousAgentServiceProvider);
       final result = await agent.handleAutonomously(
         rawText: t,
@@ -838,14 +842,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         conversationMemory: _conversationMemoryService,
       );
       answer = result.message;
+      trace.step('فرمان اجرایی انجام شد',
+          detail: 'پاسخ (${answer.length} کاراکتر)');
     } else {
-      // ۳) سؤال عادی — دستیار گفتگوی هوشمند (با حافظهٔ مکالمه و دادهٔ واقعی)
+      trace.step('ارجاع به دستیار گفتگو');
       final assistant = ref.read(intelligentAssistantProvider);
       answer = await assistant.ask(
         userText: t,
         tasks: _repository.tasks,
       );
     }
+    trace.step('پایان پردازش', detail: 'پاسخ نهایی (${answer.length} کاراکتر)');
 
     if (mounted) {
       setState(() {
