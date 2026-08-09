@@ -1,77 +1,89 @@
 import 'dart:collection';
 import 'package:flutter/foundation.dart';
 
-/// اهمیت رویداد.
 enum TraceLevel { info, success, warning, error }
 
-/// یک رویداد در ردپای برنامه.
+class AppCategory {
+  static const assistant = 'assistant';
+  static const task = 'task';
+  static const finance = 'finance';
+  static const debt = 'debt';
+  static const goal = 'goal';
+  static const settings = 'settings';
+  static const voice = 'voice';
+  static const notification = 'notification';
+  static const security = 'security';
+  static const system = 'system';
+}
+
 class AppTraceEvent {
   final DateTime time;
-  final String category; // 'assistant' | 'task' | 'finance' | 'debt' | 'goal' | 'settings' | 'voice' | 'system'
+  final String category;
   final String action;
   final TraceLevel level;
-  final String? detail;
+  final String? source;
+  final Map<String, dynamic> inputs;
+  final Map<String, dynamic> outputs;
   final Duration? duration;
+  final String? errorMessage;
 
   AppTraceEvent({
     required this.category,
     required this.action,
     this.level = TraceLevel.info,
-    this.detail,
+    this.source,
+    Map<String, dynamic>? inputs,
+    Map<String, dynamic>? outputs,
     this.duration,
-  }) : time = DateTime.now();
+    this.errorMessage,
+  })  : inputs = inputs ?? {},
+        outputs = outputs ?? {},
+        time = DateTime.now();
 
   String get emoji {
     switch (level) {
-      case TraceLevel.success:
-        return '✅';
-      case TraceLevel.warning:
-        return '⚠️';
-      case TraceLevel.error:
-        return '❌';
-      case TraceLevel.info:
-      default:
-        return '•';
+      case TraceLevel.success: return '✅';
+      case TraceLevel.warning: return '⚠️';
+      case TraceLevel.error: return '❌';
+      case TraceLevel.info: default: return '•';
     }
   }
 
   String get categoryLabel {
     switch (category) {
-      case 'assistant':
-        return '🤖 دستیار';
-      case 'task':
-        return '📋 کارها';
-      case 'finance':
-        return '💰 مالی';
-      case 'debt':
-        return '💳 بدهی';
-      case 'goal':
-        return '🎯 هدف';
-      case 'settings':
-        return '⚙️ تنظیمات';
-      case 'voice':
-        return '🎤 صدا';
-      case 'notification':
-        return '🔔 اعلان';
-      case 'security':
-        return '🔒 امنیت';
-      case 'system':
-      default:
-        return '📱 سیستم';
+      case AppCategory.assistant: return '🤖 دستیار';
+      case AppCategory.task: return '📋 کارها';
+      case AppCategory.finance: return '💰 مالی';
+      case AppCategory.debt: return '💳 بدهی';
+      case AppCategory.goal: return '🎯 هدف';
+      case AppCategory.settings: return '⚙️ تنظیمات';
+      case AppCategory.voice: return '🎤 صدا';
+      case AppCategory.notification: return '🔔 اعلان';
+      case AppCategory.security: return '🔒 امنیت';
+      default: return '📱 سیستم';
     }
   }
 
-  @override
-  String toString() {
+  String format() {
     final buf = StringBuffer('$emoji [$categoryLabel] $action');
     if (duration != null) buf.write(' (${duration!.inMilliseconds}ms)');
     buf.writeln();
-    if (detail != null && detail!.trim().isNotEmpty) {
-      for (final line in detail!.split('\n')) {
-        buf.writeln('    $line');
-      }
+    if (source != null) buf.writeln('   📍 $source');
+    if (inputs.isNotEmpty) {
+      buf.writeln('   📥 ورودی‌ها:');
+      inputs.forEach((k, v) => buf.writeln('      • $k = ${_short(v)}'));
     }
+    if (outputs.isNotEmpty) {
+      buf.writeln('   📤 خروجی‌ها:');
+      outputs.forEach((k, v) => buf.writeln('      • $k = ${_short(v)}'));
+    }
+    if (errorMessage != null) buf.writeln('   ❌ خطا: $errorMessage');
     return buf.toString().trimRight();
+  }
+
+  static String _short(dynamic v) {
+    final s = v?.toString() ?? 'null';
+    return s.length > 200 ? '${s.substring(0, 197)}...' : s;
   }
 
   Map<String, dynamic> toJson() => {
@@ -79,149 +91,76 @@ class AppTraceEvent {
         'category': category,
         'action': action,
         'level': level.name,
-        if (detail != null) 'detail': detail,
+        if (source != null) 'source': source,
+        if (inputs.isNotEmpty) 'inputs': inputs,
+        if (outputs.isNotEmpty) 'outputs': outputs,
         if (duration != null) 'duration_ms': duration!.inMilliseconds,
+        if (errorMessage != null) 'error': errorMessage,
       };
 }
 
-/// ردپای سراسری برنامه — تمام عملیات مهم را ثبت می‌کند.
-///
-/// برخلاف [AssistantTrace] که فقط یک درخواست دستیار را ردیابی می‌کند،
-/// این کلاس رویدادهای سراسری (ثبت کار، تراکنش، تنظیمات و...) را نگه می‌دارد.
 class AppTrace {
   AppTrace._();
   static final AppTrace instance = AppTrace._();
-
   static const _maxEvents = 500;
   final Queue<AppTraceEvent> _events = Queue();
-
-  /// آخرین رویدادها (جدیدترین‌ها اول).
   List<AppTraceEvent> get events => _events.toList().reversed.toList();
 
-  /// ثبت یک رویداد.
-  void log(
-    String category,
-    String action, {
-    TraceLevel level = TraceLevel.info,
-    String? detail,
-    Duration? duration,
-  }) {
+  AppTraceEvent log(String category, String action,
+      {TraceLevel level = TraceLevel.info,
+      String? source,
+      Map<String, dynamic>? inputs,
+      Map<String, dynamic>? outputs,
+      Duration? duration,
+      String? error}) {
     final e = AppTraceEvent(
-      category: category,
-      action: action,
-      level: level,
-      detail: detail,
-      duration: duration,
-    );
+        category: category, action: action, level: level, source: source,
+        inputs: inputs, outputs: outputs, duration: duration, errorMessage: error);
     _events.add(e);
-    while (_events.length > _maxEvents) {
-      _events.removeFirst();
-    }
-    if (kDebugMode) {
-      debugPrint('🔍 [trace] $e');
-    }
+    while (_events.length > _maxEvents) _events.removeFirst();
+    if (kDebugMode) debugPrint('🔍 [app-trace] $e');
+    return e;
   }
 
-  /// اجرای یک عملیات با اندازه‌گیری زمان و ثبت خودکار.
-  Future<T> track<T>(
-    String category,
-    String action,
-    Future<T> Function() operation, {
-    String? Function(T result)? detailFromResult,
-  }) async {
+  Future<T> track<T>(String category, String action, Future<T> Function() operation,
+      {String? source, Map<String, dynamic>? inputs,
+      Map<String, dynamic> Function(T)? outputsFrom}) async {
     final sw = Stopwatch()..start();
     try {
-      final result = await operation();
+      final r = await operation();
       sw.stop();
-      log(
-        category,
-        action,
-        level: TraceLevel.success,
-        duration: sw.elapsed,
-        detail: detailFromResult?.call(result),
-      );
-      return result;
+      log(category, action, level: TraceLevel.success, source: source,
+          duration: sw.elapsed, inputs: inputs, outputs: outputsFrom?.call(r));
+      return r;
     } catch (e) {
       sw.stop();
-      log(
-        category,
-        action,
-        level: TraceLevel.error,
-        duration: sw.elapsed,
-        detail: e.toString(),
-      );
+      log(category, action, level: TraceLevel.error, source: source,
+          duration: sw.elapsed, inputs: inputs, error: e.toString());
       rethrow;
     }
   }
 
-  /// نسخهٔ همگام [track].
-  T trackSync<T>(
-    String category,
-    String action,
-    T Function() operation, {
-    String? Function(T)? detailFromResult,
-  }) {
-    final sw = Stopwatch()..start();
-    try {
-      final result = operation();
-      sw.stop();
-      log(
-        category,
-        action,
-        level: TraceLevel.success,
-        duration: sw.elapsed,
-        detail: detailFromResult?.call(result),
-      );
-      return result;
-    } catch (e) {
-      sw.stop();
-      log(category, action,
-          level: TraceLevel.error, duration: sw.elapsed, detail: e.toString());
-      rethrow;
-    }
-  }
+  List<AppTraceEvent> eventsFor(String c) =>
+      _events.where((e) => e.category == c).toList().reversed.toList();
 
-  /// رویدادهای یک دسته‌بندی خاص.
-  List<AppTraceEvent> eventsFor(String category) =>
-      _events.where((e) => e.category == category).toList().reversed.toList();
-
-  /// خلاصهٔ وضعیت برای گزارش.
-  String get summary {
-    final buf = StringBuffer();
-    buf.writeln('═══════════════════════════════════');
-    buf.writeln('📋 گزارش کامل ردپای برنامه');
-    buf.writeln('═══════════════════════════════════');
-    buf.writeln('تعداد رویدادها: ${_events.length}');
-    final byCat = <String, int>{};
-    for (final e in _events) {
-      byCat[e.category] = (byCat[e.category] ?? 0) + 1;
-    }
-    if (byCat.isNotEmpty) {
-      buf.writeln('بر اساس دسته:');
-      byCat.forEach((k, v) => buf.writeln('  • $k: $v'));
-    }
-    final errors = _events.where((e) => e.level == TraceLevel.error).length;
-    if (errors > 0) {
-      buf.writeln('⚠️ خطاها: $errors');
-    } else {
-      buf.writeln('✅ هیچ خطایی ثبت نشده');
-    }
-    buf.writeln('═══════════════════════════════════');
-    return buf.toString();
-  }
-
-  /// گزارش متنی کامل برای کپی.
   String toReport() {
-    final buf = StringBuffer(summary);
-    final recent = _events.toList().reversed.take(50);
-    for (final e in recent) {
-      buf.writeln(e.toString());
+    final b = StringBuffer()
+      ..writeln('═══════════════════════════════════════════════')
+      ..writeln('📋 گزارش کامل ردپای برنامه')
+      ..writeln('═══════════════════════════════════════════════')
+      ..writeln('تعداد رویدادها: ${_events.length}');
+    final byCat = <String, int>{};
+    for (final e in _events) byCat[e.category] = (byCat[e.category] ?? 0) + 1;
+    byCat.forEach((k, v) => b.writeln('  • $k: $v'));
+    final errs = _events.where((e) => e.level == TraceLevel.error).length;
+    b.writeln(errs > 0 ? '❌ خطاها: $errs' : '✅ هیچ خطایی ثبت نشده');
+    b.writeln('═══════════════════════════════════════════════');
+    for (final e in _events.toList().reversed.take(60)) {
+      b.writeln(e.format());
+      b.writeln();
     }
-    buf.writeln('═══════════════════════════════════');
-    return buf.toString();
+    return b.toString();
   }
 
-  void clear() {
-    _events.clear();
-  }
+  void clear() => _events.clear();
 }

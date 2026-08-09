@@ -31,11 +31,13 @@ class TaskRepository extends ChangeNotifier implements TaskRepositoryPort {
 
   @override
   Future<void> add(Task task) => AppTrace.instance.track(
-        'task',
+        AppCategory.task,
         'افزودن کار: ${task.title}',
         () => _addImpl(task),
-        detailFromResult: (_) =>
-            'عنوان: ${task.title} | اولویت: ${task.importance} | مدت تخمینی: ${task.estimatedMinutes} دقیقه',
+        source: 'task_repository.dart:add',
+        inputs: {'title': task.title, 'importance': task.importance,
+                 'estimated_minutes': task.estimatedMinutes, 'category': task.category},
+        outputsFrom: (_) => {'stored': true},
       );
 
   Future<void> _addImpl(Task task) async {
@@ -46,10 +48,11 @@ class TaskRepository extends ChangeNotifier implements TaskRepositoryPort {
 
   @override
   Future<void> update(Task task) => AppTrace.instance.track(
-        'task', 'به‌روزرسانی کار: ${task.title}',
+        AppCategory.task, 'به‌روزرسانی کار: ${task.title}',
         () => _updateImpl(task),
-        detailFromResult: (_) =>
-            'وضعیت: ${task.status} | اولویت: ${task.importance}',
+        source: 'task_repository.dart:update',
+        inputs: {'title': task.title, 'status': task.status.toString(), 'importance': task.importance},
+        outputsFrom: (_) => {'updated': true},
       );
   Future<void> _updateImpl(Task task) async {
     final db = await DatabaseService.instance.database;
@@ -62,7 +65,7 @@ class TaskRepository extends ChangeNotifier implements TaskRepositoryPort {
     final task = _findById(id);
     final title = task?.title ?? 'نامشخص';
     return AppTrace.instance.track(
-      'task', 'حذف کار: $title',
+        AppCategory.task, 'حذف کار: $title',
       () => _deleteImpl(id));
   }
   Future<void> _deleteImpl(String id) async {
@@ -95,7 +98,7 @@ class TaskRepository extends ChangeNotifier implements TaskRepositoryPort {
     final task = _findById(id);
     final title = task?.title ?? 'نامشخص';
     return AppTrace.instance.track(
-      'task', 'تکمیل کار: $title',
+        AppCategory.task, 'تکمیل کار: $title',
       () => _completeImpl(id, actualMinutes: actualMinutes));
   }
   Future<void> _completeImpl(String id, {required int actualMinutes}) async {

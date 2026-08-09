@@ -37,13 +37,13 @@ class FinanceRepository extends ChangeNotifier implements FinanceRepositoryPort 
       await _addImpl(transaction);
       sw.stop();
       AppTrace.instance.log(
-        'finance',
+        AppCategory.finance,
         transaction.type == FinanceTransactionType.income ? 'درآمد ثبت شد' : 'هزینه ثبت شد',
         detail: '\${transaction.amount} تومان\${transaction.title.isNotEmpty ? " - \${transaction.title}" : ""}',
         duration: sw.elapsed, level: TraceLevel.success);
     } catch(e) {
       sw.stop();
-      AppTrace.instance.log('finance','خطا در ثبت تراکنش', detail: e.toString(), duration: sw.elapsed, level: TraceLevel.error);
+      AppTrace.instance.log(AppCategory.finance, 'خطا در ثبت تراکنش', source: 'finance_repository.dart:add', duration: sw.elapsed, level: TraceLevel.error, error: e.toString());
       rethrow;
     }
   }
@@ -59,10 +59,10 @@ class FinanceRepository extends ChangeNotifier implements FinanceRepositoryPort 
     try {
       await _deleteImpl(id);
       sw.stop();
-      AppTrace.instance.log('finance','تراکنش حذف شد', duration: sw.elapsed, level: TraceLevel.success);
+      AppTrace.instance.log(AppCategory.finance, 'تراکنش حذف شد', source: 'finance_repository.dart:delete', duration: sw.elapsed, level: TraceLevel.success, outputs: {'deleted': true});
     } catch(e) {
       sw.stop();
-      AppTrace.instance.log('finance','خطا در حذف تراکنش', detail: e.toString(), duration: sw.elapsed, level: TraceLevel.error);
+      AppTrace.instance.log(AppCategory.finance, 'خطا در حذف تراکنش', source: 'finance_repository.dart:delete', duration: sw.elapsed, level: TraceLevel.error, error: e.toString());
       rethrow;
     }
   }
