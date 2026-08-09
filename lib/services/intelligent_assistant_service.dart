@@ -10,6 +10,10 @@ import 'debt_repository.dart';
 import 'llama_backend.dart';
 import 'local_assistant.dart';
 import 'local_assistant_memory.dart';
+import 'local_feedback_learning.dart';
+import 'local_online_router.dart';
+import 'persian_nlu.dart';
+import 'conversation_router.dart';
 import 'skill_service.dart';
 import 'voice_nlu.dart';
 
@@ -37,10 +41,27 @@ class IntelligentAssistantService {
     required this.goal,
     required this.debt,
     LocalAssistantMemory? memory,
+    IntentFeedbackStore? feedbackStore,
+    ConversationContext? conversationContext,
+    LocalOnlineRouter? onlineRouter,
     this.maxHistoryTurns = 8,
     Duration timeout = const Duration(seconds: 40),
   })  : _timeout = timeout,
-        memory = memory ?? LocalAssistantMemory.instance;
+        memory = memory ?? LocalAssistantMemory.instance,
+        feedbackStore = feedbackStore ?? _defaultFeedbackStore,
+        conversation = conversationContext ?? ConversationContext(),
+        onlineRouter = onlineRouter ?? LocalOnlineRouter();
+
+  final IntentFeedbackStore feedbackStore;
+
+  /// زمینهٔ مکالمه برای پشتیبانی از پیگیری‌های ارجاعی (ادامه‌اش چیه؟).
+  final ConversationContext conversation;
+
+  /// تصمیم‌گیرنده بین هوش محلی و آنلاین.
+  final LocalOnlineRouter onlineRouter;
+
+  static final IntentFeedbackStore _defaultFeedbackStore =
+      IntentFeedbackStore(storageKey: 'intent_feedback_v1');
 
   final LlmBackend? online;
   final LocalLlmAdapter ruleBased;
@@ -68,6 +89,9 @@ class IntelligentAssistantService {
   /// منبع آخرین پاسخ (برای UI).
   String get lastAnswerSourceLabel => _lastSourceLabel;
 
+  String? _lastLocalIntentId;
+  String? _lastUserText;
+
   bool _isCorrection(String text) {
     final norm = VoiceNlu.normalize(text);
     return norm.contains('نه') && (norm.contains('اشتباه') || norm.contains('ببخشید') || norm.contains('غلط')) ||
@@ -84,6 +108,31 @@ class IntelligentAssistantService {
     if (t.isEmpty) return 'چیزی نشنیدم. بگو چطور می‌توانم کمکت کنم.';
 
     await memory.load();
+    await feedbackStore.load();
+
+    // ── ۰) پیگیری ارجاعی (آنافورا): «ادامه‌اش چیه؟»، «بعدش؟» ──
+    // اگر متن یک پیگیری است و سؤال قبلی کاربر وجود دارد، به همان intent/موضوع
+    // قبلی رجوع می‌کنیم تا پاسخ مرتبط داده شود.
+    final resolved = conversation.resolveFollowUp(t);
+    String effectiveText = t;
+    if (resolved != null && resolved.intentId.isEmpty) {
+      // ارجاع به متن سؤال قبلی (برای انطباق با حافظه/آنلاین)
+      effectiveText = resolved.originalText;
+    }
+
+    // یادگیری ضمنی: بازنویسی هم‌مضمون سؤال قبلی = شکست پاسخ محلی
+    final prevText = _lastUserText;
+    final prevIntent = _lastLocalIntentId;
+    if (prevText != null &&
+        prevIntent != null &&
+        !FeedbackLearningService.isFeedback(t) &&
+        !_isCorrection(PersianNormalizer.normalize(t)) &&
+        _isRephrase(prevText, t)) {
+      feedbackStore.recordFailure(prevIntent);
+    }
+    _lastUserText = t;
+    // توجه: _lastLocalIntentId اینجا صفر نمی‌شود تا اگر کاربر این نوبت را تصحیح
+    // کرد، بتوان شکست intent محلی قبلی را ثبت کرد. بعد از پاسخ این نوبت بازنشانی می‌شود.
 
     // ── ۱) یادگیری تقویتی از بازخورد کاربر ──
     // اگر کاربر بعد از یک پاسخ «خوب بود» / «بد بود» بگوید و آن پاسخ از
@@ -149,6 +198,10 @@ class IntelligentAssistantService {
               feedbackScore: 0.3,
             );
           }
+          if (_lastLocalIntentId != null) {
+            feedbackStore.recordFailure(_lastLocalIntentId!);
+            _lastLocalIntentId = null;
+          }
           // ignore: unawaited_futures
           SkillService.instance.addPoints(7, 'یادگیری از تصحیح');
           _history.add(ChatTurn(role: 'user', content: t));
@@ -168,7 +221,7 @@ class IntelligentAssistantService {
     }
 
     String answer;
-    final fromMemory = memory.lookupEntry(t);
+    final fromMemory = memory.lookupEntry(effectiveText);
     if (fromMemory != null) {
       // دستیار این سؤال را «یاد گرفته» — مستقیم از محلی جواب بده.
       answer = fromMemory.answer;
@@ -176,31 +229,68 @@ class IntelligentAssistantService {
       _lastSourceLabel = 'حافظهٔ محلی (یادگیری از آنلاین)';
       // ثبت استفاده برای تقویت ورودی + امتیاز مهارت
       // ignore: unawaited_futures
-      memory.recordHit(t);
+      memory.recordHit(effectiveText);
       // ignore: unawaited_futures
       SkillService.instance.addForScenarioReuse();
     } else {
       _lastMemoryKey = null;
-      // آیا هوش محلی (قانون‌محور) این سؤال را می‌فهمد؟
-      final localCanHandle = ruleBased.canHandle(t);
-      final onlineAvailable = await _isOnlineAvailable();
+      final intentMatch = _extractLocalIntent(t);
+      final localCanHandle = _localCanAnswerMeaningfully(t);
+      final stats = intentMatch != null
+          ? feedbackStore.stats[intentMatch]
+          : null;
+      final route = onlineRouter.decide(
+        text: effectiveText,
+        localConfidence: intentMatch != null
+            ? _confidenceOf(t)
+            : null,
+        localCanHandle: localCanHandle,
+        localSuccessCount: stats?.success ?? 0,
+        localFailureCount: stats?.failure ?? 0,
+      );
+      final onlineAvailable = route != RouteTarget.localOnly &&
+          await _isOnlineAvailable();
 
-      if (localCanHandle) {
-        // محلی بلد است → سریع و رایگان از محلی جواب بده.
-        answer = await ruleBased.generate(prompt: t, tasks: tasks);
-        _lastSourceLabel = 'هوش محلی';
-      } else if (onlineAvailable) {
-        // محلی متوجه نشد → از آنلاین بپرس و یاد بگیر.
+      if (route == RouteTarget.localOnly ||
+          (route == RouteTarget.localFirst && localCanHandle) ||
+          (localCanHandle && !onlineAvailable)) {
+        // اگر مسیریاب، پیگیری ارجاعی را به یک intent خاص وصل کرد، همان را اجرا کن.
+        final followIntent =
+            resolved?.intentId.isNotEmpty == true ? resolved!.intentId : null;
+        if (followIntent != null && ruleBased is RuleBasedLocalAssistant) {
+          answer = await (ruleBased as RuleBasedLocalAssistant)
+              .answerIntent(followIntent, tasks);
+          _lastSourceLabel = 'هوش محلی (پیگیری)';
+          _lastLocalIntentId = followIntent;
+          feedbackStore.recordSuccess(followIntent);
+        } else {
+          answer = await ruleBased.generate(prompt: t, tasks: tasks);
+          _lastSourceLabel = 'هوش محلی';
+          final intentId = _extractLocalIntentId(t);
+          if (intentId != null) {
+            _lastLocalIntentId = intentId;
+            feedbackStore.recordSuccess(intentId);
+          }
+        }
+      } else if (route == RouteTarget.online && onlineAvailable) {
+        // محلی کافی نیست یا سؤال پیچیده است → آنلاین.
         _lastAnswerFromOnline = false;
-        answer = await _askOnline(t, tasks);
+        answer = await _askOnline(effectiveText, tasks);
         if (_lastAnswerFromOnline) {
           // فقط پاسخ واقعی آنلاین یاد گرفته می‌شود (fallback نه)
           await memory.rememberEntry(
-            t,
+            effectiveText,
             answer,
             source: MemorySource.online,
           );
-          _lastMemoryKey = memory.normalizeQuestion(t);
+          if (effectiveText != t) {
+            await memory.rememberEntry(
+              t,
+              answer,
+              source: MemorySource.online,
+            );
+          }
+          _lastMemoryKey = memory.normalizeQuestion(effectiveText);
           _lastSourceLabel = 'هوش آنلاین (یاد گرفته شد)';
           // امتیاز مهارت برای یادگیری جدید
           // ignore: unawaited_futures
@@ -216,6 +306,10 @@ class IntelligentAssistantService {
     }
 
     _history.add(ChatTurn(role: 'assistant', content: answer));
+    // ثبت نوبت در زمینهٔ مکالمه برای پشتیبانی از پیگیری‌های بعدی.
+    final resolvedIntent = _lastLocalIntentId;
+    conversation.addUser(effectiveText, intentId: resolvedIntent);
+    conversation.addAssistant(answer, intentId: resolvedIntent);
     return answer;
   }
 
@@ -278,9 +372,9 @@ class IntelligentAssistantService {
     }
   }
 
-  String _ruleBasedAnswer(String text, List<Task> tasks) {
+  Future<String> _ruleBasedAnswer(String text, List<Task> tasks) async {
     try {
-      return ruleBased.generate(prompt: text, tasks: tasks).toString();
+      return await ruleBased.generate(prompt: text, tasks: tasks);
     } catch (_) {
       return 'نتوانستم پاسخی آماده کنم. لطفاً دوباره سؤال کن.';
     }
@@ -378,4 +472,54 @@ class IntelligentAssistantService {
         'خروجی: حداکثر ۵ خط فارسی، بدون توضیح اضافه. اگر به داده‌ای نیاز داری که نیست، '
         'بگو «در برنامه ثبت نشده» و راهنمایی کن.';
   }
+
+  String? _extractLocalIntentId(String text) {
+    try {
+      final rb = ruleBased;
+      if (rb is RuleBasedLocalAssistant) {
+        final match = rb.detectIntent(text);
+        return match?.id;
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  /// مانند [_extractLocalIntentId] ولی برای وضوح بیشتر.
+  String? _extractLocalIntent(String text) => _extractLocalIntentId(text);
+
+  bool _isRephrase(String a, String b) {
+    final na = PersianNormalizer.normalize(a).trim();
+    final nb = PersianNormalizer.normalize(b).trim();
+    if (na.isEmpty || nb.isEmpty || na == nb) return false;
+    final sim = PersianSemanticSimilarity.score(na, nb);
+    return sim >= 0.45 && sim < 0.95;
+  }
+
+  IntentFeedbackStore get intentFeedback => feedbackStore;
+
+  /// آیا موتور محلی می‌تواند پاسخ معنادار بدهد؟ (نه پاسخ تکراری نامرتبط)
+  bool _localCanAnswerMeaningfully(String text) {
+    try {
+      final dynamic rb = ruleBased;
+      if (rb is RuleBasedLocalAssistant) {
+        return rb.canAnswerMeaningfully(text);
+      }
+    } catch (_) {}
+    return ruleBased.canHandle(text);
+  }
+
+  /// استخراج intent با امتیاز اطمینان (برای تصمیم روتر).
+  double? _confidenceOf(String text) {
+    final m = _extractLocalIntent(text);
+    if (m == null) return null;
+    try {
+      final dynamic rb = ruleBased;
+      final dynamic match = rb.detectIntent(text);
+      if (match != null) return (match.confidence as num).toDouble();
+    } catch (_) {}
+    return null;
+  }
+
+  /// دسترسی به روتر محلی/آنلاین (برای تست/دیباگ).
+  LocalOnlineRouter get router => onlineRouter;
 }

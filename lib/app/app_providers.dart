@@ -118,28 +118,29 @@ final intelligentAssistantProvider =
         ? OnlineLlmBackend()
         : null,
     ruleBased: RuleBasedLocalAssistant(
-      planner: ref.watch(smartPlannerProvider),
+      planner: ref.read(smartPlannerProvider),
       context: AssistantContext(
-        finance: ref.watch(financeRepositoryProvider),
-        forecast: ref.watch(forecastServiceProvider),
-        insights: ref.watch(financeInsightsServiceProvider),
-        availability: ref.watch(availabilityRepositoryProvider).settings,
-        debts: ref.watch(debtRepositoryProvider).activeItems,
-        workProfile: ref.watch(workLearningServiceProvider).profile(
-          tasks: ref.watch(taskRepositoryProvider).tasks,
-          transactions: ref.watch(financeRepositoryProvider).transactions,
+        finance: ref.read(financeRepositoryProvider),
+        forecast: ref.read(forecastServiceProvider),
+        insights: ref.read(financeInsightsServiceProvider),
+        availability: ref.read(availabilityRepositoryProvider).settings,
+        tasksProvider: () => ref.read(taskRepositoryProvider).tasks,
+        debtsProvider: () => ref.read(debtRepositoryProvider).activeItems,
+        workProfileProvider: () => ref.read(workLearningServiceProvider).profile(
+          tasks: ref.read(taskRepositoryProvider).tasks,
+          transactions: ref.read(financeRepositoryProvider).transactions,
         ),
-        taskRepo: ref.watch(taskRepositoryProvider),
-        goalRepo: ref.watch(goalRepositoryProvider),
-        plannedRepo: ref.watch(plannedExpenseRepositoryProvider),
-        debtRepo: ref.watch(debtRepositoryProvider),
-        allocationRepo: ref.watch(allocationRepositoryProvider),
-        budgetRepo: ref.watch(categoryBudgetRepositoryProvider),
+        taskRepo: ref.read(taskRepositoryProvider),
+        goalRepo: ref.read(goalRepositoryProvider),
+        plannedRepo: ref.read(plannedExpenseRepositoryProvider),
+        debtRepo: ref.read(debtRepositoryProvider),
+        allocationRepo: ref.read(allocationRepositoryProvider),
+        budgetRepo: ref.read(categoryBudgetRepositoryProvider),
       ),
     ),
-    finance: ref.watch(financeRepositoryProvider),
-    goal: ref.watch(goalRepositoryProvider),
-    debt: ref.watch(debtRepositoryProvider),
+    finance: ref.read(financeRepositoryProvider),
+    goal: ref.read(goalRepositoryProvider),
+    debt: ref.read(debtRepositoryProvider),
   );
 });
 

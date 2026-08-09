@@ -22,3 +22,7 @@ android/app/src/main/jniLibs/**/*.so
 
 .idea/
 .metadata
+
+# Local AI upgrade scratch
+.toolcheck/
+ios/Flutter/ephemeral/
