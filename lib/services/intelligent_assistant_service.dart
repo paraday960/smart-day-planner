@@ -177,6 +177,10 @@ class IntelligentAssistantService {
         _history.add(ChatTurn(role: 'assistant', content: ack));
         _lastMemoryKey = null;
         _lastSourceLabel = 'بازخورد';
+        trace.step('پاسخ به بازخورد کاربر',
+            detail: 'نوع: \${fb == FeedbackType.positive ? "مثبت" : "منفی"}
+پاسخ: \$ack');
+        trace.step('پایان پردازش');
         return ack;
       }
     }
@@ -220,6 +224,10 @@ class IntelligentAssistantService {
           _history.add(ChatTurn(role: 'assistant', content: ack));
           _lastMemoryKey = memory.normalizeQuestion(lastUserQ);
           _lastSourceLabel = 'تصحیح';
+          trace.step('اعمال تصحیح کاربر',
+              detail: 'مقدار جدید: \$newAmount
+پاسخ: \$ack');
+          trace.step('پایان پردازش');
           return ack;
         }
       }
