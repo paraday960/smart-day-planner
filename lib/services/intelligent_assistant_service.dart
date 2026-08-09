@@ -299,8 +299,15 @@ class IntelligentAssistantService {
           _lastSourceLabel = 'هوش قانونی (آنلاین خطا داد)';
         }
       } else {
-        // آنلاین هم در دسترس نیست → محلی (به‌ترین تلاش).
-        answer = await ruleBased.generate(prompt: t, tasks: tasks);
+        // آنلاین هم در دسترس نیست. اگر محلی پاسخی برای این سؤال دارد بده،
+        // در غیر این صورت پیام واضح بده (نه پاسخ تکراری/نامرتبط).
+        if (localCanHandle) {
+          answer = await ruleBased.generate(prompt: t, tasks: tasks);
+        } else {
+          answer = 'این سؤال به داده‌های برنامه مربوط نیست و هوش آنلاین '
+              'هم در دسترس نیست. اگر کلید آنلاین را در تنظیمات وارد کنید، '
+              'به هر سؤالی پاسخ می‌دهم و یاد می‌گیرم.';
+        }
         _lastSourceLabel = 'هوش قانونی';
       }
     }
