@@ -382,14 +382,15 @@ class IntelligentAssistantService {
         return answer;
       },
       feature: 'online_ai',
-      fallback: (e) async {
+      fallback: (e) {
         // اگر هوش آنلاین خطا داد یا غیرفعال شد، با پاسخ محلی ادامه بده
-        final local = await _ruleBasedAnswer(userText, tasks);
+        return _ruleBasedAnswer(userText, tasks).then((local) {
         // اگر محلی هم پاسخی نداشت، پیام شفاف بده
         if (local.trim().isEmpty) {
           return 'هوش آنلاین موقتاً در دسترس نیست. '              'می‌توانید از قابلیت‌های آفلاین برنامه استفاده کنید '              'یا در تنظیمات کلید آنلاین را بررسی کنید.';
         }
         return local;
+        });
       },
     );
   }
