@@ -98,12 +98,6 @@ class AssistantContext {
   final List<DebtItem>? _staticDebts;
   final WorkProfile _staticWorkProfile;
 
-  /// بدهی‌های فعال کاربر (برای برنامهٔ پرداخت).
-  final List<DebtItem>? debts;
-
-  /// پروفایل کاریِ یادگرفته‌شده از سابقه (برای امکان‌سنجی پرداخت).
-  final WorkProfile workProfile;
-
   /// موتور محاسبهٔ برنامهٔ پرداخت.
   final DebtRepaymentPlanner repaymentPlanner;
 }
