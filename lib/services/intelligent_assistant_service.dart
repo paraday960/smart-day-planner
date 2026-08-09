@@ -322,7 +322,7 @@ class IntelligentAssistantService {
           outputs: {'onlineAvailable': onlineAvailable});
       if (!onlineAvailable && SelfHealing.instance.isFeatureDisabled('online_ai')) {
         trace.step(TraceStepType.selfHealing, 'هوش آنلاین غیرفعال است (self-healing)',
-            detail: 'به‌خاطر خطاهای مکرر موقتاً غیرفعال شده؛ از پاسخ محلی استفاده می‌شود.',
+            outputs: {'reason': 'به‌خاطر خطاهای مکرر موقتاً غیرفعال شده'},
             success: false);
       }
 
@@ -346,7 +346,6 @@ class IntelligentAssistantService {
           final detectedIntent = _extractLocalIntentId(effectiveText);
           trace.step(TraceStepType.local, 'پاسخ محلی تولید شد',
               source: 'local_assistant.dart:generate',
-              duration: localSw.elapsed,
               inputs: {'prompt': effectiveText, 'intent': detectedIntent ?? 'ناشناخته'},
               outputs: {
                 'answer_length': answer.length,
@@ -355,11 +354,6 @@ class IntelligentAssistantService {
           if (detectedIntent != null) {
             _lastLocalIntentId = detectedIntent;
             feedbackStore.recordSuccess(detectedIntent);
-          }
-          final intentId = _extractLocalIntentId(effectiveText);
-          if (intentId != null) {
-            _lastLocalIntentId = intentId;
-            feedbackStore.recordSuccess(intentId);
           }
         }
       } else if (route == RouteTarget.online && onlineAvailable) {
@@ -372,7 +366,6 @@ class IntelligentAssistantService {
           _lastAnswerFromOnline ? TraceStepType.online : TraceStepType.warning,
           _lastAnswerFromOnline ? 'پاسخ از هوش آنلاین دریافت شد' : 'آنلاین خطا داد → مسیر محلی',
           source: 'intelligent_assistant_service.dart:_askOnline',
-          duration: onlineSw.elapsed,
           inputs: {'query': effectiveText},
           outputs: {
             'from_online': _lastAnswerFromOnline,
