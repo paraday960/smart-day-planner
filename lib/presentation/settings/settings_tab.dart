@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../app/app_providers.dart';
 import '../../app_config.dart';
 import 'learning_dashboard_screen.dart';
+import 'assistant_trace_screen.dart';
 import 'offline_voice_settings_card.dart';
 import 'online_ai_settings_card.dart';
 
@@ -207,6 +208,17 @@ class SettingsTab extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.bug_report_outlined),
+                  title: const Text('ردپای دستیار (دیباگ)'),
+                  subtitle: const Text('مشاهده و کپی مراحل پردازش درخواست‌ها'),
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const AssistantTraceScreen(),
+                    ),
+                  ),
+                ),
                 const ListTile(
                   contentPadding: EdgeInsets.zero,
                   leading: Icon(Icons.privacy_tip_outlined),
