@@ -128,8 +128,12 @@ class IntelligentAssistantService {
         .where((e) => e.feature == 'online_ai')
         .take(3).toList();
     for (final e in healEvents) {
-      trace.step('خودترمیمی: \${e.label}',
-          detail: 'قابلیت: \${e.feature}\${e.detail != null ? " | \${e.detail}" : ""}',
+      trace.step(TraceStepType.selfHealing, 'خودترمیمی: \${e.label}',
+          outputs: {
+            'feature': e.feature,
+            'action': e.action,
+            if (e.detail != null) 'detail': e.detail,
+          },
           success: e.action != 'error' && e.action != 'disabled');
     }
 
@@ -202,8 +206,9 @@ class IntelligentAssistantService {
         _history.add(ChatTurn(role: 'assistant', content: ack));
         _lastMemoryKey = null;
         _lastSourceLabel = 'بازخورد';
-        trace.step('پاسخ به بازخورد کاربر', detail: 'پاسخ به بازخورد داده شد');
-        trace.step('پایان پردازش');
+        trace.step(TraceStepType.feedback, 'پاسخ به بازخورد کاربر',
+            outputs: {'ack': ack.length > 60 ? ack.substring(0,60)+'...' : ack});
+        trace.step(TraceStepType.output, 'بازگرداندن پاسخ', outputs: {'source': _lastSourceLabel});
         return ack;
       }
     }
@@ -247,8 +252,9 @@ class IntelligentAssistantService {
           _history.add(ChatTurn(role: 'assistant', content: ack));
           _lastMemoryKey = memory.normalizeQuestion(lastUserQ);
           _lastSourceLabel = 'تصحیح';
-          trace.step('اعمال تصحیح کاربر', detail: 'پاسخ اصلاح شد');
-          trace.step('پایان پردازش');
+          trace.step(TraceStepType.feedback, 'اعمال تصحیح کاربر',
+              outputs: {'corrected_amount': newAmount, 'last_question': lastUserQ});
+          trace.step(TraceStepType.output, 'بازگرداندن پاسخ', outputs: {'source': 'تصحیح'});
           return ack;
         }
       }
@@ -315,7 +321,7 @@ class IntelligentAssistantService {
       trace.step(TraceStepType.online, 'بررسی در دسترس بودن هوش آنلاین',
           outputs: {'onlineAvailable': onlineAvailable});
       if (!onlineAvailable && SelfHealing.instance.isFeatureDisabled('online_ai')) {
-        trace.step('هوش آنلاین غیرفعال است (self-healing)',
+        trace.step(TraceStepType.selfHealing, 'هوش آنلاین غیرفعال است (self-healing)',
             detail: 'به‌خاطر خطاهای مکرر موقتاً غیرفعال شده؛ از پاسخ محلی استفاده می‌شود.',
             success: false);
       }
@@ -406,7 +412,7 @@ class IntelligentAssistantService {
           answer = 'این سؤال به داده‌های برنامه مربوط نیست و هوش آنلاین '
               'هم در دسترس نیست. اگر کلید آنلاین را در تنظیمات وارد کنید، '
               'به هر سؤالی پاسخ می‌دهم و یاد می‌گیرم.';
-          trace.step('fallback: پیام پیش‌فرض', success: false);
+          trace.step(TraceStepType.warning, 'fallback: پیام پیش‌فرض', success: false);
         }
         _lastSourceLabel = 'هوش قانونی';
       }
