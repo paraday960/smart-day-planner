@@ -248,6 +248,10 @@ class RuleBasedLocalAssistant implements LocalLlmAdapter {
       case 'brain_status':
         return _brainStatus(tasks);
       case 'morning_briefing':
+        // اگر دادهٔ مالی برای بریفینگ وصل نیست، برنامهٔ امروز را بده.
+        if (_context.finance == null) {
+          return _todayPlan(tasks);
+        }
         return _morningBriefing(tasks);
       case 'forecast_30':
         return _forecast30(tasks);
