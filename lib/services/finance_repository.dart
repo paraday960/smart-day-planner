@@ -40,7 +40,7 @@ class FinanceRepository extends ChangeNotifier implements FinanceRepositoryPort 
         AppCategory.finance,
         transaction.type == FinanceTransactionType.income ? 'درآمد ثبت شد' : 'هزینه ثبت شد',
         source: 'finance_repository.dart:add',
-        inputs: {'amount': transaction.amount, 'type': transaction.type.toString(), 'title': transaction.title},
+        inputs: {'amount': transaction.amount, 'type': transaction.type.toString(), 'title': transaction.note},
         outputs: {'stored': true},
         duration: sw.elapsed, level: TraceLevel.success);
     } catch(e) {
