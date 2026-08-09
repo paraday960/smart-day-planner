@@ -232,6 +232,8 @@ class IntelligentAssistantService {
       memory.recordHit(effectiveText);
       // ignore: unawaited_futures
       SkillService.instance.addForScenarioReuse();
+      final memIntent = _extractLocalIntent(effectiveText);
+      if (memIntent != null) _lastLocalIntentId = memIntent;
     } else {
       _lastMemoryKey = null;
       final intentMatch = _extractLocalIntent(t);
@@ -264,9 +266,9 @@ class IntelligentAssistantService {
           _lastLocalIntentId = followIntent;
           feedbackStore.recordSuccess(followIntent);
         } else {
-          answer = await ruleBased.generate(prompt: t, tasks: tasks);
+          answer = await ruleBased.generate(prompt: effectiveText, tasks: tasks);
           _lastSourceLabel = 'هوش محلی';
-          final intentId = _extractLocalIntentId(t);
+          final intentId = _extractLocalIntentId(effectiveText);
           if (intentId != null) {
             _lastLocalIntentId = intentId;
             feedbackStore.recordSuccess(intentId);
