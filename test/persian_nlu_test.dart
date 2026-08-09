@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:smart_day_planner/services/persian_nlu.dart';
+import 'package:smart_day_planner/services/local_assistant_intents.dart';
 
 void main() {
   group('PersianNormalizer', () {
@@ -92,13 +93,18 @@ void main() {
       expect(detector.detect('ریسک مشکل')?.id, 'risk');
     });
   });
-}
 
-void shortWordRegression() {
-  const d = IntentDetector(intents: kRuleBasedAssistantIntents);
-  final m1 = d.detectWithScore('ادامه بده');
-  assert(m1?.id != 'feedback_negative', 'ادامه بده نباید منفی تشخیص داده شود');
-  final m2 = d.detectWithScore('بد بود');
-  assert(m2?.id == 'feedback_negative', 'بد بود باید منفی باشد');
-  print('short word regression OK');
+
+  group('رفع باگ: کلمات کوتاه', () {
+    test('ادامه بده نباید منفی تشخیص داده شود', () {
+      const d = IntentDetector(intents: kRuleBasedAssistantIntents);
+      final m = d.detectWithScore('ادامه بده');
+      expect(m?.id, isNot('feedback_negative'));
+    });
+    test('بد بود باید منفی تشخیص داده شود', () {
+      const d = IntentDetector(intents: kRuleBasedAssistantIntents);
+      final m = d.detectWithScore('بد بود');
+      expect(m?.id, 'feedback_negative');
+    });
+  });
 }
