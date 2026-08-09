@@ -136,75 +136,59 @@ class AssistantTraceScreen extends StatelessWidget {
     Map<String, String> disabled,
   ) {
     if (appEvents.isEmpty) {
-      return const Center(
-        child: Padding(
-          padding: EdgeInsets.all(24),
-          child: Text(
-            'هنوز رویدادی ثبت نشده است.\n'
-            'با برنامه کار کنید تا اینجا پر شود.',
-            textAlign: TextAlign.center,
-          ),
-        ),
-      );
+      return const Center(child: Padding(padding: EdgeInsets.all(24),
+        child: Text('هنوز رویدادی ثبت نشده است.\nبا برنامه کار کنید تا اینجا پر شود.', textAlign: TextAlign.center)));
     }
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        if (disabled.isNotEmpty || healEvents.isNotEmpty)
-          Card(
-            color: Colors.orange.shade50,
-            margin: const EdgeInsets.all(8),
-            child: Padding(
-              padding: const EdgeInsets.all(12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Row(children: [
-                    Icon(Icons.healing, size: 18, color: Colors.orange),
-                    SizedBox(width: 8),
-                    Text('سیستم خودترمیمی',
-                        style: TextStyle(fontWeight: FontWeight.bold)),
-                  ]),
-                  const SizedBox(height: 6),
-                  if (disabled.isNotEmpty)
-                    ...disabled.keys.map((k) => Padding(
-                          padding: const EdgeInsets.only(top: 2),
-                          child: Text('⏸️  $k غیرفعال موقت'),
-                        )),
-                  if (healEvents.isNotEmpty)
-                    ...healEvents.map((e) => Padding(
-                          padding: const EdgeInsets.only(top: 2),
-                          child: Text(e.toString()),
-                        )),
-                ],
-              ),
-            ),
-          ),
-        Expanded(
-          child: ListView.separated(
-            padding: const EdgeInsets.all(8),
-            itemCount: appEvents.length,
-            separatorBuilder: (_, __) => const Divider(height: 1),
-            itemBuilder: (context, i) {
-              final e = appEvents[i];
-              return ListTile(
-                dense: true,
-                leading: Text(e.emoji, style: const TextStyle(fontSize: 18)),
-                title: Text(e.action),
-                subtitle: (e.detail != null && e.detail!.isNotEmpty)
-                    ? Text(e.detail!, style: const TextStyle(fontSize: 11))
-                    : Text(e.categoryLabel,
-                        style: const TextStyle(fontSize: 10)),
-                trailing: e.duration != null
-                    ? Text('${e.duration!.inMilliseconds}ms',
-                        style:
-                            const TextStyle(fontSize: 10, color: Colors.grey))
-                    : null,
-              );
-            },
-          ),
-        ),
-      ],
-    );
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      if (disabled.isNotEmpty || healEvents.isNotEmpty)
+        Card(color: Colors.orange.shade50, margin: const EdgeInsets.all(8), child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const Row(children: [Icon(Icons.healing, size: 18, color: Colors.orange), SizedBox(width: 8),
+              Text('سیستم خودترمیمی', style: TextStyle(fontWeight: FontWeight.bold))]),
+            const SizedBox(height: 6),
+            if (disabled.isNotEmpty)
+              ...disabled.keys.map((k) => Padding(padding: const EdgeInsets.only(top: 2), child: Text('⏸️  $k غیرفعال موقت'))),
+            if (healEvents.isNotEmpty)
+              ...healEvents.map((e) => Padding(padding: const EdgeInsets.only(top: 2), child: Text(e.toString()))),
+          ]),
+        )),
+      Expanded(child: ListView.separated(
+        padding: const EdgeInsets.all(8),
+        itemCount: appEvents.length,
+        separatorBuilder: (_, __) => const Divider(height: 1),
+        itemBuilder: (context, i) {
+          final e = appEvents[i];
+          final hasDetails = e.inputs.isNotEmpty || e.outputs.isNotEmpty || e.source != null || e.errorMessage != null;
+          return ExpansionTile(
+            dense: true,
+            leading: Text(e.emoji, style: const TextStyle(fontSize: 18)),
+            title: Text(e.action, style: const TextStyle(fontSize: 13)),
+            subtitle: Text('${e.categoryLabel} • ${e.time.toLocal().toString().substring(11, 19)}', style: const TextStyle(fontSize: 10)),
+            trailing: e.duration != null
+                ? Text('${e.duration!.inMilliseconds}ms', style: const TextStyle(fontSize: 10, color: Colors.grey))
+                : null,
+            childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+            children: hasDetails ? [
+              if (e.source != null)
+                Padding(padding: const EdgeInsets.only(bottom: 4), child: Text('📍 ${e.source}', style: const TextStyle(fontSize: 10, color: Colors.blueGrey))),
+              if (e.inputs.isNotEmpty) ...[
+                const Text('📥 ورودی‌ها:', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                ...e.inputs.entries.map((x) => Padding(padding: const EdgeInsets.only(right: 8), child: Text('  • ${x.key} = ${x.value}', style: const TextStyle(fontSize: 10)))),
+              ],
+              if (e.outputs.isNotEmpty) ...[
+                const SizedBox(height: 4),
+                const Text('📤 خروجی‌ها:', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                ...e.outputs.entries.map((x) => Padding(padding: const EdgeInsets.only(right: 8), child: Text('  • ${x.key} = ${x.value}', style: const TextStyle(fontSize: 10)))),
+              ],
+              if (e.errorMessage != null) ...[
+                const SizedBox(height: 4),
+                Text('❌ خطا: ${e.errorMessage}', style: const TextStyle(fontSize: 10, color: Colors.red)),
+              ],
+            ] : const [Padding(padding: EdgeInsets.all(8), child: Text('جزئیات بیشتری ثبت نشده', style: TextStyle(fontSize: 10, color: Colors.grey)))],
+          );
+        },
+      )),
+    ]);
   }
 }
