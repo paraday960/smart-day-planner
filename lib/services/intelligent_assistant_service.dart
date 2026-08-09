@@ -12,6 +12,7 @@ import 'local_assistant.dart';
 import 'local_assistant_memory.dart';
 import 'local_feedback_learning.dart';
 import 'local_online_router.dart';
+import 'self_healing.dart';
 import 'persian_nlu.dart';
 import 'conversation_router.dart';
 import 'skill_service.dart';
@@ -357,11 +358,13 @@ class IntelligentAssistantService {
   }
 
   Future<bool> _isOnlineAvailable() async {
+    if (SelfHealing.instance.isFeatureDisabled('online_ai')) return false;
     final backend = online;
     if (backend == null) return false;
     try {
       return await backend.available;
-    } catch (_) {
+    } catch (e) {
+      SelfHealing.instance.reportError(e, feature: 'online_ai');
       return false;
     }
   }
@@ -370,15 +373,25 @@ class IntelligentAssistantService {
   Future<String> _askOnline(String userText, List<Task> tasks) async {
     final context = _buildContext(tasks);
     final prompt = _buildPrompt(userText, context);
-    try {
-      final answer = await online!
-          .generate(prompt)
-          .timeout(_timeout, onTimeout: () => _ruleBasedAnswer(userText, tasks));
-      _lastAnswerFromOnline = true;
-      return answer;
-    } catch (_) {
-      return _ruleBasedAnswer(userText, tasks);
-    }
+    return SelfHealing.instance.guard(
+      () async {
+        final answer = await online!
+            .generate(prompt)
+            .timeout(_timeout);
+        _lastAnswerFromOnline = true;
+        return answer;
+      },
+      feature: 'online_ai',
+      fallback: (e) async {
+        // اگر هوش آنلاین خطا داد یا غیرفعال شد، با پاسخ محلی ادامه بده
+        final local = await _ruleBasedAnswer(userText, tasks);
+        // اگر محلی هم پاسخی نداشت، پیام شفاف بده
+        if (local.trim().isEmpty) {
+          return 'هوش آنلاین موقتاً در دسترس نیست. '              'می‌توانید از قابلیت‌های آفلاین برنامه استفاده کنید '              'یا در تنظیمات کلید آنلاین را بررسی کنید.';
+        }
+        return local;
+      },
+    );
   }
 
   Future<String> _ruleBasedAnswer(String text, List<Task> tasks) async {
