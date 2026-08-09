@@ -13,6 +13,7 @@ import 'local_assistant_memory.dart';
 import 'local_feedback_learning.dart';
 import 'local_online_router.dart';
 import 'self_healing.dart';
+import 'assistant_trace.dart';
 import 'persian_nlu.dart';
 import 'conversation_router.dart';
 import 'skill_service.dart';
@@ -108,17 +109,26 @@ class IntelligentAssistantService {
     final t = userText.trim();
     if (t.isEmpty) return 'چیزی نشنیدم. بگو چطور می‌توانم کمکت کنم.';
 
+    final trace = TraceStore.instance.start(t);
+    trace.step('دریافت درخواست', detail: 'متن: \$t');
+
     await memory.load();
+    trace.step('بارگذاری حافظه');
     await feedbackStore.load();
+    trace.step('بارگذاری بازخوردها');
 
     // ── ۰) پیگیری ارجاعی (آنافورا): «ادامه‌اش چیه؟»، «بعدش؟» ──
     // اگر متن یک پیگیری است و سؤال قبلی کاربر وجود دارد، به همان intent/موضوع
     // قبلی رجوع می‌کنیم تا پاسخ مرتبط داده شود.
     final resolved = conversation.resolveFollowUp(t);
     String effectiveText = t;
-    if (resolved != null && resolved.intentId.isEmpty) {
-      // ارجاع به متن سؤال قبلی (برای انطباق با حافظه/آنلاین)
-      effectiveText = resolved.originalText;
+    if (resolved != null) {
+      if (resolved.intentId.isNotEmpty) {
+        trace.step('پیگیری شناسایی شد', detail: 'intent: \${resolved.intentId}');
+      } else {
+        effectiveText = resolved.originalText;
+        trace.step('پیگیری با ارجاع متنی', detail: 'متن اصلی: \$effectiveText');
+      }
     }
 
     // یادگیری ضمنی: بازنویسی هم‌مضمون سؤال قبلی = شکست پاسخ محلی
@@ -224,7 +234,7 @@ class IntelligentAssistantService {
     String answer;
     final fromMemory = memory.lookupEntry(effectiveText);
     if (fromMemory != null) {
-      // دستیار این سؤال را «یاد گرفته» — مستقیم از محلی جواب بده.
+      trace.step('یافتن در حافظه', detail: 'منبع: \${fromMemory.source}');
       answer = fromMemory.answer;
       _lastMemoryKey = fromMemory.question;
       _lastSourceLabel = 'حافظهٔ محلی (یادگیری از آنلاین)';
@@ -251,8 +261,12 @@ class IntelligentAssistantService {
         localSuccessCount: stats?.success ?? 0,
         localFailureCount: stats?.failure ?? 0,
       );
+      trace.step('تصمیم روتر', detail: 'مسیر: \$route | '
+          'اطمینان: \${intentMatch != null ? _confidenceOf(t)?.toStringAsFixed(2) : "-"} | '
+          'موفق: \${stats?.success ?? 0}/شکست: \${stats?.failure ?? 0}');
       final onlineAvailable = route != RouteTarget.localOnly &&
           await _isOnlineAvailable();
+      trace.step('بررسی آنلاین', detail: 'در دسترس: \${onlineAvailable ? "بله" : "خیر"}');
 
       if (route == RouteTarget.localOnly ||
           (route == RouteTarget.localFirst && localCanHandle) ||
@@ -269,6 +283,7 @@ class IntelligentAssistantService {
         } else {
           answer = await ruleBased.generate(prompt: effectiveText, tasks: tasks);
           _lastSourceLabel = 'هوش محلی';
+          trace.step('پاسخ محلی تولید شد', detail: '\${answer.length} کاراکتر');
           final intentId = _extractLocalIntentId(effectiveText);
           if (intentId != null) {
             _lastLocalIntentId = intentId;
@@ -278,7 +293,11 @@ class IntelligentAssistantService {
       } else if (route == RouteTarget.online && onlineAvailable) {
         // محلی کافی نیست یا سؤال پیچیده است → آنلاین.
         _lastAnswerFromOnline = false;
+        final sw = Stopwatch()..start();
         answer = await _askOnline(effectiveText, tasks);
+        sw.stop();
+        trace.step(_lastAnswerFromOnline ? 'پاسخ آنلاین دریافت شد' : 'آنلاین خطا داد → محلی',
+            detail: '\${sw.elapsedMilliseconds}ms، \${answer.length} کاراکتر');
         if (_lastAnswerFromOnline) {
           // فقط پاسخ واقعی آنلاین یاد گرفته می‌شود (fallback نه)
           await memory.rememberEntry(
@@ -310,11 +329,13 @@ class IntelligentAssistantService {
           answer = 'این سؤال به داده‌های برنامه مربوط نیست و هوش آنلاین '
               'هم در دسترس نیست. اگر کلید آنلاین را در تنظیمات وارد کنید، '
               'به هر سؤالی پاسخ می‌دهم و یاد می‌گیرم.';
+          trace.step('fallback: پیام پیش‌فرض', success: false);
         }
         _lastSourceLabel = 'هوش قانونی';
       }
     }
 
+    trace.step('پایان پردازش', detail: '\${answer.length} کاراکتر');
     _history.add(ChatTurn(role: 'assistant', content: answer));
     // ثبت نوبت در زمینهٔ مکالمه برای پشتیبانی از پیگیری‌های بعدی.
     final resolvedIntent = _lastLocalIntentId;
