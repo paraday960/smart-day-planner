@@ -64,12 +64,33 @@ class PersianMatcher {
     for (final pattern in patterns) {
       final pStrict = PersianNormalizer.normalize(pattern, keepZwnj: true);
       final pNoZwnj = PersianNormalizer.normalize(pattern, keepZwnj: false);
-      if (strict.contains(pStrict)) return true;
-      if (noZwnj.contains(pNoZwnj)) return true;
-      if (PersianNormalizer.loose(text)
-          .contains(PersianNormalizer.loose(pattern))) {
+      // برای الگوهای کوتاه (≤ ۳ حرف)، تطبیق باید روی مرز کلمه باشد
+      // وگرنه «بد» در «ادامه بده» غلط تشخیص داده می‌شود.
+      if (pStrict.length <= 3) {
+        if (_hasWordBoundary(strict, pStrict)) return true;
+        if (_hasWordBoundary(noZwnj, pNoZwnj)) return true;
+      } else {
+        if (strict.contains(pStrict)) return true;
+        if (noZwnj.contains(pNoZwnj)) return true;
+      }
+      // برای الگوهای کوتاه، از مسیر loose صرف‌نظر کن تا تطبیق غلط پیشوندی رخ ندهد
+      if (pStrict.length > 3 &&
+          PersianNormalizer.loose(text)
+              .contains(PersianNormalizer.loose(pattern))) {
         return true;
       }
+    }
+    return false;
+  }
+
+  /// آیا کلمهٔ [word] در متن [text] روی مرز کلمه وجود دارد؟
+  static bool _hasWordBoundary(String text, String word) {
+    if (word.isEmpty) return false;
+    // تطبیق سادهٔ مبتنی بر توکن: متن را با فاصله/نشانه‌گذاری جدا کن
+    // و بررسی کن که آیا کلمه دقیقاً یکی از توکن‌هاست.
+    final tokens = text.split(RegExp(r'[\s،.؟!?٬]'));
+    for (final tok in tokens) {
+      if (tok == word) return true;
     }
     return false;
   }

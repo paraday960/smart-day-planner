@@ -93,3 +93,12 @@ void main() {
     });
   });
 }
+
+void shortWordRegression() {
+  const d = IntentDetector(intents: kRuleBasedAssistantIntents);
+  final m1 = d.detectWithScore('ادامه بده');
+  assert(m1?.id != 'feedback_negative', 'ادامه بده نباید منفی تشخیص داده شود');
+  final m2 = d.detectWithScore('بد بود');
+  assert(m2?.id == 'feedback_negative', 'بد بود باید منفی باشد');
+  print('short word regression OK');
+}
