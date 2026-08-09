@@ -34,6 +34,8 @@ class TaskRepository extends ChangeNotifier implements TaskRepositoryPort {
         'task',
         'افزودن کار: ${task.title}',
         () => _addImpl(task),
+        detailFromResult: (_) =>
+            'عنوان: ${task.title} | اولویت: ${task.priority} | مدت تخمینی: ${task.estimatedMinutes} دقیقه',
       );
 
   Future<void> _addImpl(Task task) async {
@@ -45,7 +47,10 @@ class TaskRepository extends ChangeNotifier implements TaskRepositoryPort {
   @override
   Future<void> update(Task task) => AppTrace.instance.track(
         'task', 'به‌روزرسانی کار: ${task.title}',
-        () => _updateImpl(task));
+        () => _updateImpl(task),
+        detailFromResult: (_) =>
+            'وضعیت: ${task.status} | اولویت: ${task.priority}',
+      );
   Future<void> _updateImpl(Task task) async {
     final db = await DatabaseService.instance.database;
     await _upsert(db, task);
@@ -53,9 +58,13 @@ class TaskRepository extends ChangeNotifier implements TaskRepositoryPort {
   }
 
   @override
-  Future<void> delete(String id) => AppTrace.instance.track(
-        'task', 'حذف کار',
-        () => _deleteImpl(id));
+  Future<void> delete(String id) async {
+    final task = _findById(id);
+    final title = task?.title ?? 'نامشخص';
+    return AppTrace.instance.track(
+      'task', 'حذف کار: $title',
+      () => _deleteImpl(id));
+  }
   Future<void> _deleteImpl(String id) async {
     final db = await DatabaseService.instance.database;
     await db.delete('tasks', where: 'id = ?', whereArgs: [id]);
@@ -82,10 +91,13 @@ class TaskRepository extends ChangeNotifier implements TaskRepositoryPort {
   }
 
   @override
-  Future<void> complete(String id, {required int actualMinutes}) =>
-      AppTrace.instance.track(
-        'task', 'تکمیل کار',
-        () => _completeImpl(id, actualMinutes: actualMinutes));
+  Future<void> complete(String id, {required int actualMinutes}) async {
+    final task = _findById(id);
+    final title = task?.title ?? 'نامشخص';
+    return AppTrace.instance.track(
+      'task', 'تکمیل کار: $title',
+      () => _completeImpl(id, actualMinutes: actualMinutes));
+  }
   Future<void> _completeImpl(String id, {required int actualMinutes}) async {
     final task = _findById(id);
     if (task == null) return;

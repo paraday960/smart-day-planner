@@ -12,29 +12,39 @@ class AssistantTraceScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final traces = TraceStore.instance.all.reversed.toList();
-    final appEvents = AppTrace.instance.events.take(30).toList();
+    final appEvents = AppTrace.instance.events;
     final healEvents = SelfHealing.instance.events.toList().reversed.take(5).toList();
     final disabled = SelfHealing.instance.disabledFeatures;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('🔍 ردپای دستیار'),
-        actions: [
-          if (traces.isNotEmpty)
+    return DefaultTabController(
+      length: 2,
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('🔍 ردپا'),
+          bottom: const TabBar(
+            tabs: [
+              Tab(text: '🤖 دستیار', icon: Icon(Icons.chat)),
+              Tab(text: '📋 برنامه', icon: Icon(Icons.apps)),
+            ],
+          ),
+          actions: [
             IconButton(
               icon: const Icon(Icons.delete_outline),
               tooltip: 'پاک کردن',
               onPressed: () {
                 TraceStore.instance.clear();
+                AppTrace.instance.clear();
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text('ردپاها پاک شدند')),
                 );
-                Navigator.of(context).pop();
               },
             ),
-        ],
-      ),
-      body: traces.isEmpty
+          ],
+        ),
+        body: TabBarView(
+          children: [
+            // تب ۱: ردپای دستیار (همان لیست قبلی)
+            traces.isEmpty
           ? const Center(
               child: Padding(
                 padding: EdgeInsets.all(24),
@@ -178,6 +188,79 @@ class AssistantTraceScreen extends StatelessWidget {
                 ),
               ],
             ),
+            ),
+            // تب ۲: رویدادهای سراسری برنامه
+            appEvents.isEmpty
+                ? const Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(24),
+                      child: Text(
+                        'هنوز رویدادی ثبت نشده است.\n'
+                        'با برنامه کار کنید (کار اضافه کنید، تراکنش ثبت کنید) تا اینجا پر شود.',
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  )
+                : Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      if (disabled.isNotEmpty || healEvents.isNotEmpty)
+                        Card(
+                          color: Colors.orange.shade50,
+                          margin: const EdgeInsets.all(8),
+                          child: Padding(
+                            padding: const EdgeInsets.all(12),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Row(children: [
+                                  Icon(Icons.healing, size: 18, color: Colors.orange),
+                                  SizedBox(width: 8),
+                                  Text('سیستم خودترمیمی',
+                                      style: TextStyle(fontWeight: FontWeight.bold)),
+                                ]),
+                                const SizedBox(height: 6),
+                                if (disabled.isNotEmpty)
+                                  ...disabled.keys.map((k) =>
+                                      Padding(padding: const EdgeInsets.only(top: 2),
+                                          child: Text('⏸️  $k غیرفعال موقت'))),
+                                if (healEvents.isNotEmpty)
+                                  ...healEvents.map((e) =>
+                                      Padding(padding: const EdgeInsets.only(top: 2),
+                                          child: Text(e.toString()))),
+                              ],
+                            ),
+                          ),
+                        ),
+                      Expanded(
+                        child: ListView.separated(
+                          padding: const EdgeInsets.all(8),
+                          itemCount: appEvents.length,
+                          separatorBuilder: (_, __) => const Divider(height: 1),
+                          itemBuilder: (context, i) {
+                            final e = appEvents[i];
+                            return ListTile(
+                              dense: true,
+                              leading: Text(e.emoji, style: const TextStyle(fontSize: 18)),
+                              title: Text(e.action),
+                              subtitle: e.detail != null && e.detail!.isNotEmpty
+                                  ? Text(e.detail!, style: const TextStyle(fontSize: 11))
+                                  : Text('${e.categoryLabel} • ${e.time.toLocal().toString().substring(11, 19)}',
+                                      style: const TextStyle(fontSize: 10)),
+                              trailing: e.duration != null
+                                  ? Text('${e.duration!.inMilliseconds}ms',
+                                      style: const TextStyle(fontSize: 10, color: Colors.grey))
+                                  : Text(e.time.toLocal().toString().substring(11, 19),
+                                      style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+          ],
+        ),
+      ),
     );
   }
 }
