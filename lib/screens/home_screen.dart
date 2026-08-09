@@ -51,6 +51,7 @@ import '../services/voice_nlu.dart';
 import '../services/voice_response_service.dart';
 import '../utils/persian_format.dart';
 import '../widgets/task_form_sheet.dart';
+import 'package:smart_day_planner/services/assistant_trace.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
