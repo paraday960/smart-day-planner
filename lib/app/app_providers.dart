@@ -124,8 +124,9 @@ final intelligentAssistantProvider =
         forecast: ref.read(forecastServiceProvider),
         insights: ref.read(financeInsightsServiceProvider),
         availability: ref.read(availabilityRepositoryProvider).settings,
-        debts: ref.read(debtRepositoryProvider).activeItems,
-        workProfile: ref.read(workLearningServiceProvider).profile(
+        tasksProvider: () => ref.read(taskRepositoryProvider).tasks,
+        debtsProvider: () => ref.read(debtRepositoryProvider).activeItems,
+        workProfileProvider: () => ref.read(workLearningServiceProvider).profile(
           tasks: ref.read(taskRepositoryProvider).tasks,
           transactions: ref.read(financeRepositoryProvider).transactions,
         ),

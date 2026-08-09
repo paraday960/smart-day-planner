@@ -48,8 +48,11 @@ class AssistantContext {
     this.forecast = const ForecastService(),
     this.insights = const FinanceInsightsService(),
     this.availability,
-    this.debts,
-    this.workProfile = WorkProfile.empty,
+    this.tasksProvider,
+    this.debtsProvider,
+    this.workProfileProvider,
+    List<DebtItem>? debts,
+    WorkProfile workProfile = WorkProfile.empty,
     this.repaymentPlanner = const DebtRepaymentPlanner(),
     this.taskRepo,
     this.goalRepo,
@@ -57,7 +60,8 @@ class AssistantContext {
     this.debtRepo,
     this.allocationRepo,
     this.budgetRepo,
-  });
+  }) : _staticDebts = debts,
+        _staticWorkProfile = workProfile;
 
   final FinanceRepository? finance;
   final ForecastService forecast;
@@ -70,8 +74,29 @@ class AssistantContext {
   final CategoryBudgetRepository? budgetRepo;
 
   /// تنظیمات ساعت کاری/تعطیلات کاربر (از تنظیمات برنامه).
-  /// اگر null باشد، دستیار با پنجرهٔ پیش‌فرض ۹ تا ۱۸ برنامه می‌چیند.
   final WorkTimeSettings? availability;
+
+  /// تأمین‌کننده‌های پویا برای داده‌های متغیر.
+  final List<Task> Function()? tasksProvider;
+  final List<DebtItem> Function()? debtsProvider;
+  final WorkProfile Function()? workProfileProvider;
+
+  /// کارها (پویا در صورت وجود تأمین‌کننده).
+  List<Task> get tasks => tasksProvider?.call() ?? const [];
+
+  /// بدهی‌های فعال (پویا در صورت وجود تأمین‌کننده، در غیر این صورت ثابت).
+  List<DebtItem> get debts {
+    final p = debtsProvider;
+    if (p != null) return p();
+    return _staticDebts ?? const [];
+  }
+
+  /// پروفایل کاری (پویا در صورت وجود تأمین‌کننده).
+  WorkProfile get workProfile =>
+      workProfileProvider?.call() ?? _staticWorkProfile;
+
+  final List<DebtItem>? _staticDebts;
+  final WorkProfile _staticWorkProfile;
 
   /// بدهی‌های فعال کاربر (برای برنامهٔ پرداخت).
   final List<DebtItem>? debts;
