@@ -178,7 +178,6 @@ class IntelligentAssistantService {
         _lastMemoryKey = null;
         _lastSourceLabel = 'بازخورد';
         trace.step('پاسخ به بازخورد کاربر', detail: 'پاسخ به بازخورد داده شد');
-پاسخ: \$ack');
         trace.step('پایان پردازش');
         return ack;
       }
@@ -224,7 +223,6 @@ class IntelligentAssistantService {
           _lastMemoryKey = memory.normalizeQuestion(lastUserQ);
           _lastSourceLabel = 'تصحیح';
           trace.step('اعمال تصحیح کاربر', detail: 'پاسخ اصلاح شد');
-پاسخ: \$ack');
           trace.step('پایان پردازش');
           return ack;
         }
