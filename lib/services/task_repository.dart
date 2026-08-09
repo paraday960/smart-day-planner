@@ -35,7 +35,7 @@ class TaskRepository extends ChangeNotifier implements TaskRepositoryPort {
         'افزودن کار: ${task.title}',
         () => _addImpl(task),
         detailFromResult: (_) =>
-            'عنوان: ${task.title} | اولویت: ${task.priority} | مدت تخمینی: ${task.estimatedMinutes} دقیقه',
+            'عنوان: ${task.title} | اولویت: ${task.importance} | مدت تخمینی: ${task.estimatedMinutes} دقیقه',
       );
 
   Future<void> _addImpl(Task task) async {
@@ -49,7 +49,7 @@ class TaskRepository extends ChangeNotifier implements TaskRepositoryPort {
         'task', 'به‌روزرسانی کار: ${task.title}',
         () => _updateImpl(task),
         detailFromResult: (_) =>
-            'وضعیت: ${task.status} | اولویت: ${task.priority}',
+            'وضعیت: ${task.status} | اولویت: ${task.importance}',
       );
   Future<void> _updateImpl(Task task) async {
     final db = await DatabaseService.instance.database;
