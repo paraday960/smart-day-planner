@@ -7,6 +7,7 @@ import 'package:sqflite/sqflite.dart';
 import '../domain/repositories/task_repository_port.dart';
 import '../models/task.dart';
 import 'database_service.dart';
+import 'app_trace.dart';
 
 class TaskRepository extends ChangeNotifier implements TaskRepositoryPort {
   static const _legacyStorageKey = 'smart_day_planner.tasks.v1';
@@ -29,21 +30,33 @@ class TaskRepository extends ChangeNotifier implements TaskRepositoryPort {
   }
 
   @override
-  Future<void> add(Task task) async {
+  Future<void> add(Task task) => AppTrace.instance.track(
+        'task',
+        'افزودن کار: ${task.title}',
+        () => _addImpl(task),
+      );
+
+  Future<void> _addImpl(Task task) async {
     final db = await DatabaseService.instance.database;
     await _upsert(db, task);
     await _refreshAndNotify(db);
   }
 
   @override
-  Future<void> update(Task task) async {
+  Future<void> update(Task task) => AppTrace.instance.track(
+        'task', 'به‌روزرسانی کار: ${task.title}',
+        () => _updateImpl(task));
+  Future<void> _updateImpl(Task task) async {
     final db = await DatabaseService.instance.database;
     await _upsert(db, task);
     await _refreshAndNotify(db);
   }
 
   @override
-  Future<void> delete(String id) async {
+  Future<void> delete(String id) => AppTrace.instance.track(
+        'task', 'حذف کار',
+        () => _deleteImpl(id));
+  Future<void> _deleteImpl(String id) async {
     final db = await DatabaseService.instance.database;
     await db.delete('tasks', where: 'id = ?', whereArgs: [id]);
     await _refreshAndNotify(db);
@@ -69,7 +82,11 @@ class TaskRepository extends ChangeNotifier implements TaskRepositoryPort {
   }
 
   @override
-  Future<void> complete(String id, {required int actualMinutes}) async {
+  Future<void> complete(String id, {required int actualMinutes}) =>
+      AppTrace.instance.track(
+        'task', 'تکمیل کار',
+        () => _completeImpl(id, actualMinutes: actualMinutes));
+  Future<void> _completeImpl(String id, {required int actualMinutes}) async {
     final task = _findById(id);
     if (task == null) return;
     await update(

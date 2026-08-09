@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:smart_day_planner/services/assistant_trace.dart';
 import 'package:smart_day_planner/services/self_healing.dart';
+import 'package:smart_day_planner/services/app_trace.dart';
 
 /// صفحه‌ای که ردپای کامل پردازش درخواست‌های دستیار را نشان می‌دهد.
 /// کاربر می‌تواند گزارش را کپی کرده و برای عیب‌یابی ارسال کند.
@@ -11,6 +12,7 @@ class AssistantTraceScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final traces = TraceStore.instance.all.reversed.toList();
+    final appEvents = AppTrace.instance.events.take(30).toList();
     final healEvents = SelfHealing.instance.events.toList().reversed.take(5).toList();
     final disabled = SelfHealing.instance.disabledFeatures;
 
@@ -76,8 +78,27 @@ class AssistantTraceScreen extends StatelessWidget {
                       ),
                     ),
                   ),
-                Expanded(
-                  child: ListView.separated(
+                if (appEvents.isNotEmpty) ...[
+                  const Padding(
+                    padding: EdgeInsets.fromLTRB(12, 8, 12, 0),
+                    child: Text('📋 رویدادهای اخیر برنامه',
+                        style: TextStyle(fontWeight: FontWeight.bold)),
+                  ),
+                  Card(
+                    margin: const EdgeInsets.all(8),
+                    child: Padding(
+                      padding: const EdgeInsets.all(10),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: appEvents.take(8).map((e) => Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 2),
+                          child: Text(e.toString(), style: const TextStyle(fontSize: 11)),
+                        )).toList(),
+                      ),
+                    ),
+                  ),
+                ],
+                Expanded(child: ListView.separated(
                     padding: const EdgeInsets.all(12),
                     itemCount: traces.length,
                     separatorBuilder: (_, __) => const SizedBox(height: 12),

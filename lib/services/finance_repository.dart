@@ -8,6 +8,7 @@ import 'package:sqflite/sqflite.dart';
 import '../domain/repositories/finance_repository_port.dart';
 import '../models/finance_transaction.dart';
 import 'database_service.dart';
+import 'app_trace.dart';
 
 class FinanceRepository extends ChangeNotifier implements FinanceRepositoryPort {
   static const _legacyStorageKey = 'smart_day_planner.finance.v1';
@@ -31,17 +32,41 @@ class FinanceRepository extends ChangeNotifier implements FinanceRepositoryPort 
 
   @override
   Future<void> add(FinanceTransaction transaction) async {
+    final sw = Stopwatch()..start();
+    try {
+      await _addImpl(transaction);
+      sw.stop();
+      AppTrace.instance.log(
+        'finance',
+        transaction.type == FinanceTransactionType.income ? 'درآمد ثبت شد' : 'هزینه ثبت شد',
+        detail: '\${transaction.amount} تومان\${transaction.title.isNotEmpty ? " - \${transaction.title}" : ""}',
+        duration: sw.elapsed, level: TraceLevel.success);
+    } catch(e) {
+      sw.stop();
+      AppTrace.instance.log('finance','خطا در ثبت تراکنش', detail: e.toString(), duration: sw.elapsed, level: TraceLevel.error);
+      rethrow;
+    }
+  }
+  Future<void> _addImpl(FinanceTransaction transaction) async {
     final db = await DatabaseService.instance.database;
-    await db.insert(
-      'finance_transactions',
-      _toRow(transaction),
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
+    await db.insert('finance_transactions', _toRow(transaction), conflictAlgorithm: ConflictAlgorithm.replace);
     await _refreshAndNotify(db);
   }
 
   @override
   Future<void> delete(String id) async {
+    final sw = Stopwatch()..start();
+    try {
+      await _deleteImpl(id);
+      sw.stop();
+      AppTrace.instance.log('finance','تراکنش حذف شد', duration: sw.elapsed, level: TraceLevel.success);
+    } catch(e) {
+      sw.stop();
+      AppTrace.instance.log('finance','خطا در حذف تراکنش', detail: e.toString(), duration: sw.elapsed, level: TraceLevel.error);
+      rethrow;
+    }
+  }
+  Future<void> _deleteImpl(String id) async {
     final db = await DatabaseService.instance.database;
     await db.delete('finance_transactions', where: 'id = ?', whereArgs: [id]);
     await _refreshAndNotify(db);
