@@ -67,7 +67,7 @@ void main() {
 
     test('برنامه امروز با کارها → لیست کارها', () async {
       final svc = build(online: _OnlineNo());
-      final a = await svc.ask(userText: 'برنامه امروز چیه؟', tasks: [_t('نوشتن گزارش'), _t('تماس با مشتری')]);
+      final a = await svc.ask(userText: 'امروز چیکار کنم؟', tasks: [_t('نوشتن گزارش'), _t('تماس با مشتری')]);
       expect(a, isNotEmpty);
       // باید به کارها اشاره کند
       expect(
@@ -103,7 +103,7 @@ void main() {
 
     test('پیگیری بعد از سؤال مرتبط → پاسخ می‌دهد', () async {
       final svc = build(online: _OnlineNo());
-      await svc.ask(userText: 'برنامه امروز چیه؟', tasks: [_t('کار مهم')]);
+      await svc.ask(userText: 'امروز چیکار کنم؟', tasks: [_t('کار مهم')]);
       final follow = await svc.ask(userText: 'ادامه‌اش چیه؟', tasks: [_t('کار مهم')]);
       expect(follow, isNotEmpty);
       expect(follow.contains('Instance of'), isFalse);
