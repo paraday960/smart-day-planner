@@ -110,12 +110,18 @@ class IntelligentAssistantService {
     if (t.isEmpty) return 'چیزی نشنیدم. بگو چطور می‌توانم کمکت کنم.';
 
     final trace = TraceStore.instance.start(t);
-    trace.step('دریافت درخواست', detail: 'متن: \$t');
+    trace.step(TraceStepType.input, 'دریافت درخواست کاربر',
+        source: 'intelligent_assistant_service.dart:ask',
+        inputs: {'text': t, 'length': t.length, 'tasks_count': tasks.length});
 
     await memory.load();
-    trace.step('بارگذاری حافظه');
+    await memory.load();
+    trace.step(TraceStepType.memory, 'بارگذاری حافظهٔ یادگیری',
+        source: 'local_assistant_memory.dart',
+        outputs: {'entries_count': memory.allEntries.length});
     await feedbackStore.load();
-    trace.step('بارگذاری بازخوردها');
+    trace.step(TraceStepType.memory, 'بارگذاری آمار بازخورد',
+        outputs: {'tracked_intents': feedbackStore.stats.length});
 
     // افزودن رویدادهای اخیر سیستم خودترمیمی به ردپا
     final healEvents = SelfHealing.instance.events.toList().reversed
@@ -134,11 +140,20 @@ class IntelligentAssistantService {
     String effectiveText = t;
     if (resolved != null) {
       if (resolved.intentId.isNotEmpty) {
-        trace.step('پیگیری شناسایی شد', detail: 'intent: \${resolved.intentId}');
+        trace.step(TraceStepType.followup, 'پیگیری با intent مشخص',
+            source: 'conversation_router.dart:resolveFollowUp',
+            inputs: {'followup': t},
+            outputs: {'intentId': resolved.intentId});
       } else {
         effectiveText = resolved.originalText;
-        trace.step('پیگیری با ارجاع متنی', detail: 'متن اصلی: \$effectiveText');
+        trace.step(TraceStepType.followup, 'پیگیری با ارجاع به متن قبلی',
+            source: 'conversation_router.dart',
+            inputs: {'followup': t},
+            outputs: {'resolvedTo': effectiveText});
       }
+    } else {
+      trace.step(TraceStepType.followup, 'پیگیری نیست',
+          outputs: {'resolved': false});
     }
 
     // یادگیری ضمنی: بازنویسی هم‌مضمون سؤال قبلی = شکست پاسخ محلی
@@ -248,7 +263,16 @@ class IntelligentAssistantService {
     String answer;
     final fromMemory = memory.lookupEntry(effectiveText);
     if (fromMemory != null) {
-      trace.step('یافتن در حافظه', detail: 'منبع: \${fromMemory.source}');
+      trace.step(TraceStepType.memory, 'پاسخ در حافظه پیدا شد',
+          source: 'local_assistant_memory.dart:lookupEntry',
+          inputs: {'query': effectiveText},
+          outputs: {
+            'source': fromMemory.source.name,
+            'use_count': fromMemory.useCount,
+            'answer_preview': fromMemory.answer.length > 80
+                ? fromMemory.answer.substring(0, 80) + '...'
+                : fromMemory.answer,
+          });
       answer = fromMemory.answer;
       _lastMemoryKey = fromMemory.question;
       _lastSourceLabel = 'حافظهٔ محلی (یادگیری از آنلاین)';
@@ -275,12 +299,21 @@ class IntelligentAssistantService {
         localSuccessCount: stats?.success ?? 0,
         localFailureCount: stats?.failure ?? 0,
       );
-      trace.step('تصمیم روتر', detail: 'مسیر: \$route | '
-          'اطمینان: \${intentMatch != null ? _confidenceOf(t)?.toStringAsFixed(2) : "-"} | '
-          'موفق: \${stats?.success ?? 0}/شکست: \${stats?.failure ?? 0}');
+      final conf = intentMatch != null ? _confidenceOf(t) : null;
+      trace.step(TraceStepType.routing, 'تصمیم روتر محلی/آنلاین',
+          source: 'local_online_router.dart:decide',
+          inputs: {
+            'text': effectiveText,
+            'local_can_handle': localCanHandle,
+            'confidence': conf?.toStringAsFixed(2) ?? 'ندارد',
+            'successes': stats?.success ?? 0,
+            'failures': stats?.failure ?? 0,
+          },
+          outputs: {'route': route.toString()});
       final onlineAvailable = route != RouteTarget.localOnly &&
           await _isOnlineAvailable();
-      trace.step('بررسی آنلاین', detail: 'در دسترس: \${onlineAvailable ? "بله" : "خیر"}');
+      trace.step(TraceStepType.online, 'بررسی در دسترس بودن هوش آنلاین',
+          outputs: {'onlineAvailable': onlineAvailable});
       if (!onlineAvailable && SelfHealing.instance.isFeatureDisabled('online_ai')) {
         trace.step('هوش آنلاین غیرفعال است (self-healing)',
             detail: 'به‌خاطر خطاهای مکرر موقتاً غیرفعال شده؛ از پاسخ محلی استفاده می‌شود.',
@@ -300,9 +333,23 @@ class IntelligentAssistantService {
           _lastLocalIntentId = followIntent;
           feedbackStore.recordSuccess(followIntent);
         } else {
+          final localSw = Stopwatch()..start();
           answer = await ruleBased.generate(prompt: effectiveText, tasks: tasks);
+          localSw.stop();
           _lastSourceLabel = 'هوش محلی';
-          trace.step('پاسخ محلی تولید شد', detail: '\${answer.length} کاراکتر');
+          final detectedIntent = _extractLocalIntentId(effectiveText);
+          trace.step(TraceStepType.local, 'پاسخ محلی تولید شد',
+              source: 'local_assistant.dart:generate',
+              duration: localSw.elapsed,
+              inputs: {'prompt': effectiveText, 'intent': detectedIntent ?? 'ناشناخته'},
+              outputs: {
+                'answer_length': answer.length,
+                'answer_preview': answer.length > 100 ? answer.substring(0,100)+'...' : answer,
+              });
+          if (detectedIntent != null) {
+            _lastLocalIntentId = detectedIntent;
+            feedbackStore.recordSuccess(detectedIntent);
+          }
           final intentId = _extractLocalIntentId(effectiveText);
           if (intentId != null) {
             _lastLocalIntentId = intentId;
@@ -312,11 +359,22 @@ class IntelligentAssistantService {
       } else if (route == RouteTarget.online && onlineAvailable) {
         // محلی کافی نیست یا سؤال پیچیده است → آنلاین.
         _lastAnswerFromOnline = false;
-        final sw = Stopwatch()..start();
+        final onlineSw = Stopwatch()..start();
         answer = await _askOnline(effectiveText, tasks);
-        sw.stop();
-        trace.step(_lastAnswerFromOnline ? 'پاسخ آنلاین دریافت شد' : 'آنلاین خطا داد → محلی',
-            detail: '\${sw.elapsedMilliseconds}ms، \${answer.length} کاراکتر');
+        onlineSw.stop();
+        trace.step(
+          _lastAnswerFromOnline ? TraceStepType.online : TraceStepType.warning,
+          _lastAnswerFromOnline ? 'پاسخ از هوش آنلاین دریافت شد' : 'آنلاین خطا داد → مسیر محلی',
+          source: 'intelligent_assistant_service.dart:_askOnline',
+          duration: onlineSw.elapsed,
+          inputs: {'query': effectiveText},
+          outputs: {
+            'from_online': _lastAnswerFromOnline,
+            'answer_length': answer.length,
+            'answer_preview': answer.length > 100 ? answer.substring(0,100)+'...' : answer,
+          },
+          success: _lastAnswerFromOnline,
+        );
         if (_lastAnswerFromOnline) {
           // فقط پاسخ واقعی آنلاین یاد گرفته می‌شود (fallback نه)
           await memory.rememberEntry(
@@ -354,7 +412,13 @@ class IntelligentAssistantService {
       }
     }
 
-    trace.step('پایان پردازش', detail: '\${answer.length} کاراکتر');
+    trace.step(TraceStepType.output, 'بازگرداندن پاسخ نهایی',
+        source: 'intelligent_assistant_service.dart:ask',
+        outputs: {
+          'source_label': _lastSourceLabel,
+          'answer_length': answer.length,
+          'answer_preview': answer.length > 120 ? answer.substring(0,120)+'...' : answer,
+        });
     _history.add(ChatTurn(role: 'assistant', content: answer));
     // ثبت نوبت در زمینهٔ مکالمه برای پشتیبانی از پیگیری‌های بعدی.
     final resolvedIntent = _lastLocalIntentId;
