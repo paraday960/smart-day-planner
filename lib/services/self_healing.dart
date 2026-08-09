@@ -2,7 +2,53 @@ import 'dart:async';
 import 'dart:collection';
 import 'package:flutter/foundation.dart';
 
-/// یک خطای ثبت‌شده در سیستم.
+/// یک رویداد در سیستم خودترمیمی.
+class HealingEvent {
+  final DateTime time;
+  final String feature;
+  final String action; // 'error' | 'disabled' | 'healed' | 'fallback'
+  final String? detail;
+  HealingEvent({
+    required this.feature,
+    required this.action,
+    this.detail,
+  }) : time = DateTime.now();
+
+  String get emoji {
+    switch (action) {
+      case 'error':
+        return '🐞';
+      case 'disabled':
+        return '⏸️';
+      case 'healed':
+        return '♻️';
+      case 'fallback':
+        return '🔁';
+      default:
+        return '•';
+    }
+  }
+
+  String get label {
+    switch (action) {
+      case 'error':
+        return 'خطا ثبت شد';
+      case 'disabled':
+        return 'غیرفعال‌سازی موقت';
+      case 'healed':
+        return 'شفای خودکار';
+      case 'fallback':
+        return 'استفاده از مسیر جایگزین';
+      default:
+        return action;
+    }
+  }
+
+  @override
+  String toString() =>
+      '$emoji [$feature] $label${detail != null ? " — $detail" : ""}';
+}
+
 class _ErrorRecord {
   final String error;
   final String? stack;
@@ -20,32 +66,36 @@ class _ErrorRecord {
   String get signature => '$where::${error.split('\n').first}';
 }
 
-/// سیستم خودعیب‌یابی و خودترمیمی.
-///
-/// - تمام خطاها را ثبت می‌کند
-/// - خطاهای تکراری را تشخیص می‌دهد
-/// - اگر یک قابلیت چند بار خطا بدهد، آن را موقتاً غیرفعال می‌کند
-///   (با [isFeatureDisabled]) و به مسیر جایگزین می‌رود
-/// - پس از مدتی دوباره تلاش می‌کند (healing)
-/// - خلاصهٔ خطاها را برای گزارش در اختیار می‌گذارد
 class SelfHealing {
   SelfHealing._();
   static final SelfHealing instance = SelfHealing._();
 
   static const _maxRecords = 200;
+  static const _maxEvents = 50;
   static const _failureThreshold = 3;
   static const _healingDuration = Duration(hours: 6);
 
   final Queue<_ErrorRecord> _errors = Queue();
   final Map<String, _ErrorRecord> _indexed = {};
-
-  /// قابلیت‌هایی که به‌خاطر خطاهای مکرر موقتاً غیرفعال شده‌اند.
   final Map<String, DateTime> _disabledFeatures = {};
 
-  /// گزارش یک خطا.
-  ///
-  /// [feature] نام قابلیت (مثلاً 'online_ai', 'voice_input').
-  /// اگر خطا به‌اندازهٔ کافی تکرار شود، آن قابلیت به‌طور موقت غیرفعال می‌شود.
+  /// رویدادهای اخیر خودترمیمی (برای نمایش در ردپا).
+  final Queue<HealingEvent> events = Queue();
+
+  void _log(HealingEvent e) {
+    events.add(e);
+    while (events.length > _maxEvents) {
+      events.removeFirst();
+    }
+    if (kDebugMode) {
+      debugPrint('${e.emoji} SelfHealing[${e.feature}]: ${e.label}');
+    }
+  }
+
+  /// آخرین رویدادهای مربوط به یک قابلیت.
+  List<HealingEvent> eventsFor(String feature) =>
+      events.where((e) => e.feature == feature).toList();
+
   void reportError(
     Object error, {
     required String feature,
@@ -71,45 +121,50 @@ class SelfHealing {
       }
     }
 
-    // شمارش خطاهای همین قابلیت
-    final featureFailures = _indexed.values
+    _log(HealingEvent(
+        feature: feature, action: 'error', detail: error.toString()));
+
+    final failures = _indexed.values
         .where((e) => e.where == feature)
         .fold<int>(0, (sum, e) => sum + e.count);
 
-    if (featureFailures >= _failureThreshold &&
+    if (failures >= _failureThreshold &&
         !_disabledFeatures.containsKey(feature)) {
       _disabledFeatures[feature] = now;
-      debugPrint(
-          '🔧 Self-healing: قابلیت «$feature» به‌خاطر $featureFailures خطا موقتاً غیرفعال شد.');
-    }
-
-    if (kDebugMode) {
-      debugPrint('🐞 SelfHealing[$feature]: $error');
+      _log(HealingEvent(
+        feature: feature,
+        action: 'disabled',
+        detail: 'پس از $failures خطا، به‌مدت ۶ ساعت غیرفعال شد',
+      ));
     }
   }
 
-  /// آیا این قابلیت به‌خاطر خطاهای مکرر غیرفعال است؟
   bool isFeatureDisabled(String feature) {
     final disabledAt = _disabledFeatures[feature];
     if (disabledAt == null) return false;
     if (DateTime.now().difference(disabledAt) > _healingDuration) {
-      // شفای خودکار: دوباره فعال کن
       _disabledFeatures.remove(feature);
-      debugPrint('♻️ Self-healing: قابلیت «$feature» دوباره فعال شد.');
+      _log(HealingEvent(
+        feature: feature,
+        action: 'healed',
+        detail: 'پس از ۶ ساعت دوباره فعال شد',
+      ));
       return false;
     }
     return true;
   }
 
-  /// اجرای امن یک عملیات با خودترمیمی.
-  ///
-  /// اگر [feature] غیرفعال باشد یا عملیات خطا بدهد، [fallback] اجرا می‌شود.
   Future<T> guard<T>(
     Future<T> Function() action, {
     required String feature,
     required T Function(Object error) fallback,
   }) async {
     if (isFeatureDisabled(feature)) {
+      _log(HealingEvent(
+        feature: feature,
+        action: 'fallback',
+        detail: 'قابلیت غیرفعال است، مسیر جایگزین اجرا شد',
+      ));
       return fallback(
           StateError('قابلیت $feature موقتاً غیرفعال است (self-healing)'));
     }
@@ -117,11 +172,15 @@ class SelfHealing {
       return await action();
     } catch (e, st) {
       reportError(e, feature: feature, stack: st.toString());
+      _log(HealingEvent(
+        feature: feature,
+        action: 'fallback',
+        detail: 'خطا رخ داد، مسیر جایگزین اجرا شد',
+      ));
       return fallback(e);
     }
   }
 
-  /// نسخهٔ همگام guard.
   T guardSync<T>(
     T Function() action, {
     required String feature,
@@ -139,7 +198,6 @@ class SelfHealing {
     }
   }
 
-  /// همهٔ خطاها (برای نمایش در صفحهٔ دیباگ).
   List<Map<String, dynamic>> get recentErrors => _errors
       .map((e) => {
             'feature': e.where,
@@ -150,11 +208,9 @@ class SelfHealing {
       .toList()
     ..sort((a, b) => (b['at'] as String).compareTo(a['at'] as String));
 
-  /// قابلیت‌های غیرفعال.
-  Map<String, String> get disabledFeatures => _disabledFeatures
-      .map((k, v) => MapEntry(k, v.toIso8601String()));
+  Map<String, String> get disabledFeatures =>
+      _disabledFeatures.map((k, v) => MapEntry(k, v.toIso8601String()));
 
-  /// خلاصهٔ وضعیت برای گزارش.
   String get summary {
     final buf = StringBuffer();
     buf.writeln('🧠 Self-Healing Report');
@@ -165,19 +221,19 @@ class SelfHealing {
         buf.writeln('  • $k (از ${v.toIso8601String()})');
       });
     }
-    if (_errors.isNotEmpty) {
-      buf.writeln('آخرین خطاها:');
-      for (final e in _errors.take(5)) {
-        buf.writeln('  [${e.where}] x${e.count}: ${e.error}');
+    if (events.isNotEmpty) {
+      buf.writeln('آخرین رویدادها:');
+      for (final e in events.toList().reversed.take(10)) {
+        buf.writeln('  $e');
       }
     }
     return buf.toString();
   }
 
-  /// پاک کردن همهٔ خطاها و بازنشانی.
   void clear() {
     _errors.clear();
     _indexed.clear();
     _disabledFeatures.clear();
+    events.clear();
   }
 }

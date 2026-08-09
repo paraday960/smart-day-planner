@@ -117,6 +117,16 @@ class IntelligentAssistantService {
     await feedbackStore.load();
     trace.step('بارگذاری بازخوردها');
 
+    // افزودن رویدادهای اخیر سیستم خودترمیمی به ردپا
+    final healEvents = SelfHealing.instance.events.toList().reversed
+        .where((e) => e.feature == 'online_ai')
+        .take(3).toList();
+    for (final e in healEvents) {
+      trace.step('خودترمیمی: \${e.label}',
+          detail: 'قابلیت: \${e.feature}\${e.detail != null ? " | \${e.detail}" : ""}',
+          success: e.action != 'error' && e.action != 'disabled');
+    }
+
     // ── ۰) پیگیری ارجاعی (آنافورا): «ادامه‌اش چیه؟»، «بعدش؟» ──
     // اگر متن یک پیگیری است و سؤال قبلی کاربر وجود دارد، به همان intent/موضوع
     // قبلی رجوع می‌کنیم تا پاسخ مرتبط داده شود.
@@ -271,6 +281,11 @@ class IntelligentAssistantService {
       final onlineAvailable = route != RouteTarget.localOnly &&
           await _isOnlineAvailable();
       trace.step('بررسی آنلاین', detail: 'در دسترس: \${onlineAvailable ? "بله" : "خیر"}');
+      if (!onlineAvailable && SelfHealing.instance.isFeatureDisabled('online_ai')) {
+        trace.step('هوش آنلاین غیرفعال است (self-healing)',
+            detail: 'به‌خاطر خطاهای مکرر موقتاً غیرفعال شده؛ از پاسخ محلی استفاده می‌شود.',
+            success: false);
+      }
 
       if (route == RouteTarget.localOnly ||
           (route == RouteTarget.localFirst && localCanHandle) ||
