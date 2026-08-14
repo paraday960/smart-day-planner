@@ -4,6 +4,7 @@ import 'allocation_repository.dart';
 import 'category_budget_repository.dart';
 import 'debt_repository.dart';
 import 'envelope_planning_service.dart';
+import 'finance_insights_service.dart';
 import 'finance_repository.dart';
 import 'planned_expense_repository.dart';
 
@@ -44,6 +45,16 @@ class SmartNotificationAdvisor {
     }
 
     alerts.addAll(_envelope.budgetWarnings(budgets: budgets.items, financeRepository: finance));
+
+    // عمق مالی: اگر با ریتم فعلی در حال سوزاندن موجودی باشیم و دوام آن کم
+    // است، یک هشدار زودهنگام بده (بر اساس تحلیل جریان نقدی ۳۰ روز اخیر).
+    final insights = const FinanceInsightsService();
+    final runway = insights.runwayDays(finance.transactions);
+    if (runway != null && runway <= 7) {
+      alerts.add(runway <= 0
+          ? 'هشدار: هزینه‌هایت از درآمدت بیشتر است و موجودی‌ات تمام شده؛ همین امروز یک درآمد یا کاهش هزینه لازم داری.'
+          : 'هشدار: با ریتم فعلی خرج کردن، موجودی‌ات تا حدود ${PersianFormat.digits(runway)} روز دیگر تمام می‌شود.');
+    }
 
     if (alerts.isEmpty) alerts.add('فعلاً هشدار فوری نداری.');
     return alerts.take(6).toList();
