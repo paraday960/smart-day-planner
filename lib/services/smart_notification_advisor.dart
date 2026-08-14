@@ -26,7 +26,10 @@ class SmartNotificationAdvisor {
       final remaining = _envelope.remainingForDebt(debt, allocations);
       final days = _daysLeft(debt.dueAt, now);
       if (remaining > 0 && days <= 2) {
-        alerts.add('هشدار: فقط ${PersianFormat.digits(days)} روز تا بدهی ${debt.personName} مانده و ${PersianFormat.money(remaining)} کم داری.');
+        // برای بدهی عقب‌افتاده `days` صفر یا منفی است؛ پیام باید «مهلت گذشته» باشد.
+        alerts.add(days <= 0
+            ? 'هشدار: مهلت بدهی ${debt.personName} گذشته و هنوز ${PersianFormat.money(remaining)} کم داری.'
+            : 'هشدار: فقط ${PersianFormat.digits(days)} روز تا بدهی ${debt.personName} مانده و ${PersianFormat.money(remaining)} کم داری.');
       }
     }
 
@@ -34,7 +37,9 @@ class SmartNotificationAdvisor {
       final remaining = _envelope.remainingForPlannedExpense(item, allocations);
       final days = _daysLeft(item.dueAt, now);
       if (remaining > 0 && days <= 3) {
-        alerts.add('هشدار: برای «${item.title}» ${PersianFormat.money(remaining)} کم داری و ${PersianFormat.digits(days)} روز مانده.');
+        alerts.add(days <= 0
+            ? 'هشدار: مهلت «${item.title}» گذشته و هنوز ${PersianFormat.money(remaining)} کم داری.'
+            : 'هشدار: برای «${item.title}» ${PersianFormat.money(remaining)} کم داری و ${PersianFormat.digits(days)} روز مانده.');
       }
     }
 
@@ -44,6 +49,8 @@ class SmartNotificationAdvisor {
     return alerts.take(6).toList();
   }
 
+  /// روزهای مانده تا مهلت (امروز = ۱). برای مهلت‌های گذشته صفر یا منفی برمی‌گردد
+  /// و باید در پیام‌ها به‌عنوان «عقب‌افتاده» نمایش داده شود.
   int _daysLeft(DateTime dueAt, DateTime now) {
     final today = DateTime(now.year, now.month, now.day);
     final due = DateTime(dueAt.year, dueAt.month, dueAt.day);
