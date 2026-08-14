@@ -46,4 +46,98 @@ void main() {
     final warnings = svc.next7DaysWarnings(transactions: txs, tasks: tasks, now: DateTime(2026, 8, 6));
     expect(warnings.isNotEmpty, isTrue);
   });
+
+
+  group('weeklyForecast و weeklyOutlook', () {
+    Task _done(String id, {required int daysAgo}) {
+      return Task(
+        id: id,
+        title: 'کار $id',
+        category: 'کار',
+        importance: 3,
+        estimatedMinutes: 30,
+        createdAt: DateTime(2026, 8, 1),
+        completedAt: DateTime(2026, 8, 8).subtract(Duration(days: daysAgo)),
+        status: TaskStatus.done,
+        energy: EnergyLevel.medium,
+      );
+    }
+
+    FinanceTransaction _tx(String id, FinanceTransactionType type, int amount,
+        int daysAgo) {
+      return FinanceTransaction(
+        id: id,
+        type: type,
+        amount: amount,
+        category: 'عمومی',
+        createdAt: DateTime(2026, 8, 8).subtract(Duration(days: daysAgo)),
+      );
+    }
+
+    test('بدون داده → hasEnoughData=false و اعداد صفر', () {
+      final f = svc.weeklyForecast(
+        tasks: const [],
+        transactions: const [],
+        now: DateTime(2026, 8, 8),
+      );
+      expect(f.hasEnoughData, isFalse);
+      expect(f.projectedCompletedTasks, 0);
+    });
+
+    test('با سابقهٔ کار، تعداد تکمیل هفتهٔ آینده برآورد می‌شود', () {
+      // هفتهٔ اخیر (روزهای ۰..۶): ۳ کار؛ هفتهٔ قبل: ۱ کار؛ قبل‌تر: ۱ کار
+      final tasks = [
+        _done('a', daysAgo: 1),
+        _done('b', daysAgo: 3),
+        _done('c', daysAgo: 5),
+        _done('d', daysAgo: 8),
+        _done('e', daysAgo: 15),
+      ];
+      final f = svc.weeklyForecast(
+        tasks: tasks,
+        transactions: const [],
+        now: DateTime(2026, 8, 8),
+      );
+      expect(f.hasEnoughData, isTrue);
+      // میانگین موزون: (3*3 + 1*2 + 1)/6 = 12/6 = 2
+      expect(f.projectedCompletedTasks, 2);
+    });
+
+    test('پیش‌بینی مالی هفتهٔ آینده از forecast30Days می‌آید', () {
+      final txs = [
+        _tx('i1', FinanceTransactionType.income, 100000, 1),
+        _tx('i2', FinanceTransactionType.income, 100000, 3),
+        _tx('e1', FinanceTransactionType.expense, 50000, 2),
+      ];
+      final f = svc.weeklyForecast(
+        tasks: const [],
+        transactions: txs,
+        now: DateTime(2026, 8, 8),
+      );
+      expect(f.hasEnoughData, isTrue);
+      expect(f.projectedIncome, greaterThan(0));
+      expect(f.projectedExpense, greaterThan(0));
+    });
+
+    test('weeklyOutlook جملهٔ فارسی برمی‌گرداند', () {
+      final tasks = [_done('a', daysAgo: 1), _done('b', daysAgo: 2)];
+      final txs = [_tx('i1', FinanceTransactionType.income, 300000, 1)];
+      final lines = svc.weeklyOutlook(
+        tasks: tasks,
+        transactions: txs,
+        now: DateTime(2026, 8, 8),
+      );
+      expect(lines, isNotEmpty);
+      expect(lines.join('\n'), contains('هفتهٔ آینده'));
+    });
+
+    test('weeklyOutlook بدون داده پیام راهنما می‌دهد', () {
+      final lines = svc.weeklyOutlook(
+        tasks: const [],
+        transactions: const [],
+        now: DateTime(2026, 8, 8),
+      );
+      expect(lines.single, contains('دادهٔ کافی'));
+    });
+  });
 }

@@ -28,8 +28,130 @@ class ScheduledTaskSuggestion {
   final int priority;
 }
 
+/// پیش‌بینی هفتهٔ آینده: عملکرد (کارهای تکمیل‌شده) + مالی (درآمد/هزینه).
+class WeeklyForecast {
+  const WeeklyForecast({
+    required this.projectedCompletedTasks,
+    required this.projectedIncome,
+    required this.projectedExpense,
+    required this.confidence,
+    required this.hasEnoughData,
+  });
+
+  /// تعداد کارهایی که احتمالاً هفتهٔ آینده تکمیل می‌شوند.
+  final int projectedCompletedTasks;
+
+  /// درآمد پیش‌بینی‌شدهٔ هفتهٔ آینده.
+  final int projectedIncome;
+
+  /// هزینهٔ پیش‌بینی‌شدهٔ هفتهٔ آینده.
+  final int projectedExpense;
+
+  /// اطمینان ۰ تا ۱.
+  final double confidence;
+
+  /// آیا دادهٔ کافی برای پیش‌بینی وجود دارد؟
+  final bool hasEnoughData;
+
+  int get projectedNet => projectedIncome - projectedExpense;
+}
+
 class PredictiveSchedulerService {
   const PredictiveSchedulerService();
+
+  /// پیش‌بینی هفتهٔ آینده: تعداد کارهای تکمیل‌شده + درآمد/هزینه.
+  ///
+  /// تعداد کارها با میانگین موزون ۳ هفتهٔ اخیر برآورد می‌شود و مالی با
+  /// همان رگرسیون خطی [forecast30Days] (۷ روز اول). بدون دادهٔ کافی
+  /// `hasEnoughData=false` و اعداد صفر برمی‌گردد.
+  WeeklyForecast weeklyForecast({
+    required List<Task> tasks,
+    required List<FinanceTransaction> transactions,
+    DateTime? now,
+  }) {
+    final current = now ?? DateTime.now();
+
+    // تعداد کارهای تکمیل‌شده در ۳ هفتهٔ اخیر (هفتهٔ اخیر وزن بیشتر)
+    final completedWeeks = <int>[];
+    for (var i = 2; i >= 0; i--) {
+      final start = current.subtract(Duration(days: (i + 1) * 7));
+      final end = current.subtract(Duration(days: i * 7));
+      completedWeeks.add(tasks
+          .where((t) =>
+              t.isDone &&
+              t.completedAt != null &&
+              t.completedAt!.isAfter(start) &&
+              !t.completedAt!.isAfter(end))
+          .length);
+    }
+
+    final hasTaskHistory = completedWeeks.any((c) => c > 0);
+    var projectedTasks = 0;
+    if (hasTaskHistory) {
+      final weighted =
+          (completedWeeks[0] * 3 + completedWeeks[1] * 2 + completedWeeks[2]) /
+              6.0;
+      projectedTasks = weighted.round();
+    }
+
+    // مالی: مجموع ۷ روز اول پیش‌بینی ۳۰ روزه
+    final projectedIncome = forecast30Days(
+            transactions: transactions,
+            type: FinanceTransactionType.income,
+            now: current)
+        .take(7)
+        .fold<int>(0, (sum, p) => sum + p.predictedValue);
+    final projectedExpense = forecast30Days(
+            transactions: transactions,
+            type: FinanceTransactionType.expense,
+            now: current)
+        .take(7)
+        .fold<int>(0, (sum, p) => sum + p.predictedValue);
+
+    final hasFinanceData = transactions.isNotEmpty;
+    final hasEnoughData = hasTaskHistory || hasFinanceData;
+    final confidence = !hasEnoughData
+        ? 0.0
+        : (hasTaskHistory && hasFinanceData)
+            ? 0.7
+            : 0.45;
+
+    return WeeklyForecast(
+      projectedCompletedTasks: projectedTasks,
+      projectedIncome: projectedIncome,
+      projectedExpense: projectedExpense,
+      confidence: confidence,
+      hasEnoughData: hasEnoughData,
+    );
+  }
+
+  /// جمله‌های فارسی آمادهٔ نمایش برای هفتهٔ آینده.
+  List<String> weeklyOutlook({
+    required List<Task> tasks,
+    required List<FinanceTransaction> transactions,
+    DateTime? now,
+  }) {
+    final forecast =
+        weeklyForecast(tasks: tasks, transactions: transactions, now: now);
+    if (!forecast.hasEnoughData) {
+      return const [
+        'هنوز دادهٔ کافی برای پیش‌بینی هفتهٔ آینده ندارم؛ چند روز کار و تراکنش ثبت کن.'
+      ];
+    }
+    final result = <String>[];
+    if (forecast.projectedCompletedTasks > 0) {
+      result.add(
+          'هفتهٔ آینده احتمالاً حدود ${PersianFormat.digits(forecast.projectedCompletedTasks)} کار کامل می‌کنی.');
+    }
+    if (forecast.projectedIncome > 0 || forecast.projectedExpense > 0) {
+      result.add(
+          'مالی هفتهٔ آینده: حدود ${PersianFormat.money(forecast.projectedIncome)} درآمد و ${PersianFormat.money(forecast.projectedExpense)} هزینه پیش‌بینی می‌شود (تراز ${PersianFormat.money(forecast.projectedNet)}).');
+      if (forecast.projectedNet < 0) {
+        result.add('هفتهٔ آینده کسری پیش‌بینی می‌شود — از الان فکری برایش بکن.');
+      }
+    }
+    return result;
+  }
 
   /// پیش‌بینی ۳۰ روز آینده هزینه/درآمد با رگرسیون خطی
   List<ForecastPoint> forecast30Days({
