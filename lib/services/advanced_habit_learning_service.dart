@@ -116,7 +116,7 @@ class AdvancedHabitLearningService {
     final completionRate = total == 0 ? 0.0 : totalCompleted / total;
 
     final streak = _calculateStreak(tasks, current);
-    final avgTasksPerDay = _avgTasksPerDay(tasks, windowStart, current);
+    final avgTasksPerDay = _avgTasksPerDay(tasks, windowStart);
 
     // ── بهترین ساعت‌ها ──
     final bestHours = _bestHours(tasks);
@@ -262,15 +262,15 @@ class AdvancedHabitLearningService {
     return streak;
   }
 
-  double _avgTasksPerDay(List<Task> tasks, DateTime start, DateTime now) {
+  double _avgTasksPerDay(List<Task> tasks, DateTime start) {
     final done = tasks.where((t) => t.isDone && t.completedAt != null && !t.completedAt!.isBefore(start)).toList();
     if (done.isEmpty) return 0;
-    final days = now.difference(start).inDays.clamp(1, 30);
-    // میانگین روی روزهایی که حداقل یک کار داشته
+    // میانگین روی روزهایی که حداقل یک کار تکمیل شده (روزهای فعال).
+    // قبلاً به‌اشتباه بر روزهای تقویمیِ کل بازه تقسیم می‌شد و متغیر
+    // `activeDays` محاسبه می‌شد ولی استفاده نمی‌شد (کد مرده + ناسازگاری با توضیح).
     final activeDays = done.map((t) => DateTime(t.completedAt!.year, t.completedAt!.month, t.completedAt!.day)).toSet().length;
     if (activeDays == 0) return 0;
-    return done.length / days * 1.0;
-    // alternative: done.length / activeDays
+    return done.length / activeDays;
   }
 
   List<int> _bestHours(List<Task> tasks) {
