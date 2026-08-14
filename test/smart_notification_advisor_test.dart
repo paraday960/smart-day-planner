@@ -1,10 +1,13 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:path/path.dart' as p;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:smart_day_planner/models/finance_transaction.dart';
 import 'package:smart_day_planner/services/allocation_repository.dart';
 import 'package:smart_day_planner/services/category_budget_repository.dart';
+import 'package:smart_day_planner/services/database_service.dart';
 import 'package:smart_day_planner/services/debt_repository.dart';
+import 'package:smart_day_planner/services/finance_insights_service.dart';
 import 'package:smart_day_planner/services/finance_repository.dart';
 import 'package:smart_day_planner/services/planned_expense_repository.dart';
 import 'package:smart_day_planner/services/smart_notification_advisor.dart';
@@ -26,6 +29,15 @@ void main() {
   setUp(() async {
     TestWidgetsFlutterBinding.ensureInitialized();
     SharedPreferences.setMockInitialValues({});
+    // DatabaseService سینگلتون است و فایل دیتابیس بین تست‌ها باقی می‌ماند؛
+    // برای استقلال کامل تست‌ها، اتصال بسته و فایل حذف می‌شود.
+    await DatabaseService.instance.close();
+    try {
+      final dir = await databaseFactoryFfi.getDatabasesPath();
+      await databaseFactoryFfi.deleteDatabase(p.join(dir, 'smart_day_planner.db'));
+    } catch (_) {
+      // فایل وجود ندارد — مهم نیست.
+    }
     finance = FinanceRepository();
     debts = DebtRepository();
     plans = PlannedExpenseRepository();
@@ -55,6 +67,7 @@ void main() {
     test('وقتی موجودی تمام شده و هزینه‌ها بیشتر است → هشدار «تمام شده»', () async {
       // فقط یک هزینهٔ اخیر، بدون درآمد → موجودی منفی → runway صفر
       await finance.add(_tx('e1', FinanceTransactionType.expense, 100000, 2));
+      final runway = const FinanceInsightsService().runwayDays(finance.transactions);
       final alerts = advisor.buildAlerts(
         debts: debts,
         plannedExpenses: plans,
@@ -62,6 +75,9 @@ void main() {
         budgets: budgets,
         finance: finance,
       );
+      // خروجی تشخیصی برای عیب‌یابی در CI
+      // ignore: avoid_print
+      print('DIAG txns=${finance.transactions.map((t) => '${t.type.name}:${t.amount}').toList()} runway=$runway alerts=$alerts');
       expect(alerts.any((a) => a.contains('موجودی') && a.contains('تمام شده')),
           isTrue);
     });
@@ -73,6 +89,7 @@ void main() {
           .add(_tx('i1', FinanceTransactionType.income, 350000, 40));
       await finance
           .add(_tx('e1', FinanceTransactionType.expense, 300000, 5));
+      final runway = const FinanceInsightsService().runwayDays(finance.transactions);
       final alerts = advisor.buildAlerts(
         debts: debts,
         plannedExpenses: plans,
@@ -80,6 +97,8 @@ void main() {
         budgets: budgets,
         finance: finance,
       );
+      // ignore: avoid_print
+      print('DIAG txns=${finance.transactions.map((t) => '${t.type.name}:${t.amount}').toList()} runway=$runway alerts=$alerts');
       expect(alerts.any((a) => a.contains('موجودی') && a.contains('تمام می‌شود')),
           isTrue);
     });

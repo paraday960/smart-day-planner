@@ -71,11 +71,13 @@ class PredictiveSchedulerService {
   }) {
     final current = now ?? DateTime.now();
 
-    // تعداد کارهای تکمیل‌شده در ۳ هفتهٔ اخیر (هفتهٔ اخیر وزن بیشتر)
+    // تعداد کارهای تکمیل‌شده در ۳ هفتهٔ اخیر. ایندکس ۰ باید «هفتهٔ اخیر» باشد
+    // تا وزن‌دهی درست کار کند (قبلاً از قدیمی‌ترین هفته شروع می‌شد و وزن
+    // هفتهٔ اخیر به قدیمی‌ترین هفته می‌خورد).
     final completedWeeks = <int>[];
-    for (var i = 2; i >= 0; i--) {
-      final start = current.subtract(Duration(days: (i + 1) * 7));
+    for (var i = 0; i < 3; i++) {
       final end = current.subtract(Duration(days: i * 7));
+      final start = current.subtract(Duration(days: (i + 1) * 7));
       completedWeeks.add(tasks
           .where((t) =>
               t.isDone &&
