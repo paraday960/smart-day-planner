@@ -287,6 +287,8 @@ class RuleBasedLocalAssistant implements LocalLlmAdapter {
         return 'باشه، متوقف شد. 👍 هر وقت خواستی دوباره ازم بپرس.';
       case 'capability_query':
         return _capabilityQuery();
+      case 'weekly_forecast':
+        return _weeklyForecast(tasks);
       default:
         return _dailyBrief(tasks);
     }
@@ -367,6 +369,26 @@ class RuleBasedLocalAssistant implements LocalLlmAdapter {
       tip = PersianFormat.digits(open) + ' کار باز داری؛ اول ۳ تای مهم را انتخاب کن و بقیه را به فردا بسپار.';
     }
     return '💡 نکتهٔ بهره‌وری: ' + tip;
+  }
+
+  String _weeklyForecast(List<Task> tasks) {
+    final finance = _context.finance;
+    if (finance == null) return 'برای پیش‌بینی هفتهٔ آینده باید به داده متصل باشم.';
+    final svc = const PredictiveSchedulerService();
+    final outlook =
+        svc.weeklyOutlook(tasks: tasks, transactions: finance.transactions);
+    final buf = StringBuffer()..writeln('🔭 نگاه به هفتهٔ آینده:');
+    for (final line in outlook) {
+      buf.writeln('• $line');
+    }
+    // ریتم تمرکز هم کنار پیش‌بینی بیاید تا کاربر بداند چطور برنامه بچیند.
+    final habit = const AdvancedHabitLearningService()
+        .analyze(tasks: tasks, transactions: finance.transactions);
+    if (habit.hasEnoughData) {
+      buf.writeln(
+          '🎯 ${const AdvancedHabitLearningService().focusInsight(habit)}');
+    }
+    return buf.toString();
   }
 
   String _capabilityQuery() {

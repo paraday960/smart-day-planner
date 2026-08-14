@@ -133,6 +133,12 @@ void main() {
           await assistant.generate(prompt: 'ممنون', tasks: _sampleTasks());
       expect(answer, contains('خواهش'));
     });
+
+    test('هفته بعد چی میشه → نگاه به هفتهٔ آینده', () async {
+      final answer = await assistant.generate(
+          prompt: 'هفته بعد چی میشه؟', tasks: _sampleTasks());
+      expect(answer, contains('هفتهٔ آینده'));
+    });
   });
 
   group('RuleBasedLocalAssistant: با زمینهٔ مالی', () {

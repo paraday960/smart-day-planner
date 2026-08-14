@@ -198,6 +198,7 @@ class LocalAssistantRouter {
       'brain_status': 'وضعیت کلی',
       'morning_briefing': 'بریفینگ صبح',
       'forecast_30': 'پیش‌بینی هفته',
+      'weekly_forecast': 'پیش‌بینی هفتهٔ آینده',
       'feedback_positive': 'بازخورد مثبت',
       'feedback_negative': 'بازخورد منفی',
       'show_all_data': 'نمایش همهٔ داده‌ها',
