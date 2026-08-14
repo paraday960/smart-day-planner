@@ -170,4 +170,58 @@ void main() {
       expect(insights.riskFrom(txs), isNull);
     });
   });
+
+
+  group('cashFlowVelocity و runwayDays و savingsRate', () {
+    test('سرعت جریان نقدی میانگین روزانه را درست حساب می‌کند', () {
+      final txs = [
+        // ۱۰ روز اخیر: جمعاً ۱٬۰۰۰٬۰۰۰ درآمد و ۵۰۰٬۰۰۰ هزینه
+        _tx(id: 'i1', type: FinanceTransactionType.income, amount: 1000000, createdAt: today.subtract(const Duration(days: 2))),
+        _tx(id: 'e1', type: FinanceTransactionType.expense, amount: 500000, createdAt: today.subtract(const Duration(days: 3))),
+      ];
+      final v = insights.cashFlowVelocity(txs, days: 10, now: now);
+      expect(v.dailyIncome, 100000);
+      expect(v.dailyExpense, 50000);
+      expect(v.dailyNet, 50000);
+      expect(v.isBurn, isFalse);
+    });
+
+    test('وقتی هزینهٔ روزانه بیشتر از درآمد است، runwayDays حساب می‌شود', () {
+      // موجودی خالص: +۲۰۰ هزار درآمد - ۱۰۰ هزار هزینه = ۱۰۰ هزار
+      final txs = [
+        _tx(id: 'i1', type: FinanceTransactionType.income, amount: 200000, createdAt: today.subtract(const Duration(days: 1))),
+        _tx(id: 'e1', type: FinanceTransactionType.expense, amount: 50000, createdAt: today.subtract(const Duration(days: 2))),
+        _tx(id: 'e2', type: FinanceTransactionType.expense, amount: 50000, createdAt: today.subtract(const Duration(days: 3))),
+      ];
+      // ۱۰ روز: هزینهٔ روزانه ۱۰ هزار، درآمد روزانه ۲۰ هزار → سوزاندن نیست
+      expect(insights.runwayDays(txs, days: 10, now: now), isNull);
+      // سناریوی سوزاندن: درآمدِ قدیمی (بیرون از پنجره) موجودی را مثبت می‌کند،
+      // ولی هزینهٔ اخیر سرعت روزانه را منفی → ۱۰ روز دوام
+      final burnOnly = [
+        _tx(id: 'i1', type: FinanceTransactionType.income, amount: 200000, createdAt: today.subtract(const Duration(days: 15))),
+        _tx(id: 'e1', type: FinanceTransactionType.expense, amount: 100000, createdAt: today.subtract(const Duration(days: 5))),
+      ];
+      final runway = insights.runwayDays(burnOnly, days: 10, now: now);
+      expect(runway, isNotNull);
+      expect(runway, greaterThan(0));
+    });
+
+    test('نرخ پس‌انداز: درآمد ۱ میلیون و هزینه ۴۰۰ هزار → ۶۰٪', () {
+      final txs = [
+        _tx(id: 'i1', type: FinanceTransactionType.income, amount: 1000000, createdAt: today.subtract(const Duration(days: 1))),
+        _tx(id: 'e1', type: FinanceTransactionType.expense, amount: 400000, createdAt: today.subtract(const Duration(days: 2))),
+      ];
+      expect(insights.savingsRate(txs, days: 30, now: now), closeTo(0.6, 0.01));
+    });
+
+    test('cashflowInsights با دادهٔ کافی جملهٔ فارسی برمی‌گرداند', () {
+      final txs = [
+        _tx(id: 'i1', type: FinanceTransactionType.income, amount: 1000000, createdAt: today.subtract(const Duration(days: 1))),
+        _tx(id: 'e1', type: FinanceTransactionType.expense, amount: 400000, createdAt: today.subtract(const Duration(days: 2))),
+      ];
+      final lines = insights.cashflowInsights(txs, days: 30, now: now);
+      expect(lines, isNotEmpty);
+      expect(lines.first, contains('جریان نقدی'));
+    });
+  });
 }

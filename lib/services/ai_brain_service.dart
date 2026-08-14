@@ -408,6 +408,9 @@ class AIBrainService {
       }
     }
 
+    // عمق مالی: جریان نقدی، دوام موجودی و ثبات درآمد
+    result.addAll(financeInsights.cashflowInsights(finance.transactions).take(2));
+
     if (result.isEmpty) {
       result.add('برای توصیه شخصی، چند روز فعالیت ثبت کن تا بشناسمت');
     }

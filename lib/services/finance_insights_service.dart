@@ -17,6 +17,19 @@ class ExpenseAnomaly {
       previousAmount <= 0 ? double.infinity : currentAmount / previousAmount;
 }
 
+/// سرعت جریان نقدی (درآمد/هزینهٔ روزانهٔ میانگین) در یک بازه.
+class CashFlowVelocity {
+  const CashFlowVelocity({required this.dailyIncome, required this.dailyExpense});
+
+  final int dailyIncome;
+  final int dailyExpense;
+
+  int get dailyNet => dailyIncome - dailyExpense;
+
+  /// آیا در حال سوزاندن موجودی هستیم (هزینهٔ روزانه بیشتر از درآمد).
+  bool get isBurn => dailyNet < 0;
+}
+
 /// سرویس تحلیل مالی ساده برای دستیار هوشمند.
 ///
 /// کاملاً pure است (ورودی لیست تراکنش‌ها) تا در تست‌ها بدون دیتابیس
@@ -146,6 +159,154 @@ class FinanceInsightsService {
       return 'کسر بودجهٔ ۳۰ روز اخیر: ${PersianFormat.money(deficit)}.';
     }
     return null;
+  }
+
+  /// سرعت جریان نقدی در [days] روز اخیر (پیش‌فرض ۳۰ روز).
+  CashFlowVelocity cashFlowVelocity(
+    List<FinanceTransaction> transactions, {
+    int days = 30,
+    DateTime? now,
+  }) {
+    final range = _windowRange(days, now);
+    var income = 0;
+    var expense = 0;
+    for (final t in transactions) {
+      if (t.createdAt.isBefore(range.start) ||
+          !t.createdAt.isBefore(range.end)) {
+        continue;
+      }
+      if (t.type == FinanceTransactionType.income) {
+        income += t.amount;
+      } else {
+        expense += t.amount;
+      }
+    }
+    return CashFlowVelocity(
+      dailyIncome: (income / days).round(),
+      dailyExpense: (expense / days).round(),
+    );
+  }
+
+  /// چند روزِ دیگر با این ریتم خرج کردن، موجودی فعلی دوام می‌آورد.
+  ///
+  /// null یعنی در حال سوزاندن موجودی نیستیم (درآمد ≥ هزینه). صفر یعنی
+  /// موجودی تمام شده یا منفی است.
+  int? runwayDays(
+    List<FinanceTransaction> transactions, {
+    int days = 30,
+    DateTime? now,
+  }) {
+    final velocity = cashFlowVelocity(transactions, days: days, now: now);
+    final burn = velocity.dailyExpense - velocity.dailyIncome;
+    if (burn <= 0) return null;
+    final balance =
+        transactions.fold<int>(0, (sum, t) => sum + t.signedAmount);
+    if (balance <= 0) return 0;
+    return (balance / burn).floor();
+  }
+
+  /// نرخ پس‌انداز در [days] روز اخیر: (درآمد - هزینه) / درآمد.
+  /// محدودهٔ [-2, 1]؛ منفی یعنی بیشتر از درآمد خرج شده.
+  double savingsRate(
+    List<FinanceTransaction> transactions, {
+    int days = 30,
+    DateTime? now,
+  }) {
+    final range = _windowRange(days, now);
+    var income = 0;
+    var expense = 0;
+    for (final t in transactions) {
+      if (t.createdAt.isBefore(range.start) ||
+          !t.createdAt.isBefore(range.end)) {
+        continue;
+      }
+      if (t.type == FinanceTransactionType.income) {
+        income += t.amount;
+      } else {
+        expense += t.amount;
+      }
+    }
+    if (income <= 0) return 0;
+    return ((income - expense) / income).clamp(-2.0, 1.0).toDouble();
+  }
+
+  /// ثبات درآمد: چه کسری از روزهای [days] روز اخیر حداقل یک درآمد ثبت شده.
+  /// ۱ یعنی هر روز درآمد، نزدیک صفر یعنی درآمد پراکنده/نامنظم.
+  double incomeRegularity(
+    List<FinanceTransaction> transactions, {
+    int days = 30,
+    DateTime? now,
+  }) {
+    final range = _windowRange(days, now);
+    final incomeDays = <DateTime>{};
+    for (final t in transactions) {
+      if (t.type != FinanceTransactionType.income) continue;
+      if (t.createdAt.isBefore(range.start) ||
+          !t.createdAt.isBefore(range.end)) {
+        continue;
+      }
+      incomeDays.add(DateTime(
+          t.createdAt.year, t.createdAt.month, t.createdAt.day));
+    }
+    if (days <= 0) return 0;
+    return (incomeDays.length / days).clamp(0.0, 1.0).toDouble();
+  }
+
+  /// تحلیل عمیق‌تر جریان نقدی به‌صورت جمله‌های فارسی آمادهٔ نمایش.
+  List<String> cashflowInsights(
+    List<FinanceTransaction> transactions, {
+    int days = 30,
+    DateTime? now,
+  }) {
+    if (transactions.isEmpty) return const [];
+    final velocity = cashFlowVelocity(transactions, days: days, now: now);
+    final result = <String>[];
+
+    if (velocity.dailyIncome > 0 || velocity.dailyExpense > 0) {
+      result.add(
+          'جریان نقدی ${PersianFormat.digits(days)} روز اخیر: روزانه حدود ${PersianFormat.money(velocity.dailyIncome)} درآمد و ${PersianFormat.money(velocity.dailyExpense)} هزینه (تراز روزانه ${PersianFormat.money(velocity.dailyNet)}).');
+    }
+
+    final runway = runwayDays(transactions, days: days, now: now);
+    if (runway != null) {
+      if (runway <= 0) {
+        result.add(
+            'موجودی‌ات تمام شده و هزینه‌ها بیشتر از درآمدند — همین امروز یک درآمد یا کاهش هزینه لازم داری.');
+      } else {
+        result.add(
+            'با این ریتم خرج کردن، موجودی فعلی‌ات تا حدود ${PersianFormat.digits(runway)} روز دیگر دوام می‌آورد.');
+      }
+    }
+
+    final rate = savingsRate(transactions, days: days, now: now);
+    if (rate > 0.1) {
+      result.add(
+          'نرخ پس‌انداز ${PersianFormat.digits((rate * 100).round())}٪ است — بخشی از درآمدت باقی می‌ماند.');
+    } else if (rate < 0) {
+      result.add('نرخ پس‌انداز منفی است — بیشتر از درآمدت خرج می‌کنی.');
+    }
+
+    final regularity = incomeRegularity(transactions, days: days, now: now);
+    if (regularity > 0 && regularity < 1) {
+      final label = regularity >= 0.6
+          ? 'نسبتاً منظم'
+          : regularity >= 0.3
+              ? 'نیمه‌منظم'
+              : 'پراکنده';
+      result.add(
+          'درآمدت در ${PersianFormat.digits((regularity * 100).round())}٪ از روزها ثبت شده ($label).');
+    }
+
+    return result;
+  }
+
+  ({DateTime start, DateTime end}) _windowRange(int days, DateTime? now) {
+    final current = now ?? DateTime.now();
+    final today = DateTime(current.year, current.month, current.day);
+    return (
+      start: today.subtract(Duration(days: days)),
+      end: today.add(const Duration(days: 1)),
+    );
   }
 
   String _percent(double ratio) {
