@@ -4,6 +4,20 @@ import '../models/finance_transaction.dart';
 import '../models/task.dart';
 import '../utils/persian_format.dart';
 
+/// پیشنهاد بلوک تمرکز بر اساس دقت تخمین زمان کاربر.
+class FocusRecommendation {
+  const FocusRecommendation({
+    required this.suggestedBlockMinutes,
+    required this.reason,
+  });
+
+  /// طول پیشنهادی هر بلوک کاری (دقیقه).
+  final int suggestedBlockMinutes;
+
+  /// توضیح فارسی چراییِ این پیشنهاد.
+  final String reason;
+}
+
 /// پروفایل پیشرفته یادگیری عادت‌ها — نسل جدید WorkLearningService
 /// با پیش‌بینی، تحلیل روند و پیشنهاد خودکار
 class AdvancedHabitProfile {
@@ -237,6 +251,70 @@ class AdvancedHabitLearningService {
     if (p.productivityTrend > 0.1) parts.add('روند صعودی 📈');
     if (p.productivityTrend < -0.1) parts.add('روند نزولی 📉');
     return parts.join(' • ');
+  }
+
+  /// پیشنهاد طول بلوک تمرکز بر اساس نسبت «زمان واقعی به تخمینی» کاربر.
+  ///
+  /// - تخمین خوش‌بینانه (کارها طولانی‌تر از تخمین) → بلوک‌های کوتاه پومودورو
+  /// - تخمین بدبینانه (سریع‌تر از تخمین) → بلوک‌های بلندتر
+  /// - تخمین دقیق → بلوک استاندارد ۴۵ دقیقه
+  FocusRecommendation focusRecommendation(
+    AdvancedHabitProfile profile, {
+    int defaultBlockMinutes = 45,
+  }) {
+    final habits = profile.categoryHabits
+        .where((c) => c.completedCount >= 2 && c.accuracyRatio > 0)
+        .toList();
+    if (habits.isEmpty) {
+      return FocusRecommendation(
+        suggestedBlockMinutes: defaultBlockMinutes,
+        reason:
+            'هنوز دادهٔ کافی برای پیشنهاد بلوک تمرکز ندارم؛ با بلوک‌های ${PersianFormat.digits(defaultBlockMinutes)} دقیقه‌ای شروع کن.',
+      );
+    }
+
+    final avgRatio =
+        habits.map((c) => c.accuracyRatio).reduce((a, b) => a + b) /
+            habits.length;
+
+    int block;
+    String reason;
+    if (avgRatio >= 1.35) {
+      block = 25;
+      reason =
+          'کارهایت معمولاً ${PersianFormat.digits(((avgRatio - 1) * 100).round())}٪ بیشتر از تخمینت طول می‌کشند؛ به‌جای بلوک‌های بلند، بلوک‌های کوتاه ${PersianFormat.digits(block)} دقیقه‌ای (پومودورو) بچین و بینشان ۵ دقیقه استراحت بگذار.';
+    } else if (avgRatio <= 0.75) {
+      block = 60;
+      reason =
+          'سریع‌تر از تخمینت کار می‌کنی؛ می‌توانی بلوک‌های بلندتر ${PersianFormat.digits(block)} دقیقه‌ای بچینی و در هر جلسه کارهای بیشتری جا بدهی.';
+    } else {
+      block = 45;
+      reason =
+          'تخمین زمانت دقیق است؛ بلوک‌های ${PersianFormat.digits(block)} دقیقه‌ای با استراحت کوتاه بهترین تعادل تمرکز و ریکاوری است.';
+    }
+
+    return FocusRecommendation(
+      suggestedBlockMinutes: block,
+      reason: reason,
+    );
+  }
+
+  /// یک جملهٔ فارسی آمادهٔ نمایش: ریتم تمرکز + بهترین ساعت‌های تمرکز.
+  String focusInsight(
+    AdvancedHabitProfile profile, {
+    int defaultBlockMinutes = 45,
+  }) {
+    final rec = focusRecommendation(profile,
+        defaultBlockMinutes: defaultBlockMinutes);
+    final parts = <String>['🎯 ${rec.reason}'];
+    if (profile.bestHours.isNotEmpty) {
+      final hours = profile.bestHours
+          .take(2)
+          .map((h) => '${PersianFormat.digits(h)}:۰۰')
+          .join(' و ');
+      parts.add('بهترین ساعت تمرکزت $hours است — بلوک‌های عمیق را آن‌جا بگذار.');
+    }
+    return parts.join(' ');
   }
 
   // ── helpers ──

@@ -408,6 +408,11 @@ class AIBrainService {
       }
     }
 
+    // ریتم تمرکز (عمق عادت): طول بلوک پیشنهادی + بهترین ساعت تمرکز
+    if (habitProfile.hasEnoughData) {
+      result.add(habitLearning.focusInsight(habitProfile));
+    }
+
     // عمق مالی: جریان نقدی، دوام موجودی و ثبات درآمد
     result.addAll(financeInsights.cashflowInsights(finance.transactions).take(2));
 
