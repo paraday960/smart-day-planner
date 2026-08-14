@@ -155,7 +155,24 @@ class DebtRepaymentPlanner {
     );
 
     // ── نیاز روزانه ──
-    final requiredDaily = (total / horizonDays).ceil();
+    // بدهی‌ها مهلت‌های متفاوتی دارند؛ نرخ روزانهٔ لازم باید «قید تنگ‌کننده» را
+    // بگیرد: تا مهلت هر بدهی، مجموع بدهی‌های تا آن نقطه باید پوشش داده شود.
+    // بنابراین نرخ = بیشینهٔ (مجموع تجمعی تا هر مهلت / روزهای تا همان مهلت).
+    // قبلاً کل بدهی بر روزهایِ تا فوری‌ترین مهلت تقسیم می‌شد که برای مهلت‌های
+    // متفاوت عددی بسیار بیشتر از نیاز واقعی می‌داد.
+    var requiredDaily = 0;
+    var cumulative = 0;
+    for (final debt in sorted) {
+      cumulative += debt.amount;
+      final daysToThis = max(
+        1,
+        DateTime(debt.dueAt.year, debt.dueAt.month, debt.dueAt.day)
+            .difference(today)
+            .inDays,
+      );
+      final rateForThis = (cumulative / daysToThis).ceil();
+      if (rateForThis > requiredDaily) requiredDaily = rateForThis;
+    }
     final hourlyRate = profile.avgHourlyRate;
     final requiredHours = hourlyRate > 0 ? requiredDaily / hourlyRate : 0.0;
 

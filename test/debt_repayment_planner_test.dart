@@ -120,5 +120,21 @@ void main() {
       expect(plan.totalRemaining, 0);
       expect(plan.feasible, isTrue);
     });
+
+    test('مهلت‌های متفاوت: نرخ روزانه باید قید تنگ‌کننده را بگیرد', () {
+      final plan = planner.plan(
+        debts: [
+          _debt('علی', 2000000, daysFromNow: 10),
+          _debt('محمد', 8000000, daysFromNow: 40),
+        ],
+        profile: _profile(hourly: 300000),
+        now: now,
+      );
+      // تا روز ۱۰: ۲ میلیون / ۱۰ روز = ۲۰۰ هزار در روز
+      // تا روز ۴۰: ۱۰ میلیون / ۴۰ روز = ۲۵۰ هزار در روز → قید تنگ‌کننده ۲۵۰ هزار
+      // (روش قبلی ۱۰ میلیون / ۱۰ = ۱ میلیون می‌داد که بیش‌برآورد بود)
+      expect(plan.requiredDailyEarning, 250000);
+      expect(plan.horizonDays, 10);
+    });
   });
 }
