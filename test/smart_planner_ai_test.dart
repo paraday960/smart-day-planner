@@ -117,6 +117,95 @@ void main() {
     });
   });
 
+  group('buildTodayPlan چینش آگاه به مهلت', () {
+    test('کار با مهلت نزدیک امروز پیش از کار بلندِ بدون مهلت چیده می‌شود', () {
+      final morning = DateTime(now.year, now.month, now.day, 9);
+      final tasks = [
+        _task(
+            id: '1',
+            title: 'کار بلند بی‌مهلت',
+            importance: 5,
+            estimatedMinutes: 180,
+            energy: EnergyLevel.high),
+        _task(
+            id: '2',
+            title: 'کار فوری',
+            importance: 2,
+            estimatedMinutes: 20,
+            dueAt: morning.add(const Duration(hours: 2))),
+      ];
+      final plan = planner.buildTodayPlan(tasks, now: morning);
+      expect(plan, isNotEmpty);
+      // کار فوری باید اول چیده شود، نه کار بلند بی‌مهلت
+      expect(plan.first.task.title, 'کار فوری');
+    });
+
+    test('کار عقب‌افتاده همیشه در صدر چینش است', () {
+      final morning = DateTime(now.year, now.month, now.day, 9);
+      final tasks = [
+        _task(id: '1', title: 'کار عادی', importance: 5, estimatedMinutes: 60),
+        _task(
+            id: '2',
+            title: 'کار عقب‌افتاده',
+            importance: 1,
+            estimatedMinutes: 15,
+            dueAt: morning.subtract(const Duration(hours: 3))),
+      ];
+      final plan = planner.buildTodayPlan(tasks, now: morning);
+      expect(plan.first.task.title, 'کار عقب‌افتاده');
+    });
+  });
+
+  group('overloadReport', () {
+    test('وقتی حجم کار از پنجرهٔ روز بیشتر باشد، اضافه بودن را گزارش می‌دهد', () {
+      final morning = DateTime(now.year, now.month, now.day, 9);
+      final tasks = [
+        _task(id: '1', title: 'کار یک', importance: 4, estimatedMinutes: 60),
+        _task(id: '2', title: 'کار دو', importance: 4, estimatedMinutes: 60),
+        _task(id: '3', title: 'کار سه', importance: 4, estimatedMinutes: 60),
+        _task(id: '4', title: 'کار چهار', importance: 4, estimatedMinutes: 60),
+        _task(id: '5', title: 'کار پنج', importance: 4, estimatedMinutes: 60),
+        _task(id: '6', title: 'کار شش', importance: 4, estimatedMinutes: 60),
+        _task(id: '7', title: 'کار هفت', importance: 4, estimatedMinutes: 60),
+        _task(id: '8', title: 'کار هشت', importance: 4, estimatedMinutes: 60),
+        _task(id: '9', title: 'کار نه', importance: 4, estimatedMinutes: 60),
+        _task(id: '10', title: 'کار ده', importance: 4, estimatedMinutes: 60),
+        _task(id: '11', title: 'کار یازده', importance: 4, estimatedMinutes: 60),
+        _task(id: '12', title: 'کار دوازده', importance: 4, estimatedMinutes: 60),
+        _task(id: '13', title: 'کار سیزده', importance: 4, estimatedMinutes: 60),
+        _task(id: '14', title: 'کار چهارده', importance: 4, estimatedMinutes: 60),
+      ];
+      final report = planner.overloadReport(tasks, now: morning);
+      expect(report, isNotEmpty);
+      expect(report.join('\n'), contains('اضافه است'));
+      expect(report.join('\n'), contains('جا نشدند'));
+    });
+
+    test('حجم کم → پیام «مناسب است» و بدون اخطار جا ماندن', () {
+      final morning = DateTime(now.year, now.month, now.day, 9);
+      final tasks = [
+        _task(id: '1', title: 'کار کوتاه', importance: 3, estimatedMinutes: 20),
+      ];
+      final report = planner.overloadReport(tasks, now: morning);
+      expect(report.join('\n'), contains('مناسب است'));
+      expect(report.join('\n'), isNot(contains('جا نشدند')));
+    });
+
+    test('کار عقب‌افتاده نزدیک به مهلت امروز → هشدار دیر تمام شدن', () {
+      final morning = DateTime(now.year, now.month, now.day, 9);
+      final tasks = [
+        _task(
+            id: '1',
+            title: 'کار با مهلت امروز',
+            importance: 3,
+            estimatedMinutes: 90,
+            dueAt: morning.add(const Duration(hours: 1))),
+      ];
+      final report = planner.overloadReport(tasks, now: morning);
+      expect(report.join('\n'), contains('زودتر شروعش کن'));
+    });
+  });
+
   group('priorityScore', () {
     test('کار عقب‌افتاده امتیاز بالایی دارد', () {
       final overdue = _task(
@@ -137,3 +226,4 @@ void main() {
     });
   });
 }
+

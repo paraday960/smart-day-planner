@@ -148,9 +148,17 @@ class SmartPlanner {
 
     if (cursor.isAfter(endOfDay)) return const [];
 
+    // چینش آگاه به مهلت: پایه امتیاز اولویت است، اما کاری که مهلتش امروز است
+    // و به‌زودی می‌رسد زودتر از کارهای بلندِ بدون مهلت چیده می‌شود تا از دست
+    // نرود. قبلاً فقط بر اساس priorityScore مرتب می‌شد و یک کار با مهلت
+    // نزدیک ممکن بود پشت یک کار طولانیِ کم‌اهمیت‌تر جا بماند.
     final openTasks = tasks.where((t) => !t.isDone).toList()
-      ..sort((a, b) => priorityScore(b, now: current)
-          .compareTo(priorityScore(a, now: current)));
+      ..sort((a, b) {
+        final aMinutes = recommendedEstimate(a, tasks);
+        final bMinutes = recommendedEstimate(b, tasks);
+        return _schedulingRank(b, bMinutes, current)
+            .compareTo(_schedulingRank(a, aMinutes, current));
+      });
 
     final plan = <ScheduledItem>[];
 
@@ -159,12 +167,20 @@ class SmartPlanner {
       final end = cursor.add(Duration(minutes: minutes));
       if (end.isAfter(endOfDay)) continue;
 
+      var reason = explainPriority(task, now: current);
+      // اگر مهلت امروز است و طبق این چینش به آن نمی‌رسیم، صادقانه هشدار بده.
+      if (task.dueAt != null &&
+          _isSameDay(task.dueAt!, current) &&
+          task.dueAt!.isBefore(end)) {
+        reason = '$reason؛ ممکن است به مهلت نرسی';
+      }
+
       plan.add(ScheduledItem(
         task: task,
         start: cursor,
         end: end,
         priorityScore: priorityScore(task, now: current),
-        reason: explainPriority(task, now: current),
+        reason: reason,
       ));
 
       final needsBreak = minutes >= 50;
@@ -173,6 +189,88 @@ class SmartPlanner {
     }
 
     return plan;
+  }
+
+  /// رتبهٔ چینش یک کار در برنامهٔ امروز: امتیاز اولویت + ضریب فوریتِ مهلت.
+  ///
+  /// کارهای عقب‌افتاده و کارهایی که مهلتشان امروز است و زمان کمی مانده،
+  /// بوست می‌گیرند تا پیش از کارهای بلندِ بدون مهلت چیده شوند.
+  double _schedulingRank(Task task, int minutes, DateTime current) {
+    var rank = priorityScore(task, now: current).toDouble();
+    final due = task.dueAt;
+    if (due == null) return rank;
+
+    final dueToday = _isSameDay(due, current);
+    if (due.isBefore(current)) {
+      // عقب‌افتاده — همیشه در صدر چینش
+      rank += 150;
+    } else if (dueToday) {
+      final hoursLeft = due.difference(current).inMinutes / 60.0;
+      // هرچه زمان کمتری مانده، فوریت بیشتر
+      rank += 60 + (24 - min(24, hoursLeft)) * 3;
+      // اگر حتی با چیدن فوری هم به مهلت نمی‌رسد، باز هم جلوتر
+      if (hoursLeft * 60 < minutes) rank += 40;
+    }
+    return rank;
+  }
+
+  /// گزارش «ظرفیت امروز»: مقایسهٔ حجم کار باز با پنجرهٔ باقی‌مانده،
+  /// کارهایی که در برنامه جا نمی‌شوند و کارهایی که احتمالاً به مهلت امروز
+  /// نمی‌رسند. برای اینکه کاربر بداند امروز چند کارش واقعاً شدنی است.
+  List<String> overloadReport(
+    List<Task> tasks, {
+    DateTime? now,
+    int dayEndHour = 22,
+  }) {
+    final current = now ?? DateTime.now();
+    final start = current.add(Duration(minutes: 5 - current.minute % 5));
+    final endOfDay =
+        DateTime(current.year, current.month, current.day, dayEndHour);
+    final available = endOfDay.difference(start).inMinutes;
+
+    final open = tasks.where((t) => !t.isDone).toList();
+    if (open.isEmpty) return const [];
+    if (available <= 0) {
+      return const ['ساعت کاری امروز تمام شده؛ کارهای باز به فردا منتقل می‌شوند.'];
+    }
+
+    final needed = open.fold<int>(0, (sum, t) => sum + recommendedEstimate(t, tasks));
+    final result = <String>[];
+
+    if (needed > available) {
+      final overflow = needed - available;
+      result.add(
+          'حجم کار امروز ${PersianFormat.minutes(available)} جا دارد، اما حدود ${PersianFormat.minutes(needed)} کار باز داری — ${PersianFormat.minutes(overflow)} اضافه است.');
+    } else {
+      result.add(
+          'حجم کار امروز مناسب است: حدود ${PersianFormat.minutes(needed)} کار در پنجرهٔ ${PersianFormat.minutes(available)} جای می‌گیرد.');
+    }
+
+    // کارهایی که در برنامهٔ امروز جا نشدند
+    final plan = buildTodayPlan(tasks, now: current, dayEndHour: dayEndHour);
+    final plannedIds = plan.map((i) => i.task.id).toSet();
+    final unplanned = open.where((t) => !plannedIds.contains(t.id)).toList()
+      ..sort((a, b) => priorityScore(b, now: current)
+          .compareTo(priorityScore(a, now: current)));
+    if (unplanned.isNotEmpty) {
+      final names = unplanned
+          .take(3)
+          .map((t) => '«${t.title}»')
+          .join('، ');
+      result.add('این کارها در برنامهٔ امروز جا نشدند: $names.'
+          '${unplanned.length > 3 ? ' (و ${PersianFormat.digits(unplanned.length - 3)} کار دیگر)' : ''}');
+    }
+
+    // کارهایی که طبق چینش، به مهلت امروز نمی‌رسند
+    for (final item in plan) {
+      final due = item.task.dueAt;
+      if (due != null && _isSameDay(due, current) && due.isBefore(item.end)) {
+        result.add(
+            '«${item.task.title}» تا ${PersianFormat.time(due)} مهلت دارد ولی در برنامه حدود ${PersianFormat.time(item.end)} تمام می‌شود — زودتر شروعش کن یا زمانش را کم کن.');
+      }
+    }
+
+    return result;
   }
 
   List<String> suggestions(List<Task> tasks, {DateTime? now}) {

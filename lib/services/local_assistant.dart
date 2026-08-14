@@ -945,10 +945,17 @@ class RuleBasedLocalAssistant implements LocalLlmAdapter {
     final suggestions = _planner.suggestions(tasks);
     final openCount = tasks.where((t) => !t.isDone).length;
     final doneCount = tasks.where((t) => t.isDone).length;
+    final overload = _planner.overloadReport(tasks);
     final buffer = StringBuffer()
       ..writeln(
           'خلاصهٔ امروز: ${PersianFormat.digits(openCount)} کار باز و ${PersianFormat.digits(doneCount)} کار انجام‌شده.')
       ..write(suggestions.map((s) => '• $s').join('\n'));
+    if (overload.isNotEmpty) {
+      buffer
+        ..writeln()
+        ..writeln('📊 ظرفیت امروز:')
+        ..write(overload.map((s) => '• $s').join('\n'));
+    }
     return buffer.toString();
   }
 }
