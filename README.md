@@ -3,6 +3,12 @@
 ![Flutter CI](https://github.com/paraday960/smart-day-planner/actions/workflows/flutter_ci.yml/badge.svg)
 ![Android Release Build](https://github.com/paraday960/smart-day-planner/actions/workflows/release_android.yml/badge.svg)
 
+> ## 🤖 قوانین برای هوش مصنوعی و توسعه‌دهندگان (الزامی)
+> **هر هوش مصنوعی (Claude Code، Cursor، Copilot، Gemini CLI و…) یا همکاری که می‌خواهد روی این ریپو کار کند، باید اول فایل [`AGENTS.md`](AGENTS.md) را کامل بخواند و به همهٔ قوانین آن پایبند باشد.**
+> این قوانین شامل معماری (domain/models/services/application/presentation)، قالب‌بندی فارسی و شمسی، امنیت رمزنگاری (PBKDF2 + AES-GCM)، پرهیز از تغییر فرمت بکاپ/دیتابیس بدون مهاجرت، احترام به Feature Flags، تست اجباری، پیام کامیت فارسی و ممنوعیت ثبت توکن/سکرت است.
+>
+> **Rules for AI agents (mandatory):** any AI or contributor must read and follow [`AGENTS.md`](AGENTS.md) before making changes.
+
 > ## 🟢 وضعیت فعلی (۲۰۲۶-08-07)
 > - **CI کاملاً سبز است**: ۱۳۰ تست واحد + ۵ تست feature-gating + بیلد APK دیباگ ✅
 > - **شکاف‌های KNOWN_GAPS رفع شدند**: refactor فایل‌های بزرگ (VoiceNlu)، تست «همهٔ
