@@ -272,6 +272,8 @@ class AIBrainService {
       else w = weights['general'] ?? 1.0;
       scored.add(MapEntry(ins, w));
     }
+    // اگر هیچ پیشنهادی وجود نداشت، بدون اعمال وزن برگرد (جلوگیری از StateError روی scored.first)
+    if (scored.isEmpty) return insights;
     // مرتب‌سازی نزولی بر اساس وزن (وزن بالا اول)
     scored.sort((a, b) => b.value.compareTo(a.value));
     // اگر وزن <0.6، آن دسته را حذف کن (کاربر نخواسته)

@@ -70,7 +70,9 @@ class PredictiveSchedulerService {
     variance /= n;
     final std = sqrt(variance);
     final mean = sumY / n;
-    final confidence = mean == 0 ? 0.5 : (1 - (std / (mean + 1))).clamp(0.3, 0.9);
+    // clamp روی double، نوع num برمی‌گرداند؛ صریحاً به double تبدیل می‌کنیم.
+    final double confidence =
+        mean == 0 ? 0.5 : (1 - (std / (mean + 1))).clamp(0.3, 0.9).toDouble();
 
     return List.generate(30, (i) {
       final x = n + i;
@@ -80,7 +82,7 @@ class PredictiveSchedulerService {
       final recentAvg = daily.sublist(max(0, n-7)).reduce((a,b) => a+b) ~/ min(7, n);
       pred = (pred * 0.7 + recentAvg * 0.3).round();
       final date = current.add(Duration(days: i+1));
-      return ForecastPoint(date: date, predictedValue: pred, confidence: (confidence as double));
+      return ForecastPoint(date: date, predictedValue: pred, confidence: confidence);
     });
   }
 
